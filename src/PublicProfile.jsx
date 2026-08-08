@@ -59,7 +59,7 @@ export default function PublicProfile({ username }) {
 
       <div style={{ marginTop: 24, display: 'flex', flexDirection: 'column', gap: 10 }}>
         {links.map((link) => (
-          
+          <a
             key={link.id}
             href={link.url}
             target="_blank"
