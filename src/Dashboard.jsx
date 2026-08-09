@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from './supabaseClient'
+import QRCode from 'qrcode'
 
 const iconFor = (label = '') => {
   const l = label.toLowerCase()
@@ -20,11 +21,16 @@ export default function Dashboard({ user }) {
   const [url, setUrl] = useState('')
   const [adding, setAdding] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [qrUrl, setQrUrl] = useState(null)
 
   useEffect(() => {
     loadProfile()
     loadLinks()
   }, [])
+
+  useEffect(() => {
+    if (profile) generateQr()
+  }, [profile])
 
   async function loadProfile() {
     const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single()
@@ -38,6 +44,24 @@ export default function Dashboard({ user }) {
       .eq('user_id', user.id)
       .order('position', { ascending: true })
     setLinks(data || [])
+  }
+
+  async function generateQr() {
+    const pageUrl = `https://linksocio.com/${profile.username}`
+    const dataUrl = await QRCode.toDataURL(pageUrl, {
+      width: 400,
+      margin: 2,
+      color: { dark: '#0F172A', light: '#FFFFFF' },
+    })
+    setQrUrl(dataUrl)
+  }
+
+  function downloadQr() {
+    if (!qrUrl) return
+    const a = document.createElement('a')
+    a.href = qrUrl
+    a.download = `linksocio-${profile.username}-qr.png`
+    a.click()
   }
 
   async function addLink(e) {
@@ -127,7 +151,7 @@ export default function Dashboard({ user }) {
               border: '1px solid #E7EDEC',
               borderRadius: 16,
               padding: '14px 16px',
-              marginBottom: 20,
+              marginBottom: 12,
             }}
           >
             <div style={{ minWidth: 0 }}>
@@ -156,6 +180,50 @@ export default function Dashboard({ user }) {
               }}
             >
               {copied ? 'Copied' : 'Copy'}
+            </button>
+          </div>
+        )}
+
+        {/* QR Code card */}
+        {qrUrl && (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 16,
+              background: 'white',
+              border: '1px solid #E7EDEC',
+              borderRadius: 16,
+              padding: '16px',
+              marginBottom: 20,
+            }}
+          >
+            <img
+              src={qrUrl}
+              alt="QR code"
+              style={{ width: 72, height: 72, borderRadius: 10, border: '1px solid #E7EDEC' }}
+            />
+            <div style={{ flex: 1 }}>
+              <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: '#0F172A' }}>Your QR code</p>
+              <p style={{ margin: '2px 0 0', fontSize: 12, color: '#8A97A3' }}>
+                Print it, share it, stick it anywhere.
+              </p>
+            </div>
+            <button
+              onClick={downloadQr}
+              style={{
+                flexShrink: 0,
+                background: '#F1F2F4',
+                color: '#0F172A',
+                border: 'none',
+                borderRadius: 10,
+                padding: '8px 14px',
+                fontSize: 12,
+                fontWeight: 500,
+                cursor: 'pointer',
+              }}
+            >
+              Download
             </button>
           </div>
         )}
