@@ -9,8 +9,7 @@ import LandingPage from './LandingPage'
 export default function App() {
   const [user, setUser] = useState(null)
   const [checking, setChecking] = useState(true)
-
-  const path = window.location.pathname.replace('/', '')
+  const [path, setPath] = useState(window.location.pathname.replace('/', ''))
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -22,12 +21,20 @@ export default function App() {
       setUser(session?.user || null)
     })
 
-    return () => listener.subscription.unsubscribe()
+    function onPopState() {
+      setPath(window.location.pathname.replace('/', ''))
+    }
+    window.addEventListener('popstate', onPopState)
+
+    return () => {
+      listener.subscription.unsubscribe()
+      window.removeEventListener('popstate', onPopState)
+    }
   }, [])
 
   function goTo(newPath) {
     window.history.pushState({}, '', `/${newPath}`)
-    window.dispatchEvent(new Event('popstate'))
+    setPath(newPath)
   }
 
   // Public profile pages: /username
