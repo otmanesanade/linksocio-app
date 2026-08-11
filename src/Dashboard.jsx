@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from './supabaseClient'
 import QRCode from 'qrcode'
+import ShopTab from './ShopTab'
 
 const IconInstagram = () => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#14B8A6" strokeWidth="2">
@@ -287,6 +288,7 @@ export default function Dashboard({ user }) {
 
   const navItems = [
     { key: 'links', label: 'Links', icon: '🔗' },
+    { key: 'shop', label: 'Shop', icon: '🛍️' },
     { key: 'analytics', label: 'Analytics', icon: '📊' },
   ]
 
@@ -361,6 +363,7 @@ export default function Dashboard({ user }) {
             />
           )}
           {tab === 'analytics' && <AnalyticsTab links={links} />}
+          {tab === 'shop' && <ShopTab user={user} />}
         </div>
 
         <div className="linksocio-preview-panel" style={{ position: 'sticky', top: 24, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
