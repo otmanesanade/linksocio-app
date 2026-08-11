@@ -1,6 +1,12 @@
 import { useEffect, useState } from 'react'
 import { supabase } from './supabaseClient'
 
+function normalizeUrl(url) {
+  if (!url) return url
+  if (!/^https?:\/\//i.test(url)) return `https://${url}`
+  return url
+}
+
 export default function ShopTab({ user }) {
   const [products, setProducts] = useState([])
   const [name, setName] = useState('')
@@ -8,6 +14,7 @@ export default function ShopTab({ user }) {
   const [imageUrl, setImageUrl] = useState('')
   const [externalUrl, setExternalUrl] = useState('')
   const [adding, setAdding] = useState(false)
+  const [fetching, setFetching] = useState(false)
 
   useEffect(() => {
     load()
@@ -22,6 +29,24 @@ export default function ShopTab({ user }) {
     setProducts(data || [])
   }
 
+  async function fetchInfo() {
+    if (!externalUrl) return
+    setFetching(true)
+    const cleanUrl = normalizeUrl(externalUrl)
+    setExternalUrl(cleanUrl)
+
+    try {
+      const res = await fetch(`/api/fetch-product?url=${encodeURIComponent(cleanUrl)}`)
+      const data = await res.json()
+      if (data.title && !name) setName(data.title)
+      if (data.image && !imageUrl) setImageUrl(data.image)
+      if (data.price && !price) setPrice(data.price)
+    } catch (err) {
+      // Silent fail — user can still fill fields manually
+    }
+    setFetching(false)
+  }
+
   async function addProduct(e) {
     e.preventDefault()
     if (!name || !externalUrl) return
@@ -32,7 +57,7 @@ export default function ShopTab({ user }) {
       name,
       price: price || null,
       image_url: imageUrl || null,
-      external_url: externalUrl,
+      external_url: normalizeUrl(externalUrl),
       position: products.length,
     })
 
@@ -56,10 +81,35 @@ export default function ShopTab({ user }) {
       <div style={{ background: 'white', border: '1px solid #E7EDEC', borderRadius: 20, padding: 20, marginBottom: 20 }}>
         <p style={{ margin: '0 0 12px', fontSize: 13, fontWeight: 600, color: '#0F172A' }}>Add a product</p>
         <form onSubmit={addProduct} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <input
+              placeholder="Paste product link (Shopify, Etsy...)"
+              value={externalUrl}
+              onChange={(e) => setExternalUrl(e.target.value)}
+              style={{ ...inputStyle, flex: 1 }}
+            />
+            <button
+              type="button"
+              onClick={fetchInfo}
+              disabled={!externalUrl || fetching}
+              style={{
+                flexShrink: 0,
+                background: fetching ? '#5DCAA5' : '#0F172A',
+                color: 'white',
+                border: 'none',
+                borderRadius: 12,
+                padding: '0 16px',
+                fontSize: 12.5,
+                fontWeight: 500,
+                cursor: !externalUrl || fetching ? 'default' : 'pointer',
+              }}
+            >
+              {fetching ? 'Fetching...' : 'Fetch info'}
+            </button>
+          </div>
           <input placeholder="Product name" value={name} onChange={(e) => setName(e.target.value)} style={inputStyle} />
           <input placeholder="Price (optional, e.g. 25€)" value={price} onChange={(e) => setPrice(e.target.value)} style={inputStyle} />
           <input placeholder="Image URL (optional)" value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} style={inputStyle} />
-          <input placeholder="Link to your shop (Shopify, Etsy...)" value={externalUrl} onChange={(e) => setExternalUrl(e.target.value)} style={inputStyle} />
           <button
             type="submit"
             disabled={adding}
