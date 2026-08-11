@@ -292,7 +292,7 @@ export default function Dashboard({ user }) {
 
   return (
     <div style={{ minHeight: '100vh', width: '100%', background: '#F8FAFA', fontFamily: '-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif' }}>
-      <div style={{ width: '100%', maxWidth: 1140, margin: '0 auto', padding: '24px 16px 64px', display: 'grid', gridTemplateColumns: '180px minmax(0, 1fr) 320px', gap: 24, alignItems: 'start' }}>
+      <div className="linksocio-grid" style={{ width: '100%', maxWidth: 1140, margin: '0 auto', padding: '24px 16px 64px', display: 'grid', gridTemplateColumns: '180px minmax(0, 1fr) 320px', gap: 24, alignItems: 'start' }}>
         <div className="linksocio-sidebar">
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 28, paddingLeft: 4 }}>
             <svg width="24" height="24" viewBox="0 0 46 46">
@@ -410,7 +410,12 @@ export default function Dashboard({ user }) {
 
       <style>{`
         @media (max-width: 980px) {
-          .linksocio-preview-panel { display: none; }
+          .linksocio-grid { grid-template-columns: minmax(0, 1fr) !important; }
+          .linksocio-preview-panel { display: none !important; }
+          .linksocio-sidebar { display: flex !important; flex-direction: row !important; align-items: center !important; gap: 8px !important; margin-bottom: 16px !important; }
+          .linksocio-sidebar > div:first-child { display: none !important; }
+          .linksocio-sidebar > div { flex-direction: row !important; gap: 8px !important; }
+          .linksocio-sidebar button { width: auto !important; }
         }
       `}</style>
     </div>
