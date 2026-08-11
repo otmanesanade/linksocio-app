@@ -101,6 +101,8 @@ export default function Dashboard({ user }) {
     setTimeout(() => setCopied(false), 1800)
   }
 
+  const totalClicks = links.reduce((sum, l) => sum + (l.clicks || 0), 0)
+
   return (
     <div
       style={{
@@ -139,6 +141,27 @@ export default function Dashboard({ user }) {
             Log out
           </button>
         </div>
+
+        {/* Total clicks banner */}
+        {links.length > 0 && (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+              background: '#0F172A',
+              borderRadius: 16,
+              padding: '14px 16px',
+              marginBottom: 12,
+            }}
+          >
+            <span style={{ fontSize: 20 }}>📊</span>
+            <div>
+              <p style={{ margin: 0, fontSize: 18, fontWeight: 700, color: 'white' }}>{totalClicks}</p>
+              <p style={{ margin: 0, fontSize: 11, color: '#8A97A3' }}>total clicks across all links</p>
+            </div>
+          </div>
+        )}
 
         {/* Public page card */}
         {profile && (
@@ -316,6 +339,19 @@ export default function Dashboard({ user }) {
                   {link.url}
                 </p>
               </div>
+              <span
+                style={{
+                  flexShrink: 0,
+                  fontSize: 11,
+                  fontWeight: 600,
+                  color: '#0D9488',
+                  background: '#E6F7F5',
+                  borderRadius: 8,
+                  padding: '4px 8px',
+                }}
+              >
+                {link.clicks || 0} clicks
+              </span>
               <button
                 onClick={() => deleteLink(link.id)}
                 style={{
@@ -325,7 +361,7 @@ export default function Dashboard({ user }) {
                   color: '#C2CBD1',
                   fontSize: 13,
                   cursor: 'pointer',
-                  padding: '6px 8px',
+                  padding: '6px 4px',
                 }}
               >
                 ✕
