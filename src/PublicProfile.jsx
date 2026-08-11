@@ -32,7 +32,6 @@ const IconTwitter = () => (
 const IconLinkedin = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#14B8A6" strokeWidth="2">
     <rect x="2" y="2" width="20" height="20" rx="3" />
-    <circle cx="7" cy="8" r="0.5" fill="#14B8A6" stroke="#14B8A6" />
     <path d="M7 11v6M11 11v6M11 13.5c0-1.5 1-2.5 2.5-2.5S16 12 16 13.5V17" />
   </svg>
 )
@@ -58,6 +57,34 @@ const iconFor = (label = '') => {
   if (l.includes('linkedin')) return <IconLinkedin />
   if (l.includes('facebook')) return <IconFacebook />
   return <IconLink />
+}
+
+function IconRow({ links, onLinkClick }) {
+  if (links.length === 0) return null
+  return (
+    <div style={{ display: 'flex', justifyContent: 'center', gap: 10, flexWrap: 'wrap' }}>
+      {links.map((link) => (
+        <a
+          key={link.id}
+          href={link.url}
+          target="_blank"
+          rel="noreferrer"
+          onClick={() => onLinkClick(link)}
+          style={{
+            width: 40,
+            height: 40,
+            borderRadius: '50%',
+            background: '#E6F7F5',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          {iconFor(link.label)}
+        </a>
+      ))}
+    </div>
+  )
 }
 
 export default function PublicProfile({ username }) {
@@ -87,13 +114,13 @@ export default function PublicProfile({ username }) {
       .from('links')
       .select('*')
       .eq('user_id', profileData.id)
+      .eq('active', true)
       .order('position', { ascending: true })
 
     setLinks(linksData || [])
   }
 
   async function handleClick(link) {
-    // Fire-and-forget click tracking, doesn't block navigation
     supabase
       .from('links')
       .update({ clicks: (link.clicks || 0) + 1 })
@@ -109,6 +136,10 @@ export default function PublicProfile({ username }) {
     )
   }
   if (!profile) return null
+
+  const buttonLinks = links.filter((l) => l.style !== 'icon')
+  const topIcons = links.filter((l) => l.style === 'icon' && l.icon_position !== 'bottom')
+  const bottomIcons = links.filter((l) => l.style === 'icon' && l.icon_position === 'bottom')
 
   return (
     <div
@@ -159,10 +190,16 @@ export default function PublicProfile({ username }) {
                 {profile.bio}
               </p>
             )}
+
+            {topIcons.length > 0 && (
+              <div style={{ marginTop: 16 }}>
+                <IconRow links={topIcons} onLinkClick={handleClick} />
+              </div>
+            )}
           </div>
 
-          <div style={{ marginTop: 32, display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {links.map((link) => {
+          <div style={{ marginTop: 28, display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {buttonLinks.map((link) => {
               const isPressed = pressed === link.id
               return (
                 <a
@@ -203,18 +240,22 @@ export default function PublicProfile({ username }) {
                     {iconFor(link.label)}
                   </span>
                   <span style={{ flex: 1, minWidth: 0 }}>
-                    <span style={{ display: 'block', fontSize: 14, fontWeight: 500 }}>
-                      {link.label}
-                    </span>
+                    <span style={{ display: 'block', fontSize: 14, fontWeight: 500 }}>{link.label}</span>
                   </span>
                   <span style={{ color: '#C2CBD1', fontSize: 14 }}>↗</span>
                 </a>
               )
             })}
-            {links.length === 0 && (
+            {buttonLinks.length === 0 && bottomIcons.length === 0 && topIcons.length === 0 && (
               <p style={{ textAlign: 'center', color: '#8A97A3', fontSize: 13 }}>No links yet.</p>
             )}
           </div>
+
+          {bottomIcons.length > 0 && (
+            <div style={{ marginTop: 20 }}>
+              <IconRow links={bottomIcons} onLinkClick={handleClick} />
+            </div>
+          )}
         </div>
 
         <div
