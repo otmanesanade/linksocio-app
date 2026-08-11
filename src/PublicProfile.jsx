@@ -90,8 +90,10 @@ function IconRow({ links, onLinkClick }) {
 export default function PublicProfile({ username }) {
   const [profile, setProfile] = useState(null)
   const [links, setLinks] = useState([])
+  const [products, setProducts] = useState([])
   const [notFound, setNotFound] = useState(false)
   const [pressed, setPressed] = useState(null)
+  const [tab, setTab] = useState('links')
 
   useEffect(() => {
     load()
@@ -116,8 +118,14 @@ export default function PublicProfile({ username }) {
       .eq('user_id', profileData.id)
       .eq('active', true)
       .order('position', { ascending: true })
-
     setLinks(linksData || [])
+
+    const { data: productsData } = await supabase
+      .from('products')
+      .select('*')
+      .eq('user_id', profileData.id)
+      .order('position', { ascending: true })
+    setProducts(productsData || [])
   }
 
   async function handleClick(link) {
@@ -140,6 +148,7 @@ export default function PublicProfile({ username }) {
   const buttonLinks = links.filter((l) => l.style !== 'icon')
   const topIcons = links.filter((l) => l.style === 'icon' && l.icon_position !== 'bottom')
   const bottomIcons = links.filter((l) => l.style === 'icon' && l.icon_position === 'bottom')
+  const hasShop = products.length > 0
 
   return (
     <div
@@ -196,62 +205,137 @@ export default function PublicProfile({ username }) {
                 <IconRow links={topIcons} onLinkClick={handleClick} />
               </div>
             )}
-          </div>
 
-          <div style={{ marginTop: 28, display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {buttonLinks.map((link) => {
-              const isPressed = pressed === link.id
-              return (
-                <a
-                  key={link.id}
-                  href={link.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  onClick={() => handleClick(link)}
-                  onMouseDown={() => setPressed(link.id)}
-                  onMouseUp={() => setPressed(null)}
-                  onMouseLeave={() => setPressed(null)}
+            {/* Links / Shop toggle */}
+            {hasShop && (
+              <div
+                style={{
+                  marginTop: 20,
+                  display: 'flex',
+                  gap: 6,
+                  background: '#F1F2F4',
+                  borderRadius: 100,
+                  padding: 4,
+                }}
+              >
+                <button
+                  onClick={() => setTab('links')}
                   style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 12,
-                    borderRadius: 16,
-                    border: '1px solid #E7EDEC',
-                    background: '#FBFCFC',
-                    padding: '14px 16px',
-                    textDecoration: 'none',
+                    border: 'none',
+                    borderRadius: 100,
+                    padding: '7px 18px',
+                    fontSize: 12.5,
+                    fontWeight: 500,
+                    cursor: 'pointer',
+                    background: tab === 'links' ? 'white' : 'transparent',
                     color: '#0F172A',
-                    transition: 'all 0.15s',
-                    transform: isPressed ? 'scale(0.98)' : 'scale(1)',
+                    boxShadow: tab === 'links' ? '0 1px 2px rgba(15,23,42,0.08)' : 'none',
                   }}
                 >
-                  <span
-                    style={{
-                      flexShrink: 0,
-                      width: 36,
-                      height: 36,
-                      borderRadius: '50%',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      background: '#E6F7F5',
-                    }}
-                  >
-                    {iconFor(link.label)}
-                  </span>
-                  <span style={{ flex: 1, minWidth: 0 }}>
-                    <span style={{ display: 'block', fontSize: 14, fontWeight: 500 }}>{link.label}</span>
-                  </span>
-                  <span style={{ color: '#C2CBD1', fontSize: 14 }}>↗</span>
-                </a>
-              )
-            })}
-            {buttonLinks.length === 0 && bottomIcons.length === 0 && topIcons.length === 0 && (
-              <p style={{ textAlign: 'center', color: '#8A97A3', fontSize: 13 }}>No links yet.</p>
+                  Links
+                </button>
+                <button
+                  onClick={() => setTab('shop')}
+                  style={{
+                    border: 'none',
+                    borderRadius: 100,
+                    padding: '7px 18px',
+                    fontSize: 12.5,
+                    fontWeight: 500,
+                    cursor: 'pointer',
+                    background: tab === 'shop' ? 'white' : 'transparent',
+                    color: '#0F172A',
+                    boxShadow: tab === 'shop' ? '0 1px 2px rgba(15,23,42,0.08)' : 'none',
+                  }}
+                >
+                  Shop
+                </button>
+              </div>
             )}
           </div>
 
-          {bottomIcons.length > 0 && (
+          {tab === 'links' && (
+            <div style={{ marginTop: 28, display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {buttonLinks.map((link) => {
+                const isPressed = pressed === link.id
+                return (
+                  <a
+                    key={link.id}
+                    href={link.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    onClick={() => handleClick(link)}
+                    onMouseDown={() => setPressed(link.id)}
+                    onMouseUp={() => setPressed(null)}
+                    onMouseLeave={() => setPressed(null)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 12,
+                      borderRadius: 16,
+                      border: '1px solid #E7EDEC',
+                      background: '#FBFCFC',
+                      padding: '14px 16px',
+                      textDecoration: 'none',
+                      color: '#0F172A',
+                      transition: 'all 0.15s',
+                      transform: isPressed ? 'scale(0.98)' : 'scale(1)',
+                    }}
+                  >
+                    <span
+                      style={{
+                        flexShrink: 0,
+                        width: 36,
+                        height: 36,
+                        borderRadius: '50%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        background: '#E6F7F5',
+                      }}
+                    >
+                      {iconFor(link.label)}
+                    </span>
+                    <span style={{ flex: 1, minWidth: 0 }}>
+                      <span style={{ display: 'block', fontSize: 14, fontWeight: 500 }}>{link.label}</span>
+                    </span>
+                    <span style={{ color: '#C2CBD1', fontSize: 14 }}>↗</span>
+                  </a>
+                )
+              })}
+              {buttonLinks.length === 0 && bottomIcons.length === 0 && topIcons.length === 0 && (
+                <p style={{ textAlign: 'center', color: '#8A97A3', fontSize: 13 }}>No links yet.</p>
+              )}
+            </div>
+          )}
+
+          {tab === 'shop' && (
+            <div style={{ marginTop: 24, display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
+              {products.map((p) => (
+                <a
+                  key={p.id}
+                  href={p.external_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{ display: 'block', borderRadius: 16, border: '1px solid #E7EDEC', overflow: 'hidden', textDecoration: 'none' }}
+                >
+                  <div style={{ width: '100%', aspectRatio: '1', background: '#F1F2F4', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {p.image_url ? (
+                      <img src={p.image_url} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    ) : (
+                      <span style={{ fontSize: 24 }}>🛍️</span>
+                    )}
+                  </div>
+                  <div style={{ padding: '10px 12px' }}>
+                    <p style={{ margin: 0, fontSize: 12.5, fontWeight: 500, color: '#0F172A' }}>{p.name}</p>
+                    {p.price && <p style={{ margin: '2px 0 0', fontSize: 12, color: '#0D9488', fontWeight: 600 }}>{p.price}</p>}
+                  </div>
+                </a>
+              ))}
+            </div>
+          )}
+
+          {bottomIcons.length > 0 && tab === 'links' && (
             <div style={{ marginTop: 20 }}>
               <IconRow links={bottomIcons} onLinkClick={handleClick} />
             </div>
