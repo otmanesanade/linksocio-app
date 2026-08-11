@@ -92,6 +92,15 @@ export default function PublicProfile({ username }) {
     setLinks(linksData || [])
   }
 
+  async function handleClick(link) {
+    // Fire-and-forget click tracking, doesn't block navigation
+    supabase
+      .from('links')
+      .update({ clicks: (link.clicks || 0) + 1 })
+      .eq('id', link.id)
+      .then(() => {})
+  }
+
   if (notFound) {
     return (
       <div style={{ textAlign: 'center', marginTop: 80, fontFamily: 'sans-serif', color: '#8A97A3' }}>
@@ -161,6 +170,7 @@ export default function PublicProfile({ username }) {
                   href={link.url}
                   target="_blank"
                   rel="noreferrer"
+                  onClick={() => handleClick(link)}
                   onMouseDown={() => setPressed(link.id)}
                   onMouseUp={() => setPressed(null)}
                   onMouseLeave={() => setPressed(null)}
