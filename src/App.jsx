@@ -5,7 +5,6 @@ import Login from './Login'
 import Dashboard from './Dashboard'
 import PublicProfile from './PublicProfile'
 import LandingPage from './LandingPage'
-import Analytics from './Analytics'
 
 export default function App() {
   const [user, setUser] = useState(null)
@@ -38,9 +37,8 @@ export default function App() {
     setPath(newPath)
   }
 
-  const reservedPaths = ['login', 'signup', 'analytics']
+  const reservedPaths = ['login', 'signup']
 
-  // Public profile pages: /username
   if (path && !reservedPaths.includes(path)) {
     return <PublicProfile username={path.toLowerCase()} />
   }
@@ -48,10 +46,7 @@ export default function App() {
   if (checking) return null
 
   if (user) {
-    if (path === 'analytics') {
-      return <Analytics user={user} goBack={() => goTo('')} />
-    }
-    return <Dashboard user={user} goToAnalytics={() => goTo('analytics')} />
+    return <Dashboard user={user} />
   }
 
   if (path === 'login') {
