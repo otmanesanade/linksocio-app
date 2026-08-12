@@ -196,6 +196,7 @@ function AnalyticsTab({ links }) {
 export default function Dashboard({ user }) {
   const [profile, setProfile] = useState(null)
   const [links, setLinks] = useState([])
+  const [products, setProducts] = useState([])
   const [label, setLabel] = useState('')
   const [url, setUrl] = useState('')
   const [adding, setAdding] = useState(false)
@@ -206,6 +207,7 @@ export default function Dashboard({ user }) {
   useEffect(() => {
     loadProfile()
     loadLinks()
+    loadProducts()
   }, [])
 
   useEffect(() => {
@@ -220,6 +222,11 @@ export default function Dashboard({ user }) {
   async function loadLinks() {
     const { data } = await supabase.from('links').select('*').eq('user_id', user.id).order('position', { ascending: true })
     setLinks(data || [])
+  }
+
+  async function loadProducts() {
+    const { data } = await supabase.from('products').select('*').eq('user_id', user.id).order('position', { ascending: true })
+    setProducts(data || [])
   }
 
   async function generateQr() {
@@ -363,7 +370,7 @@ export default function Dashboard({ user }) {
             />
           )}
           {tab === 'analytics' && <AnalyticsTab links={links} />}
-          {tab === 'shop' && <ShopTab user={user} />}
+          {tab === 'shop' && <ShopTab user={user} products={products} reloadProducts={loadProducts} />}
         </div>
 
         <div className="linksocio-preview-panel" style={{ position: 'sticky', top: 24, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
@@ -385,6 +392,37 @@ export default function Dashboard({ user }) {
                 </div>
               )}
 
+              {products.length > 0 && (
+                <div style={{ marginTop: 14, display: 'flex', gap: 6, background: '#F1F2F4', borderRadius: 100, padding: 3 }}>
+                  <span style={{ borderRadius: 100, padding: '5px 14px', fontSize: 10.5, fontWeight: 500, background: tab !== 'shop' ? 'white' : 'transparent', color: '#0F172A' }}>
+                    Links
+                  </span>
+                  <span style={{ borderRadius: 100, padding: '5px 14px', fontSize: 10.5, fontWeight: 500, background: tab === 'shop' ? 'white' : 'transparent', color: '#0F172A' }}>
+                    Shop
+                  </span>
+                </div>
+              )}
+
+              {tab === 'shop' ? (
+                <div style={{ marginTop: 16, width: '100%', display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 7 }}>
+                  {products.map((p) => (
+                    <div key={p.id} style={{ borderRadius: 10, border: '1px solid #E7EDEC', overflow: 'hidden', background: 'white' }}>
+                      <div style={{ width: '100%', aspectRatio: '1', background: '#F1F2F4', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        {p.image_url ? (
+                          <img src={p.image_url} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        ) : (
+                          <span style={{ fontSize: 16 }}>🛍️</span>
+                        )}
+                      </div>
+                      <div style={{ padding: '6px 7px' }}>
+                        <p style={{ margin: 0, fontSize: 9.5, fontWeight: 500, color: '#0F172A', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</p>
+                        {p.price && <p style={{ margin: '1px 0 0', fontSize: 9.5, color: '#0D9488', fontWeight: 600 }}>{p.price}</p>}
+                      </div>
+                    </div>
+                  ))}
+                  {products.length === 0 && <p style={{ gridColumn: '1 / -1', textAlign: 'center', fontSize: 11, color: '#C2CBD1', marginTop: 20 }}>No products yet</p>}
+                </div>
+              ) : (
               <div style={{ marginTop: 18, width: '100%', display: 'flex', flexDirection: 'column', gap: 7 }}>
                 {previewButtons.map((link) => (
                   <div key={link.id} style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'white', border: '1px solid #E7EDEC', borderRadius: 11, padding: '9px 11px' }}>
@@ -396,6 +434,7 @@ export default function Dashboard({ user }) {
                 ))}
                 {activeLinks.length === 0 && <p style={{ textAlign: 'center', fontSize: 11, color: '#C2CBD1', marginTop: 20 }}>Your links will appear here</p>}
               </div>
+              )}
 
               {previewBottomIcons.length > 0 && (
                 <div style={{ marginTop: 14, display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
