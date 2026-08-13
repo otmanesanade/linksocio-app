@@ -385,9 +385,9 @@ export default function Dashboard({ user }) {
               {previewTopIcons.length > 0 && (
                 <div style={{ marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
                   {previewTopIcons.map((link) => (
-                    <span key={link.id} style={{ width: 26, height: 26, borderRadius: '50%', background: '#E6F7F5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <a key={link.id} href={link.url} target="_blank" rel="noreferrer" style={{ width: 26, height: 26, borderRadius: '50%', background: '#E6F7F5', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}>
                       {iconSvgFor(link.label)}
-                    </span>
+                    </a>
                   ))}
                 </div>
               )}
@@ -406,7 +406,7 @@ export default function Dashboard({ user }) {
               {tab === 'shop' ? (
                 <div style={{ marginTop: 16, width: '100%', display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 7 }}>
                   {products.map((p) => (
-                    <div key={p.id} style={{ borderRadius: 10, border: '1px solid #E7EDEC', overflow: 'hidden', background: 'white' }}>
+                    <a key={p.id} href={p.external_url} target="_blank" rel="noreferrer" style={{ borderRadius: 10, border: '1px solid #E7EDEC', overflow: 'hidden', background: 'white', textDecoration: 'none', display: 'block' }}>
                       <div style={{ width: '100%', aspectRatio: '1', background: '#F1F2F4', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         {p.image_url ? (
                           <img src={p.image_url} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -418,19 +418,26 @@ export default function Dashboard({ user }) {
                         <p style={{ margin: 0, fontSize: 9.5, fontWeight: 500, color: '#0F172A', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</p>
                         {p.price && <p style={{ margin: '1px 0 0', fontSize: 9.5, color: '#0D9488', fontWeight: 600 }}>{p.price}</p>}
                       </div>
-                    </div>
+                    </a>
                   ))}
                   {products.length === 0 && <p style={{ gridColumn: '1 / -1', textAlign: 'center', fontSize: 11, color: '#C2CBD1', marginTop: 20 }}>No products yet</p>}
                 </div>
               ) : (
               <div style={{ marginTop: 18, width: '100%', display: 'flex', flexDirection: 'column', gap: 7 }}>
                 {previewButtons.map((link) => (
-                  <div key={link.id} style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'white', border: '1px solid #E7EDEC', borderRadius: 11, padding: '9px 11px' }}>
+                  <a
+                    key={link.id}
+                    href={link.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'white', border: '1px solid #E7EDEC', borderRadius: 11, padding: '9px 11px', textDecoration: 'none', cursor: 'pointer' }}
+                  >
                     <span style={{ width: 22, height: 22, borderRadius: '50%', background: '#E6F7F5', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                       {iconSvgFor(link.label)}
                     </span>
-                    <span style={{ fontSize: 11.5, fontWeight: 500, color: '#0F172A' }}>{link.label}</span>
-                  </div>
+                    <span style={{ fontSize: 11.5, fontWeight: 500, color: '#0F172A', flex: 1 }}>{link.label}</span>
+                    <span style={{ fontSize: 10, color: '#C2CBD1' }}>↗</span>
+                  </a>
                 ))}
                 {activeLinks.length === 0 && <p style={{ textAlign: 'center', fontSize: 11, color: '#C2CBD1', marginTop: 20 }}>Your links will appear here</p>}
               </div>
@@ -439,9 +446,9 @@ export default function Dashboard({ user }) {
               {previewBottomIcons.length > 0 && (
                 <div style={{ marginTop: 14, display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
                   {previewBottomIcons.map((link) => (
-                    <span key={link.id} style={{ width: 26, height: 26, borderRadius: '50%', background: '#E6F7F5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <a key={link.id} href={link.url} target="_blank" rel="noreferrer" style={{ width: 26, height: 26, borderRadius: '50%', background: '#E6F7F5', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}>
                       {iconSvgFor(link.label)}
-                    </span>
+                    </a>
                   ))}
                 </div>
               )}
