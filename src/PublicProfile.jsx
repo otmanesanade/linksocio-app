@@ -1,65 +1,65 @@
 import { useEffect, useState } from 'react'
 import { supabase } from './supabaseClient'
 
-const IconInstagram = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#14B8A6" strokeWidth="2">
+const IconInstagram = ({ color }) => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2">
     <rect x="2" y="2" width="20" height="20" rx="5" />
     <circle cx="12" cy="12" r="4" />
-    <circle cx="17.5" cy="6.5" r="1" fill="#14B8A6" stroke="none" />
+    <circle cx="17.5" cy="6.5" r="1" fill={color} stroke="none" />
   </svg>
 )
-const IconWhatsapp = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#14B8A6" strokeWidth="2">
+const IconWhatsapp = ({ color }) => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2">
     <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
   </svg>
 )
-const IconTiktok = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#14B8A6" strokeWidth="2">
+const IconTiktok = ({ color }) => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2">
     <path d="M9 12a4 4 0 1 0 4 4V4a5 5 0 0 0 5 5" />
   </svg>
 )
-const IconYoutube = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#14B8A6" strokeWidth="2">
+const IconYoutube = ({ color }) => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2">
     <rect x="2" y="5" width="20" height="14" rx="4" />
-    <path d="M10 9.5v5l4.5-2.5z" fill="#14B8A6" stroke="none" />
+    <path d="M10 9.5v5l4.5-2.5z" fill={color} stroke="none" />
   </svg>
 )
-const IconTwitter = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#14B8A6" strokeWidth="2">
+const IconTwitter = ({ color }) => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2">
     <path d="M4 4l16 16M20 4L4 20" />
   </svg>
 )
-const IconLinkedin = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#14B8A6" strokeWidth="2">
+const IconLinkedin = ({ color }) => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2">
     <rect x="2" y="2" width="20" height="20" rx="3" />
     <path d="M7 11v6M11 11v6M11 13.5c0-1.5 1-2.5 2.5-2.5S16 12 16 13.5V17" />
   </svg>
 )
-const IconFacebook = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#14B8A6" strokeWidth="2">
+const IconFacebook = ({ color }) => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2">
     <path d="M15 3h-2a4 4 0 0 0-4 4v3H7v4h2v7h4v-7h3l1-4h-4V7a1 1 0 0 1 1-1h3z" />
   </svg>
 )
-const IconLink = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#14B8A6" strokeWidth="2">
+const IconLink = ({ color }) => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2">
     <path d="M10 13a5 5 0 0 0 7.5.5l2-2a5 5 0 0 0-7-7l-1.5 1.5" />
     <path d="M14 11a5 5 0 0 0-7.5-.5l-2 2a5 5 0 0 0 7 7l1.5-1.5" />
   </svg>
 )
 
-const iconFor = (label = '') => {
+const iconFor = (label = '', color) => {
   const l = label.toLowerCase()
-  if (l.includes('instagram')) return <IconInstagram />
-  if (l.includes('whatsapp')) return <IconWhatsapp />
-  if (l.includes('tiktok')) return <IconTiktok />
-  if (l.includes('youtube')) return <IconYoutube />
-  if (l.includes('twitter') || l.includes('x.com')) return <IconTwitter />
-  if (l.includes('linkedin')) return <IconLinkedin />
-  if (l.includes('facebook')) return <IconFacebook />
-  return <IconLink />
+  if (l.includes('instagram')) return <IconInstagram color={color} />
+  if (l.includes('whatsapp')) return <IconWhatsapp color={color} />
+  if (l.includes('tiktok')) return <IconTiktok color={color} />
+  if (l.includes('youtube')) return <IconYoutube color={color} />
+  if (l.includes('twitter') || l.includes('x.com')) return <IconTwitter color={color} />
+  if (l.includes('linkedin')) return <IconLinkedin color={color} />
+  if (l.includes('facebook')) return <IconFacebook color={color} />
+  return <IconLink color={color} />
 }
 
-function IconRow({ links, onLinkClick }) {
+function IconRow({ links, onLinkClick, color, tint }) {
   if (links.length === 0) return null
   return (
     <div style={{ display: 'flex', justifyContent: 'center', gap: 10, flexWrap: 'wrap' }}>
@@ -70,17 +70,9 @@ function IconRow({ links, onLinkClick }) {
           target="_blank"
           rel="noreferrer"
           onClick={() => onLinkClick(link)}
-          style={{
-            width: 40,
-            height: 40,
-            borderRadius: '50%',
-            background: '#E6F7F5',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
+          style={{ width: 40, height: 40, borderRadius: '50%', background: tint, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
         >
-          {iconFor(link.label)}
+          {iconFor(link.label, color)}
         </a>
       ))}
     </div>
@@ -100,11 +92,7 @@ export default function PublicProfile({ username }) {
   }, [username])
 
   async function load() {
-    const { data: profileData } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('username', username)
-      .single()
+    const { data: profileData } = await supabase.from('profiles').select('*').eq('username', username).single()
 
     if (!profileData) {
       setNotFound(true)
@@ -129,11 +117,7 @@ export default function PublicProfile({ username }) {
   }
 
   async function handleClick(link) {
-    supabase
-      .from('links')
-      .update({ clicks: (link.clicks || 0) + 1 })
-      .eq('id', link.id)
-      .then(() => {})
+    supabase.from('links').update({ clicks: (link.clicks || 0) + 1 }).eq('id', link.id).then(() => {})
   }
 
   if (notFound) {
@@ -144,6 +128,10 @@ export default function PublicProfile({ username }) {
     )
   }
   if (!profile) return null
+
+  const color = profile.theme_color || '#14B8A6'
+  // Light tint of the theme color for icon backgrounds
+  const tint = `${color}1A`
 
   const buttonLinks = links.filter((l) => l.style !== 'icon')
   const topIcons = links.filter((l) => l.style === 'icon' && l.icon_position !== 'bottom')
@@ -180,7 +168,7 @@ export default function PublicProfile({ username }) {
                 width: 80,
                 height: 80,
                 borderRadius: '50%',
-                background: 'linear-gradient(135deg, #14B8A6, #0D9488)',
+                background: `linear-gradient(135deg, ${color}, #0F172A)`,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -191,33 +179,19 @@ export default function PublicProfile({ username }) {
             >
               {profile.display_name?.[0]?.toUpperCase() || '?'}
             </div>
-            <h1 style={{ marginTop: 16, fontSize: 17, fontWeight: 600, color: '#0F172A' }}>
-              {profile.display_name}
-            </h1>
+            <h1 style={{ marginTop: 16, fontSize: 17, fontWeight: 600, color: '#0F172A' }}>{profile.display_name}</h1>
             {profile.bio && (
-              <p style={{ marginTop: 4, fontSize: 13, color: '#8A97A3', textAlign: 'center' }}>
-                {profile.bio}
-              </p>
+              <p style={{ marginTop: 4, fontSize: 13, color: '#8A97A3', textAlign: 'center' }}>{profile.bio}</p>
             )}
 
             {topIcons.length > 0 && (
               <div style={{ marginTop: 16 }}>
-                <IconRow links={topIcons} onLinkClick={handleClick} />
+                <IconRow links={topIcons} onLinkClick={handleClick} color={color} tint={tint} />
               </div>
             )}
 
-            {/* Links / Shop toggle */}
             {hasShop && (
-              <div
-                style={{
-                  marginTop: 20,
-                  display: 'flex',
-                  gap: 6,
-                  background: '#F1F2F4',
-                  borderRadius: 100,
-                  padding: 4,
-                }}
-              >
+              <div style={{ marginTop: 20, display: 'flex', gap: 6, background: '#F1F2F4', borderRadius: 100, padding: 4 }}>
                 <button
                   onClick={() => setTab('links')}
                   style={{
@@ -291,10 +265,10 @@ export default function PublicProfile({ username }) {
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        background: '#E6F7F5',
+                        background: tint,
                       }}
                     >
-                      {iconFor(link.label)}
+                      {iconFor(link.label, color)}
                     </span>
                     <span style={{ flex: 1, minWidth: 0 }}>
                       <span style={{ display: 'block', fontSize: 14, fontWeight: 500 }}>{link.label}</span>
@@ -328,7 +302,7 @@ export default function PublicProfile({ username }) {
                   </div>
                   <div style={{ padding: '10px 12px' }}>
                     <p style={{ margin: 0, fontSize: 12.5, fontWeight: 500, color: '#0F172A' }}>{p.name}</p>
-                    {p.price && <p style={{ margin: '2px 0 0', fontSize: 12, color: '#0D9488', fontWeight: 600 }}>{p.price}</p>}
+                    {p.price && <p style={{ margin: '2px 0 0', fontSize: 12, color, fontWeight: 600 }}>{p.price}</p>}
                   </div>
                 </a>
               ))}
@@ -337,25 +311,15 @@ export default function PublicProfile({ username }) {
 
           {bottomIcons.length > 0 && tab === 'links' && (
             <div style={{ marginTop: 20 }}>
-              <IconRow links={bottomIcons} onLinkClick={handleClick} />
+              <IconRow links={bottomIcons} onLinkClick={handleClick} color={color} tint={tint} />
             </div>
           )}
         </div>
 
-        <div
-          style={{
-            marginTop: 20,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 6,
-            fontSize: 12,
-            color: '#A6AFB6',
-          }}
-        >
+        <div style={{ marginTop: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, fontSize: 12, color: '#A6AFB6' }}>
           <span>
             <span style={{ color: '#0F172A', fontWeight: 500 }}>Link</span>
-            <span style={{ color: '#14B8A6', fontWeight: 500 }}>Socio</span>
+            <span style={{ color, fontWeight: 500 }}>Socio</span>
           </span>
           <span style={{ color: '#C2CBD1' }}>·</span>
           <span>One tap. Instant connection.</span>
