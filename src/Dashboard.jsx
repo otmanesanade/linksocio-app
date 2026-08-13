@@ -400,12 +400,18 @@ export default function Dashboard({ user }) {
 
               {products.length > 0 && (
                 <div style={{ marginTop: 14, display: 'flex', gap: 6, background: '#F1F2F4', borderRadius: 100, padding: 3 }}>
-                  <span style={{ borderRadius: 100, padding: '5px 14px', fontSize: 10.5, fontWeight: 500, background: tab !== 'shop' ? 'white' : 'transparent', color: '#0F172A' }}>
+                  <button
+                    onClick={() => setTab('links')}
+                    style={{ border: 'none', cursor: 'pointer', borderRadius: 100, padding: '5px 14px', fontSize: 10.5, fontWeight: 500, background: tab !== 'shop' ? 'white' : 'transparent', color: '#0F172A' }}
+                  >
                     Links
-                  </span>
-                  <span style={{ borderRadius: 100, padding: '5px 14px', fontSize: 10.5, fontWeight: 500, background: tab === 'shop' ? 'white' : 'transparent', color: '#0F172A' }}>
+                  </button>
+                  <button
+                    onClick={() => setTab('shop')}
+                    style={{ border: 'none', cursor: 'pointer', borderRadius: 100, padding: '5px 14px', fontSize: 10.5, fontWeight: 500, background: tab === 'shop' ? 'white' : 'transparent', color: '#0F172A' }}
+                  >
                     Shop
-                  </span>
+                  </button>
                 </div>
               )}
 
