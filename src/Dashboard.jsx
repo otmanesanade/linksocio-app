@@ -61,6 +61,12 @@ const iconSvgFor = (label = '') => {
   return <IconLink />
 }
 
+function normalizeUrl(u) {
+  if (!u) return u
+  if (!/^https?:\/\//i.test(u)) return `https://${u}`
+  return u
+}
+
 const emojiFor = (label = '') => {
   const l = label.toLowerCase()
   if (l.includes('instagram')) return '📷'
@@ -247,7 +253,7 @@ export default function Dashboard({ user }) {
     e.preventDefault()
     if (!label || !url) return
     setAdding(true)
-    const { error } = await supabase.from('links').insert({ user_id: user.id, label, url, position: links.length })
+    const { error } = await supabase.from('links').insert({ user_id: user.id, label, url: normalizeUrl(url), position: links.length })
     setAdding(false)
     if (!error) {
       setLabel('')
