@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from './supabaseClient'
 import QRCode from 'qrcode'
 import ShopTab from './ShopTab'
+import ThemeTab from './ThemeTab'
 
 const IconInstagram = () => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#14B8A6" strokeWidth="2">
@@ -302,6 +303,7 @@ export default function Dashboard({ user }) {
   const navItems = [
     { key: 'links', label: 'Links', icon: '🔗' },
     { key: 'shop', label: 'Shop', icon: '🛍️' },
+    { key: 'theme', label: 'Theme', icon: '🎨' },
     { key: 'analytics', label: 'Analytics', icon: '📊' },
   ]
 
@@ -377,13 +379,14 @@ export default function Dashboard({ user }) {
           )}
           {tab === 'analytics' && <AnalyticsTab links={links} />}
           {tab === 'shop' && <ShopTab user={user} products={products} reloadProducts={loadProducts} />}
+          {tab === 'theme' && <ThemeTab user={user} profile={profile} onUpdated={loadProfile} />}
         </div>
 
         <div className="linksocio-preview-panel" style={{ position: 'sticky', top: 24, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
           <p style={{ fontSize: 11, fontWeight: 600, color: '#8A97A3', letterSpacing: 0.5, marginBottom: 12 }}>LIVE PREVIEW</p>
           <div style={{ width: 280, background: '#0F172A', borderRadius: 36, padding: 10, boxShadow: '0 12px 30px rgba(15,23,42,0.12)' }}>
             <div style={{ background: '#F8FAFA', borderRadius: 28, padding: '28px 18px', minHeight: 420, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-              <div style={{ width: 60, height: 60, borderRadius: '50%', background: 'linear-gradient(135deg, #14B8A6, #0D9488)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: 20, fontWeight: 600 }}>
+              <div style={{ width: 60, height: 60, borderRadius: '50%', background: `linear-gradient(135deg, ${profile?.theme_color || '#14B8A6'}, #0F172A)`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: 20, fontWeight: 600 }}>
                 {profile?.display_name?.[0]?.toUpperCase() || '?'}
               </div>
               <p style={{ marginTop: 10, fontSize: 13, fontWeight: 600, color: '#0F172A' }}>{profile?.display_name || 'you'}</p>
