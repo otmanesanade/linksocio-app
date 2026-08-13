@@ -1,23 +1,3 @@
-const iconSvg = {
-  instagram: (
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#14B8A6" strokeWidth="2">
-      <rect x="2" y="2" width="20" height="20" rx="5" />
-      <circle cx="12" cy="12" r="4" />
-      <circle cx="17.5" cy="6.5" r="1" fill="#14B8A6" stroke="none" />
-    </svg>
-  ),
-  whatsapp: (
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#14B8A6" strokeWidth="2">
-      <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
-    </svg>
-  ),
-  tiktok: (
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#14B8A6" strokeWidth="2">
-      <path d="M9 12a4 4 0 1 0 4 4V4a5 5 0 0 0 5 5" />
-    </svg>
-  ),
-}
-
 export default function LandingPage({ goToLogin, goToSignUp }) {
   return (
     <div
@@ -90,7 +70,7 @@ export default function LandingPage({ goToLogin, goToSignUp }) {
             marginRight: 'auto',
           }}
         >
-          Share Instagram, WhatsApp, TikTok and more with a single tap — no app, no typing.
+          Share Instagram, WhatsApp, TikTok, your shop and more with a single tap — no app, no typing.
         </p>
         <div style={{ marginTop: 28, display: 'flex', justifyContent: 'center', gap: 12 }}>
           <button
@@ -104,9 +84,6 @@ export default function LandingPage({ goToLogin, goToSignUp }) {
               fontSize: 14,
               fontWeight: 500,
               cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
             }}
           >
             Create your page →
@@ -146,13 +123,9 @@ export default function LandingPage({ goToLogin, goToSignUp }) {
             <p style={{ marginTop: 12, fontSize: 15, fontWeight: 600, color: '#0F172A' }}>mia</p>
           </div>
           <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {[
-              { key: 'instagram', label: 'Instagram' },
-              { key: 'whatsapp', label: 'WhatsApp' },
-              { key: 'tiktok', label: 'TikTok' },
-            ].map(({ key, label }) => (
+            {['Instagram', 'WhatsApp', 'TikTok'].map((label) => (
               <div
-                key={key}
+                key={label}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -171,9 +144,10 @@ export default function LandingPage({ goToLogin, goToSignUp }) {
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
+                    fontSize: 13,
                   }}
                 >
-                  {iconSvg[key]}
+                  🔗
                 </span>
                 <span style={{ fontSize: 12.5, fontWeight: 500, color: '#0F172A' }}>{label}</span>
               </div>
@@ -195,8 +169,9 @@ export default function LandingPage({ goToLogin, goToSignUp }) {
       >
         {[
           { title: 'One link for everything', text: 'Instagram, WhatsApp, TikTok, your site — all in one place.' },
+          { title: 'Sell from your page', text: 'Add products from your shop, no coding needed.' },
           { title: 'Instant QR code', text: 'Print it, stick it, scan it. No app required.' },
-          { title: 'Made in seconds', text: 'Sign up, add your links, share your page.' },
+          { title: 'See what works', text: 'Track clicks on every link to know what your audience loves.' },
         ].map(({ title, text }) => (
           <div key={title} style={{ background: 'white', border: '1px solid #E7EDEC', borderRadius: 20, padding: 24 }}>
             <span
@@ -217,6 +192,136 @@ export default function LandingPage({ goToLogin, goToSignUp }) {
             <p style={{ marginTop: 4, fontSize: 13, color: '#8A97A3', lineHeight: 1.5 }}>{text}</p>
           </div>
         ))}
+      </div>
+
+      {/* Pricing */}
+      <div style={{ background: 'white', borderTop: '1px solid #E7EDEC', borderBottom: '1px solid #E7EDEC', padding: '72px 20px' }}>
+        <div style={{ maxWidth: 900, margin: '0 auto', textAlign: 'center' }}>
+          <h2 style={{ fontSize: 28, fontWeight: 700, color: '#0F172A', margin: 0 }}>Simple pricing</h2>
+          <p style={{ fontSize: 14, color: '#8A97A3', marginTop: 8 }}>Start free. Upgrade whenever you're ready.</p>
+
+          <div
+            style={{
+              marginTop: 40,
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+              gap: 20,
+              maxWidth: 640,
+              margin: '40px auto 0',
+            }}
+          >
+            {/* Free plan */}
+            <div style={{ border: '1px solid #E7EDEC', borderRadius: 24, padding: '32px 28px', textAlign: 'left' }}>
+              <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: '#8A97A3', letterSpacing: 0.5 }}>FREE</p>
+              <p style={{ margin: '8px 0 0', fontSize: 32, fontWeight: 700, color: '#0F172A' }}>
+                €0<span style={{ fontSize: 14, fontWeight: 500, color: '#8A97A3' }}>/month</span>
+              </p>
+              <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {['Unlimited links', 'Custom LinkSocio page', 'QR code', 'Basic click tracking'].map((f) => (
+                  <div key={f} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13.5, color: '#0F172A' }}>
+                    <span style={{ color: '#14B8A6' }}>✓</span> {f}
+                  </div>
+                ))}
+              </div>
+              <button
+                onClick={goToSignUp}
+                style={{
+                  marginTop: 24,
+                  width: '100%',
+                  background: '#F1F2F4',
+                  color: '#0F172A',
+                  border: 'none',
+                  borderRadius: 12,
+                  padding: '12px',
+                  fontSize: 13.5,
+                  fontWeight: 500,
+                  cursor: 'pointer',
+                }}
+              >
+                Start for free
+              </button>
+            </div>
+
+            {/* Pro plan */}
+            <div
+              style={{
+                position: 'relative',
+                border: '2px solid #14B8A6',
+                borderRadius: 24,
+                padding: '32px 28px',
+                textAlign: 'left',
+                background: '#FBFDFC',
+              }}
+            >
+              <span
+                style={{
+                  position: 'absolute',
+                  top: -12,
+                  right: 24,
+                  background: '#14B8A6',
+                  color: 'white',
+                  fontSize: 10.5,
+                  fontWeight: 600,
+                  borderRadius: 100,
+                  padding: '4px 12px',
+                  letterSpacing: 0.5,
+                }}
+              >
+                COMING SOON
+              </span>
+              <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: '#0D9488', letterSpacing: 0.5 }}>PRO</p>
+              <p style={{ margin: '8px 0 0', fontSize: 32, fontWeight: 700, color: '#0F172A' }}>
+                €9.99<span style={{ fontSize: 14, fontWeight: 500, color: '#8A97A3' }}>/month</span>
+              </p>
+              <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {['Everything in Free', 'Advanced analytics', 'Custom colors & themes', 'Priority support'].map((f) => (
+                  <div key={f} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13.5, color: '#0F172A' }}>
+                    <span style={{ color: '#14B8A6' }}>✓</span> {f}
+                  </div>
+                ))}
+              </div>
+              <button
+                disabled
+                style={{
+                  marginTop: 24,
+                  width: '100%',
+                  background: '#E6F7F5',
+                  color: '#5DCAA5',
+                  border: 'none',
+                  borderRadius: 12,
+                  padding: '12px',
+                  fontSize: 13.5,
+                  fontWeight: 500,
+                  cursor: 'default',
+                }}
+              >
+                Coming soon
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Final CTA */}
+      <div style={{ maxWidth: 700, margin: '0 auto', textAlign: 'center', padding: '72px 20px' }}>
+        <h2 style={{ fontSize: 26, fontWeight: 700, color: '#0F172A', margin: 0 }}>Ready to get started?</h2>
+        <p style={{ fontSize: 14, color: '#8A97A3', marginTop: 8 }}>It takes less than a minute.</p>
+        <button
+          onClick={goToSignUp}
+          style={{
+            marginTop: 24,
+            background: '#14B8A6',
+            color: 'white',
+            border: 'none',
+            borderRadius: 14,
+            padding: '13px 28px',
+            fontSize: 14,
+            fontWeight: 500,
+            cursor: 'pointer',
+          }}
+        >
+          Create your page →
+        </button>
       </div>
 
       {/* Footer */}
