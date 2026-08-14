@@ -1,44 +1,31 @@
 import { useState } from 'react'
 import { supabase } from './supabaseClient'
-
-const COLORS = [
-  { name: 'Teal', value: '#14B8A6' },
-  { name: 'Coral', value: '#F97362' },
-  { name: 'Purple', value: '#8B5CF6' },
-  { name: 'Blue', value: '#3B82F6' },
-  { name: 'Pink', value: '#EC4899' },
-  { name: 'Amber', value: '#F59E0B' },
-  { name: 'Green', value: '#22C55E' },
-  { name: 'Slate', value: '#475569' },
-]
+import { THEMES } from './themes'
 
 export default function ThemeTab({ user, profile, onUpdated }) {
-  const [selected, setSelected] = useState(profile?.theme_color || '#14B8A6')
-  const [saving, setSaving] = useState(false)
+  const [selected, setSelected] = useState(profile?.theme_preset || 'default')
   const [saved, setSaved] = useState(false)
 
-  async function choose(color) {
-    setSelected(color)
-    setSaving(true)
-    await supabase.from('profiles').update({ theme_color: color }).eq('id', user.id)
-    setSaving(false)
-    setSaved(true)
+  async function choose(key) {
+    setSelected(key)
+    await supabase.from('profiles').update({ theme_preset: key }).eq('id', user.id)
     onUpdated()
+    setSaved(true)
     setTimeout(() => setSaved(false), 1500)
   }
 
   return (
     <div style={{ background: 'white', border: '1px solid #E7EDEC', borderRadius: 20, padding: 24 }}>
-      <p style={{ margin: '0 0 4px', fontSize: 14, fontWeight: 600, color: '#0F172A' }}>Page color</p>
+      <p style={{ margin: '0 0 4px', fontSize: 14, fontWeight: 600, color: '#0F172A' }}>Page theme</p>
       <p style={{ margin: '0 0 20px', fontSize: 13, color: '#8A97A3' }}>
-        Choose the accent color for your public page.
+        Pick a look for your public page.
       </p>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
-        {COLORS.map((c) => (
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
+        {Object.entries(THEMES).map(([key, theme]) => (
           <button
-            key={c.value}
-            onClick={() => choose(c.value)}
+            key={key}
+            onClick={() => choose(key)}
             style={{
               display: 'flex',
               flexDirection: 'column',
@@ -47,32 +34,60 @@ export default function ThemeTab({ user, profile, onUpdated }) {
               background: 'none',
               border: 'none',
               cursor: 'pointer',
-              padding: 6,
+              padding: 0,
             }}
           >
             <span
               style={{
-                width: 40,
-                height: 40,
-                borderRadius: '50%',
-                background: c.value,
-                border: selected === c.value ? '3px solid #0F172A' : '3px solid transparent',
-                boxShadow: selected === c.value ? '0 0 0 2px white, 0 0 0 4px #E7EDEC' : 'none',
+                width: '100%',
+                aspectRatio: '0.8',
+                borderRadius: 14,
+                background: theme.swatch,
+                border: selected === key ? '3px solid #0F172A' : '1px solid #E7EDEC',
                 display: 'flex',
-                alignItems: 'center',
+                alignItems: 'flex-end',
                 justifyContent: 'center',
+                padding: 8,
+                boxSizing: 'border-box',
+                position: 'relative',
               }}
             >
-              {selected === c.value && <span style={{ color: 'white', fontSize: 15 }}>✓</span>}
+              {selected === key && (
+                <span
+                  style={{
+                    position: 'absolute',
+                    top: 6,
+                    right: 6,
+                    width: 18,
+                    height: 18,
+                    borderRadius: '50%',
+                    background: '#0F172A',
+                    color: 'white',
+                    fontSize: 10,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  ✓
+                </span>
+              )}
+              <span
+                style={{
+                  width: '70%',
+                  height: 12,
+                  borderRadius: 8,
+                  background: theme.cardBg,
+                  border: '1px solid rgba(0,0,0,0.05)',
+                }}
+              />
             </span>
-            <span style={{ fontSize: 11, color: '#8A97A3' }}>{c.name}</span>
+            <span style={{ fontSize: 11.5, color: '#0F172A', fontWeight: 500 }}>{theme.name}</span>
           </button>
         ))}
       </div>
 
-      {saved && (
-        <p style={{ marginTop: 16, fontSize: 12.5, color: '#0D9488', fontWeight: 500 }}>✓ Color updated</p>
-      )}
+      {saved && <p style={{ marginTop: 18, fontSize: 12.5, color: '#0D9488', fontWeight: 500 }}>✓ Theme updated</p>}
     </div>
   )
 }
