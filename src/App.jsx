@@ -5,6 +5,8 @@ import Login from './Login'
 import Dashboard from './Dashboard'
 import PublicProfile from './PublicProfile'
 import LandingPage from './LandingPage'
+import PrivacyPolicy from './PrivacyPolicy'
+import TermsOfService from './TermsOfService'
 
 export default function App() {
   const [user, setUser] = useState(null)
@@ -37,7 +39,15 @@ export default function App() {
     setPath(newPath)
   }
 
-  const reservedPaths = ['login', 'signup']
+  const reservedPaths = ['login', 'signup', 'privacy', 'terms']
+
+  if (path === 'privacy') {
+    return <PrivacyPolicy goBack={() => goTo('')} />
+  }
+
+  if (path === 'terms') {
+    return <TermsOfService goBack={() => goTo('')} />
+  }
 
   if (path && !reservedPaths.includes(path)) {
     return <PublicProfile username={path.toLowerCase()} />
@@ -57,5 +67,5 @@ export default function App() {
     return <SignUp onDone={() => goTo('')} switchToLogin={() => goTo('login')} />
   }
 
-  return <LandingPage goToLogin={() => goTo('login')} goToSignUp={() => goTo('signup')} />
+  return <LandingPage goToLogin={() => goTo('login')} goToSignUp={() => goTo('signup')} goTo={goTo} />
 }
