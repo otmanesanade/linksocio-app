@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from './supabaseClient'
+import { getTheme } from './themes'
 
 const IconInstagram = ({ color }) => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2">
@@ -129,8 +130,8 @@ export default function PublicProfile({ username }) {
   }
   if (!profile) return null
 
-  const color = profile.theme_color || '#14B8A6'
-  // Light tint of the theme color for icon backgrounds
+  const theme = getTheme(profile.theme_preset)
+  const color = theme.accent
   const tint = `${color}1A`
 
   const buttonLinks = links.filter((l) => l.style !== 'icon')
@@ -146,7 +147,7 @@ export default function PublicProfile({ username }) {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: '#F8FAFA',
+        background: theme.pageBg,
         padding: '48px 16px',
         fontFamily: '-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif',
       }}
@@ -155,9 +156,9 @@ export default function PublicProfile({ username }) {
         <div
           style={{
             position: 'relative',
-            background: 'white',
+            background: theme.cardBg,
             borderRadius: 28,
-            border: '1px solid #E7EDEC',
+            border: '1px solid rgba(0,0,0,0.06)',
             boxShadow: '0 1px 2px rgba(15,23,42,0.04)',
             padding: '40px 28px 32px',
           }}
@@ -168,20 +169,20 @@ export default function PublicProfile({ username }) {
                 width: 80,
                 height: 80,
                 borderRadius: '50%',
-                background: `linear-gradient(135deg, ${color}, #0F172A)`,
+                background: `linear-gradient(135deg, ${color}, ${theme.textColor})`,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                color: 'white',
+                color: '#fff',
                 fontSize: 26,
                 fontWeight: 600,
               }}
             >
               {profile.display_name?.[0]?.toUpperCase() || '?'}
             </div>
-            <h1 style={{ marginTop: 16, fontSize: 17, fontWeight: 600, color: '#0F172A' }}>{profile.display_name}</h1>
+            <h1 style={{ marginTop: 16, fontSize: 17, fontWeight: 600, color: theme.textColor }}>{profile.display_name}</h1>
             {profile.bio && (
-              <p style={{ marginTop: 4, fontSize: 13, color: '#8A97A3', textAlign: 'center' }}>{profile.bio}</p>
+              <p style={{ marginTop: 4, fontSize: 13, color: theme.subTextColor, textAlign: 'center' }}>{profile.bio}</p>
             )}
 
             {topIcons.length > 0 && (
@@ -191,7 +192,7 @@ export default function PublicProfile({ username }) {
             )}
 
             {hasShop && (
-              <div style={{ marginTop: 20, display: 'flex', gap: 6, background: '#F1F2F4', borderRadius: 100, padding: 4 }}>
+              <div style={{ marginTop: 20, display: 'flex', gap: 6, background: tint, borderRadius: 100, padding: 4 }}>
                 <button
                   onClick={() => setTab('links')}
                   style={{
@@ -201,8 +202,8 @@ export default function PublicProfile({ username }) {
                     fontSize: 12.5,
                     fontWeight: 500,
                     cursor: 'pointer',
-                    background: tab === 'links' ? 'white' : 'transparent',
-                    color: '#0F172A',
+                    background: tab === 'links' ? theme.cardBg : 'transparent',
+                    color: theme.textColor,
                     boxShadow: tab === 'links' ? '0 1px 2px rgba(15,23,42,0.08)' : 'none',
                   }}
                 >
@@ -217,8 +218,8 @@ export default function PublicProfile({ username }) {
                     fontSize: 12.5,
                     fontWeight: 500,
                     cursor: 'pointer',
-                    background: tab === 'shop' ? 'white' : 'transparent',
-                    color: '#0F172A',
+                    background: tab === 'shop' ? theme.cardBg : 'transparent',
+                    color: theme.textColor,
                     boxShadow: tab === 'shop' ? '0 1px 2px rgba(15,23,42,0.08)' : 'none',
                   }}
                 >
@@ -247,11 +248,11 @@ export default function PublicProfile({ username }) {
                       alignItems: 'center',
                       gap: 12,
                       borderRadius: 16,
-                      border: '1px solid #E7EDEC',
-                      background: '#FBFCFC',
+                      border: '1px solid rgba(0,0,0,0.06)',
+                      background: 'transparent',
                       padding: '14px 16px',
                       textDecoration: 'none',
-                      color: '#0F172A',
+                      color: theme.textColor,
                       transition: 'all 0.15s',
                       transform: isPressed ? 'scale(0.98)' : 'scale(1)',
                     }}
@@ -273,12 +274,12 @@ export default function PublicProfile({ username }) {
                     <span style={{ flex: 1, minWidth: 0 }}>
                       <span style={{ display: 'block', fontSize: 14, fontWeight: 500 }}>{link.label}</span>
                     </span>
-                    <span style={{ color: '#C2CBD1', fontSize: 14 }}>↗</span>
+                    <span style={{ color: theme.subTextColor, fontSize: 14 }}>↗</span>
                   </a>
                 )
               })}
               {buttonLinks.length === 0 && bottomIcons.length === 0 && topIcons.length === 0 && (
-                <p style={{ textAlign: 'center', color: '#8A97A3', fontSize: 13 }}>No links yet.</p>
+                <p style={{ textAlign: 'center', color: theme.subTextColor, fontSize: 13 }}>No links yet.</p>
               )}
             </div>
           )}
@@ -291,9 +292,9 @@ export default function PublicProfile({ username }) {
                   href={p.external_url}
                   target="_blank"
                   rel="noreferrer"
-                  style={{ display: 'block', borderRadius: 16, border: '1px solid #E7EDEC', overflow: 'hidden', textDecoration: 'none' }}
+                  style={{ display: 'block', borderRadius: 16, border: '1px solid rgba(0,0,0,0.06)', overflow: 'hidden', textDecoration: 'none' }}
                 >
-                  <div style={{ width: '100%', aspectRatio: '1', background: '#F1F2F4', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <div style={{ width: '100%', aspectRatio: '1', background: tint, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     {p.image_url ? (
                       <img src={p.image_url} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     ) : (
@@ -301,7 +302,7 @@ export default function PublicProfile({ username }) {
                     )}
                   </div>
                   <div style={{ padding: '10px 12px' }}>
-                    <p style={{ margin: 0, fontSize: 12.5, fontWeight: 500, color: '#0F172A' }}>{p.name}</p>
+                    <p style={{ margin: 0, fontSize: 12.5, fontWeight: 500, color: theme.textColor }}>{p.name}</p>
                     {p.price && <p style={{ margin: '2px 0 0', fontSize: 12, color, fontWeight: 600 }}>{p.price}</p>}
                   </div>
                 </a>
@@ -316,12 +317,12 @@ export default function PublicProfile({ username }) {
           )}
         </div>
 
-        <div style={{ marginTop: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, fontSize: 12, color: '#A6AFB6' }}>
+        <div style={{ marginTop: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, fontSize: 12, color: theme.subTextColor }}>
           <span>
-            <span style={{ color: '#0F172A', fontWeight: 500 }}>Link</span>
+            <span style={{ color: theme.textColor, fontWeight: 500 }}>Link</span>
             <span style={{ color, fontWeight: 500 }}>Socio</span>
           </span>
-          <span style={{ color: '#C2CBD1' }}>·</span>
+          <span>·</span>
           <span>One tap. Instant connection.</span>
         </div>
       </div>
