@@ -7,6 +7,8 @@ import PublicProfile from './PublicProfile'
 import LandingPage from './LandingPage'
 import PrivacyPolicy from './PrivacyPolicy'
 import TermsOfService from './TermsOfService'
+import ForgotPassword from './ForgotPassword'
+import ResetPassword from './ResetPassword'
 
 export default function App() {
   const [user, setUser] = useState(null)
@@ -39,15 +41,12 @@ export default function App() {
     setPath(newPath)
   }
 
-  const reservedPaths = ['login', 'signup', 'privacy', 'terms']
+  const reservedPaths = ['login', 'signup', 'privacy', 'terms', 'forgot-password', 'reset-password']
 
-  if (path === 'privacy') {
-    return <PrivacyPolicy goBack={() => goTo('')} />
-  }
-
-  if (path === 'terms') {
-    return <TermsOfService goBack={() => goTo('')} />
-  }
+  if (path === 'privacy') return <PrivacyPolicy goBack={() => goTo('')} />
+  if (path === 'terms') return <TermsOfService goBack={() => goTo('')} />
+  if (path === 'forgot-password') return <ForgotPassword switchToLogin={() => goTo('login')} />
+  if (path === 'reset-password') return <ResetPassword onDone={() => goTo('login')} />
 
   if (path && !reservedPaths.includes(path)) {
     return <PublicProfile username={path.toLowerCase()} />
@@ -55,12 +54,12 @@ export default function App() {
 
   if (checking) return null
 
-  if (user) {
+  if (user && path !== 'reset-password') {
     return <Dashboard user={user} />
   }
 
   if (path === 'login') {
-    return <Login onDone={() => goTo('')} switchToSignUp={() => goTo('signup')} />
+    return <Login onDone={() => goTo('')} switchToSignUp={() => goTo('signup')} switchToForgot={() => goTo('forgot-password')} />
   }
 
   if (path === 'signup') {
