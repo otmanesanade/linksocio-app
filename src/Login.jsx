@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { supabase } from './supabaseClient'
 
-export default function Login({ onDone, switchToSignUp }) {
+export default function Login({ onDone, switchToSignUp, switchToForgot }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -116,6 +116,15 @@ export default function Login({ onDone, switchToSignUp }) {
               {loading ? 'Logging in...' : 'Log in'}
             </button>
           </form>
+
+          <p style={{ textAlign: 'center', marginTop: 16 }}>
+            <button
+              onClick={switchToForgot}
+              style={{ background: 'none', border: 'none', color: '#8A97A3', fontSize: 12.5, cursor: 'pointer', padding: 0 }}
+            >
+              Forgot password?
+            </button>
+          </p>
         </div>
 
         <p style={{ textAlign: 'center', fontSize: 13, color: '#8A97A3', marginTop: 20 }}>
