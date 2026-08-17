@@ -62,12 +62,6 @@ const iconSvgFor = (label = '') => {
   return <IconLink />
 }
 
-function normalizeUrl(u) {
-  if (!u) return u
-  if (!/^https?:\/\//i.test(u)) return `https://${u}`
-  return u
-}
-
 const emojiFor = (label = '') => {
   const l = label.toLowerCase()
   if (l.includes('instagram')) return '📷'
@@ -80,7 +74,76 @@ const emojiFor = (label = '') => {
   return '🔗'
 }
 
-function LinksTab({ profile, links, label, url, setLabel, setUrl, adding, addLink, deleteLink, toggleActive, setStyle, setIconPosition, copied, copyLink, qrUrl, downloadQr }) {
+function ProfileCard({ profile, onSaved }) {
+  const [displayName, setDisplayName] = useState(profile?.display_name || '')
+  const [bio, setBio] = useState(profile?.bio || '')
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+
+  useEffect(() => {
+    setDisplayName(profile?.display_name || '')
+    setBio(profile?.bio || '')
+  }, [profile])
+
+  async function save() {
+    setSaving(true)
+    await supabase
+      .from('profiles')
+      .update({ display_name: displayName, bio })
+      .eq('id', profile.id)
+    setSaving(false)
+    setSaved(true)
+    onSaved()
+    setTimeout(() => setSaved(false), 1500)
+  }
+
+  return (
+    <div style={{ background: 'white', border: '1px solid #E7EDEC', borderRadius: 20, padding: 20, marginBottom: 20 }}>
+      <p style={{ margin: '0 0 12px', fontSize: 13, fontWeight: 600, color: '#0F172A' }}>Your profile</p>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div>
+          <label style={{ fontSize: 11.5, color: '#8A97A3', fontWeight: 500 }}>Display name</label>
+          <input
+            value={displayName}
+            onChange={(e) => setDisplayName(e.target.value)}
+            placeholder="Your name"
+            style={{ ...inputStyle, marginTop: 4 }}
+          />
+        </div>
+        <div>
+          <label style={{ fontSize: 11.5, color: '#8A97A3', fontWeight: 500 }}>Bio</label>
+          <textarea
+            value={bio}
+            onChange={(e) => setBio(e.target.value)}
+            placeholder="A short line about you"
+            maxLength={120}
+            rows={2}
+            style={{ ...inputStyle, marginTop: 4, resize: 'none', fontFamily: 'inherit' }}
+          />
+          <p style={{ margin: '4px 0 0', fontSize: 11, color: '#C2CBD1', textAlign: 'right' }}>{bio.length}/120</p>
+        </div>
+        <button
+          onClick={save}
+          disabled={saving}
+          style={{
+            background: saved ? '#E6F7F5' : saving ? '#5DCAA5' : '#14B8A6',
+            color: saved ? '#0D9488' : 'white',
+            border: 'none',
+            borderRadius: 12,
+            padding: '10px',
+            fontSize: 13,
+            fontWeight: 500,
+            cursor: saving ? 'default' : 'pointer',
+          }}
+        >
+          {saved ? '✓ Saved' : saving ? 'Saving...' : 'Save profile'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function LinksTab({ profile, links, label, url, setLabel, setUrl, adding, addLink, deleteLink, toggleActive, setStyle, setIconPosition, copied, copyLink, qrUrl, downloadQr, onProfileSaved }) {
   return (
     <div>
       {profile && (
@@ -109,6 +172,8 @@ function LinksTab({ profile, links, label, url, setLabel, setUrl, adding, addLin
           </button>
         </div>
       )}
+
+      {profile && <ProfileCard profile={profile} onSaved={onProfileSaved} />}
 
       <div style={{ background: 'white', border: '1px solid #E7EDEC', borderRadius: 20, padding: 20, marginBottom: 20 }}>
         <p style={{ margin: '0 0 12px', fontSize: 13, fontWeight: 600, color: '#0F172A' }}>Add a link</p>
@@ -219,7 +284,7 @@ export default function Dashboard({ user }) {
 
   useEffect(() => {
     if (profile) generateQr()
-  }, [profile])
+  }, [profile?.username])
 
   async function loadProfile() {
     const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single()
@@ -254,7 +319,8 @@ export default function Dashboard({ user }) {
     e.preventDefault()
     if (!label || !url) return
     setAdding(true)
-    const { error } = await supabase.from('links').insert({ user_id: user.id, label, url: normalizeUrl(url), position: links.length })
+    const normalized = /^https?:\/\//i.test(url) ? url : `https://${url}`
+    const { error } = await supabase.from('links').insert({ user_id: user.id, label, url: normalized, position: links.length })
     setAdding(false)
     if (!error) {
       setLabel('')
@@ -348,10 +414,7 @@ export default function Dashboard({ user }) {
             ))}
           </div>
 
-          <button
-            onClick={logout}
-            style={{ marginTop: 24, width: '100%', background: 'none', border: '1px solid #E7EDEC', borderRadius: 10, padding: '9px 11px', fontSize: 13, color: '#0F172A', cursor: 'pointer', textAlign: 'left' }}
-          >
+          <button onClick={logout} style={{ marginTop: 24, width: '100%', background: 'none', border: '1px solid #E7EDEC', borderRadius: 10, padding: '9px 11px', fontSize: 13, color: '#0F172A', cursor: 'pointer', textAlign: 'left' }}>
             Log out
           </button>
         </div>
@@ -375,11 +438,12 @@ export default function Dashboard({ user }) {
               copyLink={copyLink}
               qrUrl={qrUrl}
               downloadQr={downloadQr}
+              onProfileSaved={loadProfile}
             />
           )}
-          {tab === 'analytics' && <AnalyticsTab links={links} />}
           {tab === 'shop' && <ShopTab user={user} products={products} reloadProducts={loadProducts} />}
           {tab === 'theme' && <ThemeTab user={user} profile={profile} onUpdated={loadProfile} />}
+          {tab === 'analytics' && <AnalyticsTab links={links} />}
         </div>
 
         <div className="linksocio-preview-panel" style={{ position: 'sticky', top: 24, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
@@ -390,6 +454,9 @@ export default function Dashboard({ user }) {
                 {profile?.display_name?.[0]?.toUpperCase() || '?'}
               </div>
               <p style={{ marginTop: 10, fontSize: 13, fontWeight: 600, color: '#0F172A' }}>{profile?.display_name || 'you'}</p>
+              {profile?.bio && (
+                <p style={{ marginTop: 3, fontSize: 10.5, color: '#8A97A3', textAlign: 'center', lineHeight: 1.4 }}>{profile.bio}</p>
+              )}
 
               {previewTopIcons.length > 0 && (
                 <div style={{ marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
@@ -403,16 +470,10 @@ export default function Dashboard({ user }) {
 
               {products.length > 0 && (
                 <div style={{ marginTop: 14, display: 'flex', gap: 6, background: '#F1F2F4', borderRadius: 100, padding: 3 }}>
-                  <button
-                    onClick={() => setTab('links')}
-                    style={{ border: 'none', cursor: 'pointer', borderRadius: 100, padding: '5px 14px', fontSize: 10.5, fontWeight: 500, background: tab !== 'shop' ? 'white' : 'transparent', color: '#0F172A' }}
-                  >
+                  <button onClick={() => setTab('links')} style={{ border: 'none', cursor: 'pointer', borderRadius: 100, padding: '5px 14px', fontSize: 10.5, fontWeight: 500, background: tab !== 'shop' ? 'white' : 'transparent', color: '#0F172A' }}>
                     Links
                   </button>
-                  <button
-                    onClick={() => setTab('shop')}
-                    style={{ border: 'none', cursor: 'pointer', borderRadius: 100, padding: '5px 14px', fontSize: 10.5, fontWeight: 500, background: tab === 'shop' ? 'white' : 'transparent', color: '#0F172A' }}
-                  >
+                  <button onClick={() => setTab('shop')} style={{ border: 'none', cursor: 'pointer', borderRadius: 100, padding: '5px 14px', fontSize: 10.5, fontWeight: 500, background: tab === 'shop' ? 'white' : 'transparent', color: '#0F172A' }}>
                     Shop
                   </button>
                 </div>
@@ -423,11 +484,7 @@ export default function Dashboard({ user }) {
                   {products.map((p) => (
                     <a key={p.id} href={p.external_url} target="_blank" rel="noreferrer" style={{ borderRadius: 10, border: '1px solid #E7EDEC', overflow: 'hidden', background: 'white', textDecoration: 'none', display: 'block' }}>
                       <div style={{ width: '100%', aspectRatio: '1', background: '#F1F2F4', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        {p.image_url ? (
-                          <img src={p.image_url} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                        ) : (
-                          <span style={{ fontSize: 16 }}>🛍️</span>
-                        )}
+                        {p.image_url ? <img src={p.image_url} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: 16 }}>🛍️</span>}
                       </div>
                       <div style={{ padding: '6px 7px' }}>
                         <p style={{ margin: 0, fontSize: 9.5, fontWeight: 500, color: '#0F172A', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</p>
@@ -438,24 +495,18 @@ export default function Dashboard({ user }) {
                   {products.length === 0 && <p style={{ gridColumn: '1 / -1', textAlign: 'center', fontSize: 11, color: '#C2CBD1', marginTop: 20 }}>No products yet</p>}
                 </div>
               ) : (
-              <div style={{ marginTop: 18, width: '100%', display: 'flex', flexDirection: 'column', gap: 7 }}>
-                {previewButtons.map((link) => (
-                  <a
-                    key={link.id}
-                    href={link.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'white', border: '1px solid #E7EDEC', borderRadius: 11, padding: '9px 11px', textDecoration: 'none', cursor: 'pointer' }}
-                  >
-                    <span style={{ width: 22, height: 22, borderRadius: '50%', background: '#E6F7F5', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      {iconSvgFor(link.label)}
-                    </span>
-                    <span style={{ fontSize: 11.5, fontWeight: 500, color: '#0F172A', flex: 1 }}>{link.label}</span>
-                    <span style={{ fontSize: 10, color: '#C2CBD1' }}>↗</span>
-                  </a>
-                ))}
-                {activeLinks.length === 0 && <p style={{ textAlign: 'center', fontSize: 11, color: '#C2CBD1', marginTop: 20 }}>Your links will appear here</p>}
-              </div>
+                <div style={{ marginTop: 18, width: '100%', display: 'flex', flexDirection: 'column', gap: 7 }}>
+                  {previewButtons.map((link) => (
+                    <a key={link.id} href={link.url} target="_blank" rel="noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'white', border: '1px solid #E7EDEC', borderRadius: 11, padding: '9px 11px', textDecoration: 'none', cursor: 'pointer' }}>
+                      <span style={{ width: 22, height: 22, borderRadius: '50%', background: '#E6F7F5', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        {iconSvgFor(link.label)}
+                      </span>
+                      <span style={{ fontSize: 11.5, fontWeight: 500, color: '#0F172A', flex: 1 }}>{link.label}</span>
+                      <span style={{ fontSize: 10, color: '#C2CBD1' }}>↗</span>
+                    </a>
+                  ))}
+                  {activeLinks.length === 0 && <p style={{ textAlign: 'center', fontSize: 11, color: '#C2CBD1', marginTop: 20 }}>Your links will appear here</p>}
+                </div>
               )}
 
               {previewBottomIcons.length > 0 && (
@@ -486,23 +537,5 @@ export default function Dashboard({ user }) {
   )
 }
 
-const inputStyle = {
-  width: '100%',
-  boxSizing: 'border-box',
-  borderRadius: 12,
-  border: '1px solid #E7EDEC',
-  background: '#FBFCFC',
-  padding: '11px 14px',
-  fontSize: 14,
-  color: '#0F172A',
-  outline: 'none',
-}
-
-const chipStyle = {
-  border: 'none',
-  borderRadius: 8,
-  padding: '4px 10px',
-  fontSize: 11,
-  fontWeight: 500,
-  cursor: 'pointer',
-}
+const inputStyle = { width: '100%', boxSizing: 'border-box', borderRadius: 12, border: '1px solid #E7EDEC', background: '#FBFCFC', padding: '11px 14px', fontSize: 14, color: '#0F172A', outline: 'none' }
+const chipStyle = { border: 'none', borderRadius: 8, padding: '4px 10px', fontSize: 11, fontWeight: 500, cursor: 'pointer' }
