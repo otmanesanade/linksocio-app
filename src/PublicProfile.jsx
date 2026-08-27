@@ -131,6 +131,30 @@ export default function PublicProfile({ username }) {
     supabase.from('links').update({ clicks: (link.clicks || 0) + 1 }).eq('id', link.id).then(() => {})
   }
 
+  function saveContact() {
+    const phoneLink = links.find((l) => l.label.toLowerCase().includes('whatsapp'))
+    const phoneMatch = phoneLink?.url.match(/(\d{6,15})/)
+    const phone = phoneMatch ? phoneMatch[1] : ''
+
+    const vcard = [
+      'BEGIN:VCARD',
+      'VERSION:3.0',
+      `FN:${profile.display_name || profile.username}`,
+      phone ? `TEL;TYPE=CELL:${phone}` : '',
+      `URL:https://linksocio.com/${profile.username}`,
+      profile.bio ? `NOTE:${profile.bio}` : '',
+      'END:VCARD',
+    ]
+      .filter(Boolean)
+      .join('\n')
+
+    const blob = new Blob([vcard], { type: 'text/vcard' })
+    const link = document.createElement('a')
+    link.href = URL.createObjectURL(blob)
+    link.download = `${profile.username}.vcf`
+    link.click()
+  }
+
   if (notFound) {
     return (
       <div style={{ textAlign: 'center', marginTop: 80, fontFamily: 'sans-serif', color: '#8A97A3' }}>
@@ -194,6 +218,26 @@ export default function PublicProfile({ username }) {
             {profile.bio && (
               <p style={{ marginTop: 4, fontSize: 13, color: theme.subTextColor, textAlign: 'center' }}>{profile.bio}</p>
             )}
+
+            <button
+              onClick={saveContact}
+              style={{
+                marginTop: 14,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                background: tint,
+                color: theme.textColor,
+                border: 'none',
+                borderRadius: 100,
+                padding: '7px 16px',
+                fontSize: 12.5,
+                fontWeight: 500,
+                cursor: 'pointer',
+              }}
+            >
+              📇 Save Contact
+            </button>
 
             {topIcons.length > 0 && (
               <div style={{ marginTop: 16 }}>
