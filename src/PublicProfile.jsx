@@ -118,6 +118,16 @@ export default function PublicProfile({ username }) {
   }
 
   async function handleClick(link) {
+    const key = `linksocio_clicked_${link.id}`
+    const lastClick = sessionStorage.getItem(key)
+    const now = Date.now()
+
+    // Only count one click per link per 10 seconds per visitor session
+    if (lastClick && now - parseInt(lastClick, 10) < 10000) {
+      return
+    }
+    sessionStorage.setItem(key, String(now))
+
     supabase.from('links').update({ clicks: (link.clicks || 0) + 1 }).eq('id', link.id).then(() => {})
   }
 
