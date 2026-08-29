@@ -79,66 +79,145 @@ function ProfileCard({ profile, onSaved }) {
   const [bio, setBio] = useState(profile?.bio || '')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [error, setError] = useState('')
 
   useEffect(() => {
     setDisplayName(profile?.display_name || '')
     setBio(profile?.bio || '')
+    setError('')
   }, [profile])
 
-  async function save() {
+  const originalName = profile?.display_name || ''
+  const originalBio = profile?.bio || ''
+  const hasChanges = displayName !== originalName || bio !== originalBio
+  const nameTooLong = displayName.length > 50
+  const bioTooLong = bio.length > 120
+  const canSave = hasChanges && !saving && !nameTooLong && !bioTooLong
+
+  async function save(e) {
+    e?.preventDefault()
+    setError('')
+
+    const cleanName = displayName.trim()
+    const cleanBio = bio.trim()
+
+    if (!cleanName) {
+      setError('Please enter your display name.')
+      return
+    }
+
+    if (cleanName.length > 50) {
+      setError('Display name must be 50 characters or less.')
+      return
+    }
+
+    if (cleanBio.length > 120) {
+      setError('Bio must be 120 characters or less.')
+      return
+    }
+
+    if (!hasChanges) return
+
     setSaving(true)
-    await supabase
+    const { error: updateError } = await supabase
       .from('profiles')
-      .update({ display_name: displayName, bio })
+      .update({ display_name: cleanName, bio: cleanBio })
       .eq('id', profile.id)
+
     setSaving(false)
+
+    if (updateError) {
+      console.error('Profile update failed:', updateError)
+      setError(updateError.message || 'Could not save your profile. Please try again.')
+      return
+    }
+
+    setDisplayName(cleanName)
+    setBio(cleanBio)
     setSaved(true)
-    onSaved()
-    setTimeout(() => setSaved(false), 1500)
+    await onSaved()
+    setTimeout(() => setSaved(false), 1800)
   }
+
+  if (!profile) return null
 
   return (
     <div style={{ background: 'white', border: '1px solid #E7EDEC', borderRadius: 20, padding: 20, marginBottom: 20 }}>
-      <p style={{ margin: '0 0 12px', fontSize: 13, fontWeight: 600, color: '#0F172A' }}>Your profile</p>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 14 }}>
         <div>
-          <label style={{ fontSize: 11.5, color: '#8A97A3', fontWeight: 500 }}>Display name</label>
-          <input
-            value={displayName}
-            onChange={(e) => setDisplayName(e.target.value)}
-            placeholder="Your name"
-            style={{ ...inputStyle, marginTop: 4 }}
-          />
+          <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: '#0F172A' }}>Your profile</p>
+          <p style={{ margin: '3px 0 0', fontSize: 11.5, color: '#8A97A3' }}>This information appears on your public page.</p>
         </div>
-        <div>
-          <label style={{ fontSize: 11.5, color: '#8A97A3', fontWeight: 500 }}>Bio</label>
-          <textarea
-            value={bio}
-            onChange={(e) => setBio(e.target.value)}
-            placeholder="A short line about you"
-            maxLength={120}
-            rows={2}
-            style={{ ...inputStyle, marginTop: 4, resize: 'none', fontFamily: 'inherit' }}
-          />
-          <p style={{ margin: '4px 0 0', fontSize: 11, color: '#C2CBD1', textAlign: 'right' }}>{bio.length}/120</p>
+        <div style={{ width: 42, height: 42, borderRadius: '50%', background: `linear-gradient(135deg, ${profile.theme_color || '#14B8A6'}, #0F172A)`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: 15, fontWeight: 600, flexShrink: 0 }}>
+          {displayName.trim()?.[0]?.toUpperCase() || '?'}
         </div>
-        <button
-          onClick={save}
-          disabled={saving}
-          style={{
-            background: saved ? '#E6F7F5' : saving ? '#5DCAA5' : '#14B8A6',
-            color: saved ? '#0D9488' : 'white',
-            border: 'none',
-            borderRadius: 12,
-            padding: '10px',
-            fontSize: 13,
-            fontWeight: 500,
-            cursor: saving ? 'default' : 'pointer',
-          }}
-        >
-          {saved ? '✓ Saved' : saving ? 'Saving...' : 'Save profile'}
-        </button>
       </div>
+
+      <form onSubmit={save} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div>
+          <label htmlFor="profile-display-name" style={{ fontSize: 11.5, color: '#8A97A3', fontWeight: 500 }}>Display name</label>
+          <input
+            id="profile-display-name"
+            value={displayName}
+            onChange={(e) => { setDisplayName(e.target.value); setError('') }}
+            placeholder="Your name or brand"
+            maxLength={50}
+            autoComplete="name"
+            style={{ ...inputStyle, marginTop: 4, borderColor: nameTooLong ? '#EF4444' : '#E7EDEC' }}
+          />
+          <p style={{ margin: '4px 0 0', fontSize: 11, color: nameTooLong ? '#EF4444' : '#C2CBD1', textAlign: 'right' }}>{displayName.length}/50</p>
+        </div>
+
+        <div>
+          <label htmlFor="profile-bio" style={{ fontSize: 11.5, color: '#8A97A3', fontWeight: 500 }}>Bio</label>
+          <textarea
+            id="profile-bio"
+            value={bio}
+            onChange={(e) => { setBio(e.target.value); setError('') }}
+            placeholder="Tell people a little about you"
+            maxLength={120}
+            rows={3}
+            style={{ ...inputStyle, marginTop: 4, resize: 'vertical', minHeight: 76, fontFamily: 'inherit', borderColor: bioTooLong ? '#EF4444' : '#E7EDEC' }}
+          />
+          <p style={{ margin: '4px 0 0', fontSize: 11, color: bioTooLong ? '#EF4444' : '#C2CBD1', textAlign: 'right' }}>{bio.length}/120</p>
+        </div>
+
+        {error && (
+          <div role="alert" style={{ background: '#FEF2F2', border: '1px solid #FECACA', color: '#B91C1C', borderRadius: 10, padding: '9px 11px', fontSize: 12 }}>
+            {error}
+          </div>
+        )}
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <button
+            type="submit"
+            disabled={!canSave}
+            style={{
+              flex: 1,
+              background: saved ? '#E6F7F5' : canSave ? '#14B8A6' : '#E5E7EB',
+              color: saved ? '#0D9488' : canSave ? 'white' : '#9CA3AF',
+              border: 'none',
+              borderRadius: 12,
+              padding: '10px',
+              fontSize: 13,
+              fontWeight: 600,
+              cursor: canSave ? 'pointer' : 'default',
+              transition: 'all .15s ease',
+            }}
+          >
+            {saved ? '✓ Saved' : saving ? 'Saving...' : hasChanges ? 'Save profile' : 'No changes'}
+          </button>
+          {hasChanges && !saving && (
+            <button
+              type="button"
+              onClick={() => { setDisplayName(originalName); setBio(originalBio); setError('') }}
+              style={{ background: '#F1F2F4', color: '#0F172A', border: 'none', borderRadius: 12, padding: '10px 13px', fontSize: 12, fontWeight: 500, cursor: 'pointer' }}
+            >
+              Reset
+            </button>
+          )}
+        </div>
+      </form>
     </div>
   )
 }
