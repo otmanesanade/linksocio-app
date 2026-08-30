@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../supabaseClient'
 import { getSocialIcon } from './LivePagePreview'
+import { getMediaEmbedInfo } from '../utils/mediaEmbed'
 
 const QUICK_PRESETS = [
   { label: 'Instagram', prefix: 'https://instagram.com/', placeholder: 'username', icon: 'Instagram' },
   { label: 'WhatsApp', prefix: 'https://wa.me/', placeholder: 'phone with country code (e.g. 212600000000)', icon: 'WhatsApp' },
-  { label: 'TikTok', prefix: 'https://tiktok.com/@', placeholder: 'username', icon: 'TikTok' },
-  { label: 'YouTube', prefix: 'https://youtube.com/@', placeholder: 'channel', icon: 'YouTube' },
+  { label: 'TikTok', prefix: 'https://tiktok.com/@', placeholder: 'username or video link', icon: 'TikTok' },
+  { label: 'YouTube', prefix: 'https://youtube.com/watch?v=', placeholder: 'Video link or Channel', icon: 'YouTube' },
+  { label: 'Spotify', prefix: 'https://open.spotify.com/track/', placeholder: 'Track / Album / Playlist URL', icon: 'Music' },
   { label: 'Store / Website', prefix: 'https://', placeholder: 'yourstore.com', icon: 'Globe' },
   { label: 'Telegram', prefix: 'https://t.me/', placeholder: 'channel or username', icon: 'Telegram' },
   { label: 'X (Twitter)', prefix: 'https://x.com/', placeholder: 'username', icon: 'Twitter' },
@@ -42,12 +44,14 @@ export default function LinksManager({
     if (!label || !url) return
     setAdding(true)
     const normalized = /^https?:\/\//i.test(url) ? url : `https://${url}`
+    const embedInfo = getMediaEmbedInfo(normalized)
+    const initialStyle = embedInfo ? 'embed' : 'button'
     const { error } = await supabase.from('links').insert({
       user_id: profile.id,
       label: label.trim(),
       url: normalized.trim(),
       position: links.length,
-      style: 'button',
+      style: initialStyle,
     })
     setAdding(false)
     if (!error) {
@@ -638,10 +642,28 @@ export default function LinksManager({
                       <span style={{ color: '#8A97A3', fontSize: 11 }}>Display format:</span>
                       <button
                         onClick={() => setStyle(link, 'button')}
-                        style={{ ...chipStyle, background: link.style !== 'icon' ? '#0F172A' : '#F1F2F4', color: link.style !== 'icon' ? 'white' : '#0F172A' }}
+                        style={{ ...chipStyle, background: link.style === 'button' || !link.style ? '#0F172A' : '#F1F2F4', color: link.style === 'button' || !link.style ? 'white' : '#0F172A' }}
                       >
                         Full Button Card
                       </button>
+                      
+                      {getMediaEmbedInfo(link.url) && (
+                        <button
+                          onClick={() => setStyle(link, 'embed')}
+                          style={{
+                            ...chipStyle,
+                            background: link.style === 'embed' ? '#14B8A6' : '#F1F2F4',
+                            color: link.style === 'embed' ? 'white' : '#0F172A',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 4,
+                          }}
+                        >
+                          <span>▶️</span>
+                          <span>Interactive Media Player</span>
+                        </button>
+                      )}
+
                       <button
                         onClick={() => setStyle(link, 'icon')}
                         style={{ ...chipStyle, background: link.style === 'icon' ? '#0F172A' : '#F1F2F4', color: link.style === 'icon' ? 'white' : '#0F172A' }}

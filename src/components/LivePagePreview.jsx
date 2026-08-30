@@ -4,6 +4,8 @@ import { getTheme, getFont, getButtonStyle } from '../themes'
 import confetti from 'canvas-confetti'
 import QRCode from 'qrcode'
 import InquiryCard from './InquiryCard'
+import MediaEmbedCard from './MediaEmbedCard'
+import { getMediaEmbedInfo } from '../utils/mediaEmbed'
 
 // SVG Social Icons
 const IconInstagram = ({ color = 'currentColor', size = 18 }) => (
@@ -441,6 +443,22 @@ export function LivePagePreview({ profile, links = [], products = [], isEmbedded
             <div style={{ marginTop: isEmbedded ? 16 : 24, display: 'flex', flexDirection: 'column', gap: isEmbedded ? 8 : 12 }}>
               {buttonLinks.map((link) => {
                 const isPressed = pressedId === link.id
+                const embedInfo = getMediaEmbedInfo(link.url)
+                const isEmbedStyle = link.style === 'embed' || (embedInfo && link.style !== 'button' && link.style !== 'icon')
+
+                if (isEmbedStyle && embedInfo) {
+                  return (
+                    <MediaEmbedCard
+                      key={link.id}
+                      link={link}
+                      theme={theme}
+                      btnStyle={btnStyle}
+                      isEmbedded={isEmbedded}
+                      onMediaClick={handleLinkClick}
+                    />
+                  )
+                }
+
                 return (
                   <a
                     key={link.id}
