@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { supabase } from '../supabaseClient'
 import { getTheme, getFont, getButtonStyle } from '../themes'
 import confetti from 'canvas-confetti'
+import QRCode from 'qrcode'
 
 // SVG Social Icons
 const IconInstagram = ({ color = 'currentColor', size = 18 }) => (
@@ -93,10 +94,26 @@ export function LivePagePreview({ profile, links = [], products = [], isEmbedded
   const [tab, setTab] = useState(activeTabOverride || 'links')
   const [pressedId, setPressedId] = useState(null)
   const [copiedContact, setCopiedContact] = useState(false)
+  const [showQrModal, setShowQrModal] = useState(false)
+  const [publicQrUrl, setPublicQrUrl] = useState(null)
 
   useEffect(() => {
     if (activeTabOverride) setTab(activeTabOverride)
   }, [activeTabOverride])
+
+  useEffect(() => {
+    if (profile?.username) {
+      const currentOrigin = typeof window !== 'undefined' ? window.location.origin : 'https://linksocio.com'
+      const pageUrl = `${currentOrigin}/${profile.username}`
+      QRCode.toDataURL(pageUrl, {
+        width: 380,
+        margin: 2,
+        color: { dark: '#0F172A', light: '#FFFFFF' },
+      })
+        .then((url) => setPublicQrUrl(url))
+        .catch(() => {})
+    }
+  }, [profile?.username])
 
   const themeKey = profile?.theme_preset || 'default'
   const fontKey = profile?.font_family || 'default'
@@ -275,6 +292,28 @@ export function LivePagePreview({ profile, links = [], products = [], isEmbedded
               >
                 <span>📇</span>
                 <span>{copiedContact ? '✓ Saved!' : 'Save Contact'}</span>
+              </button>
+
+              <button
+                onClick={() => setShowQrModal(true)}
+                title="View QR Code"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 5,
+                  background: tint,
+                  color: theme.textColor,
+                  border: 'none',
+                  borderRadius: 100,
+                  padding: isEmbedded ? '6px 11px' : '8px 14px',
+                  fontSize: isEmbedded ? 11 : 12.5,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                <span>🔲</span>
+                <span>QR</span>
               </button>
 
               {whatsappLink && (
@@ -584,6 +623,133 @@ export function LivePagePreview({ profile, links = [], products = [], isEmbedded
           <span>Build your audience</span>
         </div>
       </div>
+
+      {/* QR Code Modal for Visitors & Live Preview */}
+      {showQrModal && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(15,23,42,0.75)',
+            zIndex: 9999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 16,
+            backdropFilter: 'blur(5px)',
+          }}
+          onClick={() => setShowQrModal(false)}
+        >
+          <div
+            style={{
+              background: 'white',
+              borderRadius: 24,
+              padding: '28px 24px',
+              maxWidth: 340,
+              width: '100%',
+              textAlign: 'center',
+              boxShadow: '0 20px 40px rgba(0,0,0,0.3)',
+              position: 'relative',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setShowQrModal(false)}
+              style={{
+                position: 'absolute',
+                top: 14,
+                right: 14,
+                background: '#F1F5F9',
+                border: 'none',
+                borderRadius: '50%',
+                width: 32,
+                height: 32,
+                fontSize: 14,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#64748B',
+              }}
+            >
+              ✕
+            </button>
+
+            <h3 style={{ margin: '0 0 4px', fontSize: 18, fontWeight: 700, color: '#0F172A' }}>
+              Scan QR Code
+            </h3>
+            <p style={{ margin: '0 0 16px', fontSize: 12.5, color: '#64748B' }}>
+              Open <strong>@{profile?.username}</strong> on your phone camera
+            </p>
+
+            {publicQrUrl ? (
+              <div
+                style={{
+                  background: '#F8FAFA',
+                  border: '1px solid #E2E8F0',
+                  borderRadius: 16,
+                  padding: 14,
+                  display: 'inline-block',
+                  margin: '0 auto 16px',
+                }}
+              >
+                <img
+                  src={publicQrUrl}
+                  alt={`QR code for ${profile?.username}`}
+                  style={{ width: 190, height: 190, display: 'block', borderRadius: 6 }}
+                />
+              </div>
+            ) : (
+              <div style={{ height: 190, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94A3B8', fontSize: 13 }}>
+                Generating QR code...
+              </div>
+            )}
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {publicQrUrl && (
+                <a
+                  href={publicQrUrl}
+                  download={`linksocio-${profile?.username}-qr.png`}
+                  style={{
+                    display: 'block',
+                    background: '#0F172A',
+                    color: 'white',
+                    borderRadius: 12,
+                    padding: '10px 16px',
+                    fontSize: 13,
+                    fontWeight: 600,
+                    textDecoration: 'none',
+                  }}
+                >
+                  📥 Save QR Image
+                </a>
+              )}
+              <button
+                onClick={() => {
+                  const currentOrigin = typeof window !== 'undefined' ? window.location.origin : 'https://linksocio.com'
+                  navigator.clipboard.writeText(`${currentOrigin}/${profile?.username}`)
+                  try {
+                    confetti({ particleCount: 30, spread: 40 })
+                  } catch (e) {}
+                  setShowQrModal(false)
+                }}
+                style={{
+                  background: '#F1F5F9',
+                  color: '#0F172A',
+                  border: 'none',
+                  borderRadius: 12,
+                  padding: '10px 16px',
+                  fontSize: 12.5,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                📋 Copy Link
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <style>{`
         @keyframes gradientAnimation {

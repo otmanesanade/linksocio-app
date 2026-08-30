@@ -30,6 +30,7 @@ export default function LinksManager({
   const [dragOverIdx, setDragOverIdx] = useState(null)
   const [activePreset, setActivePreset] = useState(null)
   const [presetInput, setPresetInput] = useState('')
+  const [showQrModal, setShowQrModal] = useState(false)
 
   // Edit Link modal/inline
   const [editingId, setEditingId] = useState(null)
@@ -203,26 +204,172 @@ export default function LinksManager({
               <span style={{ fontSize: 12, color: '#14B8A6' }}>↗</span>
             </a>
           </div>
-          <button
-            onClick={copyLink}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <button
+              onClick={() => setShowQrModal(true)}
+              style={{
+                flexShrink: 0,
+                background: '#F1F5F9',
+                color: '#0F172A',
+                border: '1px solid #E2E8F0',
+                borderRadius: 10,
+                padding: '9px 14px',
+                fontSize: 12.5,
+                fontWeight: 600,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                transition: 'all 0.15s ease',
+              }}
+            >
+              <span>🔲</span>
+              <span>QR Code</span>
+            </button>
+            <button
+              onClick={copyLink}
+              style={{
+                flexShrink: 0,
+                background: copied ? '#E6F7F5' : '#0F172A',
+                color: copied ? '#0D9488' : 'white',
+                border: 'none',
+                borderRadius: 10,
+                padding: '9px 16px',
+                fontSize: 12.5,
+                fontWeight: 600,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                transition: 'all 0.15s ease',
+              }}
+            >
+              <span>{copied ? '✓ Copied' : '📋 Copy Link'}</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* QR Code Quick Modal */}
+      {showQrModal && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(15,23,42,0.7)',
+            zIndex: 1000,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 16,
+            backdropFilter: 'blur(4px)',
+          }}
+          onClick={() => setShowQrModal(false)}
+        >
+          <div
             style={{
-              flexShrink: 0,
-              background: copied ? '#E6F7F5' : '#0F172A',
-              color: copied ? '#0D9488' : 'white',
-              border: 'none',
-              borderRadius: 10,
-              padding: '9px 16px',
-              fontSize: 12.5,
-              fontWeight: 600,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-              transition: 'all 0.15s ease',
+              background: 'white',
+              borderRadius: 24,
+              padding: '28px 24px',
+              maxWidth: 360,
+              width: '100%',
+              textAlign: 'center',
+              boxShadow: '0 25px 50px -12px rgba(15,23,42,0.25)',
+              position: 'relative',
             }}
+            onClick={(e) => e.stopPropagation()}
           >
-            <span>{copied ? '✓ Copied' : '📋 Copy Link'}</span>
-          </button>
+            <button
+              onClick={() => setShowQrModal(false)}
+              style={{
+                position: 'absolute',
+                top: 14,
+                right: 14,
+                background: '#F1F5F9',
+                border: 'none',
+                borderRadius: '50%',
+                width: 32,
+                height: 32,
+                fontSize: 14,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#64748B',
+              }}
+            >
+              ✕
+            </button>
+
+            <h3 style={{ margin: '0 0 6px', fontSize: 18, fontWeight: 800, color: '#0F172A' }}>
+              Your QR Code
+            </h3>
+            <p style={{ margin: '0 0 18px', fontSize: 12.5, color: '#64748B' }}>
+              Scan to open <strong>@{profile?.username}</strong>
+            </p>
+
+            {qrUrl ? (
+              <div
+                style={{
+                  background: '#F8FAFA',
+                  border: '1px solid #E2E8F0',
+                  borderRadius: 16,
+                  padding: 16,
+                  display: 'inline-block',
+                  margin: '0 auto 20px',
+                }}
+              >
+                <img
+                  src={qrUrl}
+                  alt={`QR code for ${profile?.username}`}
+                  style={{ width: 190, height: 190, display: 'block', borderRadius: 6 }}
+                />
+              </div>
+            ) : (
+              <div style={{ height: 190, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#8A97A3' }}>
+                Loading QR Code...
+              </div>
+            )}
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <button
+                onClick={downloadQr}
+                style={{
+                  width: '100%',
+                  background: '#0F172A',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: 12,
+                  padding: '11px',
+                  fontSize: 13,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 6,
+                }}
+              >
+                <span>📥 Download High-Res PNG</span>
+              </button>
+              <button
+                onClick={copyLink}
+                style={{
+                  width: '100%',
+                  background: '#F1F5F9',
+                  color: '#0F172A',
+                  border: 'none',
+                  borderRadius: 12,
+                  padding: '10px',
+                  fontSize: 12.5,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                {copied ? '✓ Link Copied!' : '📋 Copy Profile URL'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

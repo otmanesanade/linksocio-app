@@ -5,6 +5,7 @@ import LinksManager from './components/LinksManager'
 import ShopTab from './ShopTab'
 import ThemeTab from './ThemeTab'
 import Analytics from './Analytics'
+import QrTab from './components/QrTab'
 import { LivePagePreview } from './components/LivePagePreview'
 import confetti from 'canvas-confetti'
 
@@ -192,13 +193,19 @@ export default function Dashboard({ user }) {
   }
 
   async function generateQr() {
-    const pageUrl = `https://linksocio.com/${profile.username}`
-    const dataUrl = await QRCode.toDataURL(pageUrl, {
-      width: 400,
-      margin: 2,
-      color: { dark: '#0F172A', light: '#FFFFFF' },
-    })
-    setQrUrl(dataUrl)
+    if (!profile?.username) return
+    const currentOrigin = typeof window !== 'undefined' ? window.location.origin : 'https://linksocio.com'
+    const pageUrl = `${currentOrigin}/${profile.username}`
+    try {
+      const dataUrl = await QRCode.toDataURL(pageUrl, {
+        width: 450,
+        margin: 2,
+        color: { dark: '#0F172A', light: '#FFFFFF' },
+      })
+      setQrUrl(dataUrl)
+    } catch (err) {
+      console.error('Failed to generate QR code:', err)
+    }
   }
 
   function downloadQr() {
@@ -228,6 +235,7 @@ export default function Dashboard({ user }) {
     { key: 'links', label: 'Links & Socials', icon: '🔗' },
     { key: 'shop', label: 'Store & Products', icon: '🛍️' },
     { key: 'theme', label: 'Appearance & Themes', icon: '🎨' },
+    { key: 'qr', label: 'QR Code', icon: '🔲' },
     { key: 'analytics', label: 'Analytics', icon: '📊' },
   ]
 
@@ -356,6 +364,9 @@ export default function Dashboard({ user }) {
           )}
           {tab === 'theme' && (
             <ThemeTab user={user} profile={profile} onUpdated={loadProfile} />
+          )}
+          {tab === 'qr' && (
+            <QrTab profile={profile} qrUrl={qrUrl} downloadQr={downloadQr} />
           )}
           {tab === 'analytics' && (
             <Analytics links={links} />
