@@ -1,18 +1,38 @@
 import { useState } from 'react'
 import confetti from 'canvas-confetti'
 import { downloadVCard } from '../utils/walletPass'
+import { openWalletDirect } from '../utils/passGenerator'
 
 export default function WalletPassModal({ profile, qrUrl, whatsappPhone = '', onClose }) {
+  const [activeTab, setActiveTab] = useState('apple') // 'apple' | 'google' | 'card'
   const [copiedLink, setCopiedLink] = useState(false)
-  const [showAppleGuide, setShowAppleGuide] = useState(false)
-  const [showGoogleGuide, setShowGoogleGuide] = useState(false)
+  const [downloading, setDownloading] = useState(null)
 
   const origin = typeof window !== 'undefined' ? window.location.origin : 'https://linksocio.com'
   const fullUrl = `${origin}/${profile?.username || ''}`
+  const name = profile?.display_name || profile?.username || 'Creator'
+
+  function triggerDirectAppleWallet() {
+    setDownloading('apple')
+    try {
+      confetti({ particleCount: 40, spread: 60, origin: { y: 0.6 } })
+    } catch (e) {}
+    openWalletDirect('apple', profile, qrUrl)
+    setTimeout(() => setDownloading(null), 1200)
+  }
+
+  function triggerDirectGoogleWallet() {
+    setDownloading('google')
+    try {
+      confetti({ particleCount: 40, spread: 60, origin: { y: 0.6 } })
+    } catch (e) {}
+    openWalletDirect('google', profile, qrUrl)
+    setTimeout(() => setDownloading(null), 1200)
+  }
 
   function handleSaveContact() {
     try {
-      confetti({ particleCount: 50, spread: 60, origin: { y: 0.6 } })
+      confetti({ particleCount: 30, spread: 50, origin: { y: 0.6 } })
     } catch (e) {}
     downloadVCard(profile, whatsappPhone)
   }
@@ -28,13 +48,13 @@ export default function WalletPassModal({ profile, qrUrl, whatsappPhone = '', on
       style={{
         position: 'fixed',
         inset: 0,
-        background: 'rgba(15,23,42,0.8)',
+        background: 'rgba(15,23,42,0.85)',
         zIndex: 99999,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         padding: 16,
-        backdropFilter: 'blur(6px)',
+        backdropFilter: 'blur(8px)',
       }}
       onClick={onClose}
     >
@@ -43,11 +63,11 @@ export default function WalletPassModal({ profile, qrUrl, whatsappPhone = '', on
           background: 'white',
           borderRadius: 24,
           padding: '24px 20px',
-          maxWidth: 380,
+          maxWidth: 400,
           width: '100%',
-          boxShadow: '0 25px 50px -12px rgba(0,0,0,0.35)',
+          boxShadow: '0 25px 50px -12px rgba(0,0,0,0.4)',
           position: 'relative',
-          maxHeight: '90vh',
+          maxHeight: '92vh',
           overflowY: 'auto',
         }}
         onClick={(e) => e.stopPropagation()}
@@ -75,143 +95,148 @@ export default function WalletPassModal({ profile, qrUrl, whatsappPhone = '', on
           ✕
         </button>
 
-        {/* Header */}
-        <div style={{ textAlign: 'center', marginBottom: 18 }}>
-          <div
-            style={{
-              width: 52,
-              height: 52,
-              borderRadius: 16,
-              background: 'linear-gradient(135deg, #0F172A, #334155)',
-              color: 'white',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: 26,
-              margin: '0 auto 10px',
-              boxShadow: '0 4px 12px rgba(15,23,42,0.2)',
-            }}
-          >
-            💳
-          </div>
+        {/* Title */}
+        <div style={{ textAlign: 'center', marginBottom: 16 }}>
+          <span style={{ fontSize: 28, display: 'block', marginBottom: 6 }}>💳</span>
           <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: '#0F172A' }}>
-            Digital Wallet & Contact Card
+            Direct Wallet Pass
           </h3>
-          <p style={{ margin: '4px 0 0', fontSize: 12.5, color: '#64748B' }}>
-            Add @{profile?.username} to Apple Wallet, Google Wallet & Phone Contacts
+          <p style={{ margin: '3px 0 0', fontSize: 12.5, color: '#64748B' }}>
+            Add @{profile?.username} directly to your phone’s Wallet
           </p>
         </div>
 
-        {/* Mini Preview Pass Card */}
+        {/* Live Wallet Card Mockup */}
         <div
           style={{
-            background: 'linear-gradient(135deg, #1E293B 0%, #0F172A 100%)',
-            borderRadius: 18,
-            padding: '16px',
+            background: activeTab === 'apple' 
+              ? 'linear-gradient(145deg, #18181B 0%, #09090B 100%)' 
+              : 'linear-gradient(145deg, #1E3A8A 0%, #172554 100%)',
+            borderRadius: 20,
+            padding: 18,
             color: 'white',
-            marginBottom: 20,
-            border: '1px solid rgba(255,255,255,0.1)',
-            boxShadow: '0 10px 25px -5px rgba(15,23,42,0.3)',
+            marginBottom: 18,
+            boxShadow: '0 12px 30px -8px rgba(0,0,0,0.35)',
+            border: '1px solid rgba(255,255,255,0.12)',
+            transition: 'all 0.3s ease',
           }}
         >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          {/* Card Top Header */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ fontSize: 14 }}>⚡</span>
-              <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.5, color: '#14B8A6' }}>LINKSOCIO PASS</span>
+              <span style={{ fontSize: 14 }}>{activeTab === 'apple' ? '' : '💳'}</span>
+              <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.8, color: '#38BDF8' }}>
+                {activeTab === 'apple' ? 'APPLE WALLET PASS' : 'GOOGLE WALLET PASS'}
+              </span>
             </div>
-            <span style={{ fontSize: 11, background: 'rgba(255,255,255,0.15)', padding: '2px 8px', borderRadius: 100 }}>
+            <span style={{ fontSize: 10, background: 'rgba(255,255,255,0.15)', padding: '2px 8px', borderRadius: 100 }}>
               VERIFIED
             </span>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            {qrUrl ? (
-              <div style={{ background: 'white', padding: 6, borderRadius: 10, flexShrink: 0 }}>
-                <img src={qrUrl} alt="QR" style={{ width: 68, height: 68, display: 'block', borderRadius: 4 }} />
+          {/* Card Content & QR */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 12 }}>
+            {qrUrl && (
+              <div style={{ background: 'white', padding: 6, borderRadius: 12, flexShrink: 0 }}>
+                <img src={qrUrl} alt="QR Code" style={{ width: 74, height: 74, display: 'block', borderRadius: 4 }} />
               </div>
-            ) : null}
+            )}
 
-            <div style={{ minWidth: 0, flex: 1 }}>
-              <p style={{ margin: 0, fontSize: 15, fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                {profile?.display_name || profile?.username || 'Creator'}
-              </p>
-              <p style={{ margin: '2px 0 0', fontSize: 12, color: '#94A3B8' }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 10, color: '#94A3B8', fontWeight: 600, textTransform: 'uppercase' }}>
+                CREATOR / BUSINESS
+              </div>
+              <div style={{ fontSize: 16, fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {name}
+              </div>
+              <div style={{ fontSize: 12, color: '#38BDF8', fontWeight: 600 }}>
                 @{profile?.username}
-              </p>
-              <p style={{ margin: '4px 0 0', fontSize: 11, color: '#14B8A6', wordBreak: 'break-all' }}>
+              </div>
+              <div style={{ fontSize: 10.5, color: '#CBD5E1', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 linksocio.com/{profile?.username}
-              </p>
+              </div>
             </div>
+          </div>
+
+          <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: 10, display: 'flex', justifyContent: 'space-between', fontSize: 10.5, color: '#94A3B8' }}>
+            <span>TAP TO SCAN & CONNECT</span>
+            <span style={{ color: '#F8FAFC' }}>LinkSocio Verified</span>
           </div>
         </div>
 
-        {/* Action Buttons for Apple & Google Wallet */}
+        {/* Direct Action Buttons */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {/* 1. Apple Wallet Card */}
+          {/* 1. Direct Apple Wallet */}
           <button
+            type="button"
             onClick={() => {
-              handleSaveContact()
-              setShowAppleGuide(true)
+              setActiveTab('apple')
+              triggerDirectAppleWallet()
             }}
             style={{
               background: '#000000',
               color: '#FFFFFF',
               border: 'none',
               borderRadius: 14,
-              padding: '12px 16px',
+              padding: '13px 18px',
               fontSize: 13.5,
               fontWeight: 700,
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
-              boxShadow: '0 4px 14px rgba(0,0,0,0.2)',
-              transition: 'transform 0.1s ease',
+              boxShadow: '0 4px 14px rgba(0,0,0,0.25)',
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span style={{ fontSize: 18 }}></span>
+              <span style={{ fontSize: 20 }}></span>
               <div style={{ textAlign: 'left' }}>
-                <div style={{ fontSize: 13, fontWeight: 700 }}>Add to Apple Wallet & Contacts</div>
-                <div style={{ fontSize: 10.5, color: '#94A3B8', fontWeight: 500 }}>Save smart card on iPhone / iOS</div>
+                <div style={{ fontSize: 13.5, fontWeight: 700 }}>
+                  {downloading === 'apple' ? 'Opening in Wallet...' : 'Add to Apple Wallet'}
+                </div>
+                <div style={{ fontSize: 10.5, color: '#94A3B8' }}>Opens directly on iPhone & Apple Watch</div>
               </div>
             </div>
-            <span style={{ fontSize: 14 }}>📥</span>
+            <span style={{ fontSize: 14 }}>➔</span>
           </button>
 
-          {/* 2. Google Wallet / Android */}
+          {/* 2. Direct Google Wallet */}
           <button
+            type="button"
             onClick={() => {
-              handleSaveContact()
-              setShowGoogleGuide(true)
+              setActiveTab('google')
+              triggerDirectGoogleWallet()
             }}
             style={{
               background: '#FFFFFF',
-              color: '#1F2937',
-              border: '1.5px solid #E5E7EB',
+              color: '#0F172A',
+              border: '2px solid #E2E8F0',
               borderRadius: 14,
-              padding: '12px 16px',
+              padding: '12px 18px',
               fontSize: 13.5,
               fontWeight: 700,
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <span style={{ fontSize: 18 }}>💳</span>
               <div style={{ textAlign: 'left' }}>
-                <div style={{ fontSize: 13, fontWeight: 700 }}>Save to Google Wallet & Contacts</div>
-                <div style={{ fontSize: 10.5, color: '#6B7280', fontWeight: 500 }}>For Android & Google Contacts</div>
+                <div style={{ fontSize: 13.5, fontWeight: 700 }}>
+                  {downloading === 'google' ? 'Connecting to Google...' : 'Add to Google Wallet'}
+                </div>
+                <div style={{ fontSize: 10.5, color: '#64748B' }}>Direct link for Android phones</div>
               </div>
             </div>
-            <span style={{ fontSize: 14 }}>📥</span>
+            <span style={{ fontSize: 14 }}>➔</span>
           </button>
 
-          {/* 3. Direct Contact Card File (.vcf) */}
+          {/* 3. Direct Contact File */}
           <button
+            type="button"
             onClick={handleSaveContact}
             style={{
               background: '#F0FDFA',
@@ -219,7 +244,7 @@ export default function WalletPassModal({ profile, qrUrl, whatsappPhone = '', on
               border: '1px solid #99F6E4',
               borderRadius: 14,
               padding: '11px 16px',
-              fontSize: 13,
+              fontSize: 12.5,
               fontWeight: 700,
               cursor: 'pointer',
               display: 'flex',
@@ -229,40 +254,28 @@ export default function WalletPassModal({ profile, qrUrl, whatsappPhone = '', on
             }}
           >
             <span>📇</span>
-            <span>Download .vcf Business Card</span>
+            <span>Save to Phone Contacts (vCard)</span>
           </button>
         </div>
 
-        {/* Apple Wallet Instructions tip */}
-        {showAppleGuide && (
-          <div style={{ marginTop: 14, background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 12, padding: 12, fontSize: 11.5, color: '#475569', lineHeight: 1.5 }}>
-            <strong> iPhone Tip:</strong> After downloading, tap the file in your Safari / Downloads to instantly create a Contact with direct LinkSocio and WhatsApp links!
-          </div>
-        )}
-
-        {showGoogleGuide && (
-          <div style={{ marginTop: 14, background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 12, padding: 12, fontSize: 11.5, color: '#475569', lineHeight: 1.5 }}>
-            <strong>💳 Android Tip:</strong> Open the downloaded contact file to sync directly to your Google Account contacts.
-          </div>
-        )}
-
-        {/* Copy Link fallback */}
+        {/* Footer info */}
         <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid #F1F5F9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span style={{ fontSize: 12, color: '#64748B' }}>Quick profile link:</span>
+          <span style={{ fontSize: 11.5, color: '#94A3B8' }}>Link: /{profile?.username}</span>
           <button
+            type="button"
             onClick={handleCopy}
             style={{
               background: copiedLink ? '#E6F7F5' : '#F1F5F9',
               color: copiedLink ? '#0D9488' : '#334155',
               border: 'none',
               borderRadius: 8,
-              padding: '5px 10px',
+              padding: '4px 10px',
               fontSize: 11.5,
               fontWeight: 600,
               cursor: 'pointer',
             }}
           >
-            {copiedLink ? '✓ Copied' : '📋 Copy URL'}
+            {copiedLink ? '✓ Copied' : '📋 Copy Link'}
           </button>
         </div>
       </div>
