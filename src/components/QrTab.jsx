@@ -1,8 +1,11 @@
 import { useState } from 'react'
 import confetti from 'canvas-confetti'
+import { downloadVCard } from '../utils/walletPass'
+import WalletPassModal from './WalletPassModal'
 
 export default function QrTab({ profile, qrUrl, downloadQr }) {
   const [copiedLink, setCopiedLink] = useState(false)
+  const [showWalletModal, setShowWalletModal] = useState(false)
   const currentOrigin = typeof window !== 'undefined' ? window.location.origin : 'https://linksocio.com'
   const fullUrl = `${currentOrigin}/${profile?.username || ''}`
 
@@ -15,9 +18,90 @@ export default function QrTab({ profile, qrUrl, downloadQr }) {
     setTimeout(() => setCopiedLink(false), 2000)
   }
 
+  function handleDownloadVCard() {
+    try {
+      confetti({ particleCount: 40, spread: 60, origin: { y: 0.7 } })
+    } catch (e) {}
+    downloadVCard(profile, profile?.whatsapp_number || '')
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      {/* Header Info */}
+      {/* 1. Official Digital Wallet Pass Section */}
+      <div
+        style={{
+          background: 'linear-gradient(135deg, #0F172A 0%, #1E293B 100%)',
+          borderRadius: 24,
+          padding: '24px',
+          color: 'white',
+          position: 'relative',
+          overflow: 'hidden',
+          boxShadow: '0 10px 30px -10px rgba(15,23,42,0.3)',
+        }}
+      >
+        <div style={{ position: 'relative', zIndex: 2 }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,0.12)', padding: '4px 12px', borderRadius: 100, marginBottom: 12 }}>
+            <span style={{ fontSize: 13 }}> 💳</span>
+            <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: 0.5, color: '#2DD4BF' }}>
+              APPLE & GOOGLE WALLET PASS
+            </span>
+          </div>
+
+          <h2 style={{ margin: '0 0 6px', fontSize: 20, fontWeight: 800, color: '#FFFFFF' }}>
+            Smart Digital Business Card
+          </h2>
+          <p style={{ margin: '0 0 20px', fontSize: 13, color: '#94A3B8', maxWidth: 480, lineHeight: 1.5 }}>
+            Allow your followers and clients to add your profile, contact details, and QR code directly into their <strong>Apple Wallet</strong> and <strong>Google Wallet</strong> apps.
+          </p>
+
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              onClick={() => setShowWalletModal(true)}
+              style={{
+                background: '#FFFFFF',
+                color: '#0F172A',
+                border: 'none',
+                borderRadius: 12,
+                padding: '11px 20px',
+                fontSize: 13,
+                fontWeight: 700,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                boxShadow: '0 4px 12px rgba(255,255,255,0.15)',
+              }}
+            >
+              <span>💳</span>
+              <span>Preview & Export Wallet Pass</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleDownloadVCard}
+              style={{
+                background: 'rgba(255,255,255,0.1)',
+                color: '#FFFFFF',
+                border: '1px solid rgba(255,255,255,0.2)',
+                borderRadius: 12,
+                padding: '11px 18px',
+                fontSize: 13,
+                fontWeight: 600,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+              }}
+            >
+              <span>📇</span>
+              <span>Download .VCF Card</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* 2. Official QR Code Card Section */}
       <div
         style={{
           background: 'white',
@@ -32,13 +116,13 @@ export default function QrTab({ profile, qrUrl, downloadQr }) {
         <div>
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#E6F7F5', padding: '4px 12px', borderRadius: 100, marginBottom: 8 }}>
             <span style={{ fontSize: 13 }}>🔲</span>
-            <span style={{ fontSize: 12, fontWeight: 700, color: '#0D9488' }}>OFFICIAL QR CODE</span>
+            <span style={{ fontSize: 12, fontWeight: 700, color: '#0D9488' }}>HIGH RESOLUTION QR CODE</span>
           </div>
-          <h2 style={{ margin: '0 0 6px', fontSize: 20, fontWeight: 800, color: '#0F172A' }}>
-            Your Profile QR Code
-          </h2>
-          <p style={{ margin: 0, fontSize: 13.5, color: '#64748B', lineHeight: 1.5 }}>
-            Print this high-resolution QR code on stickers, restaurant menus, packaging, packaging bags, business cards, or storefront posters.
+          <h3 style={{ margin: '0 0 6px', fontSize: 18, fontWeight: 800, color: '#0F172A' }}>
+            Print & Shareable QR Code
+          </h3>
+          <p style={{ margin: 0, fontSize: 13, color: '#64748B', lineHeight: 1.5 }}>
+            Print this high-resolution QR code on stickers, restaurant menus, packaging bags, business cards, or storefront posters.
           </p>
         </div>
 
@@ -158,6 +242,16 @@ export default function QrTab({ profile, qrUrl, downloadQr }) {
           </ul>
         </div>
       </div>
+
+      {/* Wallet Pass Modal */}
+      {showWalletModal && (
+        <WalletPassModal
+          profile={profile}
+          qrUrl={qrUrl}
+          whatsappPhone={profile?.whatsapp_number || ''}
+          onClose={() => setShowWalletModal(false)}
+        />
+      )}
     </div>
   )
 }
