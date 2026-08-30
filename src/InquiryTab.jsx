@@ -13,17 +13,34 @@ const DEFAULT_SETTINGS = {
 }
 
 export function getInquirySettings(profile) {
+  if (!profile) return DEFAULT_SETTINGS
   try {
-    const key = `linksocio_inquiry_settings_${profile?.id || profile?.username}`
-    const stored = localStorage.getItem(key)
-    const parsed = stored ? JSON.parse(stored) : {}
+    const idKey = profile.id ? `linksocio_inquiry_${profile.id}` : null
+    const userKey = profile.username ? `linksocio_inquiry_${profile.username}` : null
+
+    let parsed = {}
+    const stored = (idKey && localStorage.getItem(idKey)) || (userKey && localStorage.getItem(userKey))
+    if (stored) {
+      try {
+        parsed = JSON.parse(stored)
+      } catch (e) {}
+    }
+
+    // Determine active status: prioritize local toggle if set, else profile column, else default true
+    let isEnabled = true
+    if (parsed.enabled !== undefined) {
+      isEnabled = Boolean(parsed.enabled)
+    } else if (profile.inquiry_enabled !== undefined && profile.inquiry_enabled !== null) {
+      isEnabled = Boolean(profile.inquiry_enabled)
+    }
+
     return {
-      enabled: profile?.inquiry_enabled !== undefined ? profile.inquiry_enabled : (parsed.enabled ?? true),
-      whatsapp_number: profile?.whatsapp_number || parsed.whatsapp_number || '',
-      title: profile?.inquiry_title || parsed.title || DEFAULT_SETTINGS.title,
-      subtitle: profile?.inquiry_subtitle || parsed.subtitle || DEFAULT_SETTINGS.subtitle,
-      placeholder: profile?.inquiry_placeholder || parsed.placeholder || DEFAULT_SETTINGS.placeholder,
-      button_text: profile?.inquiry_button_text || parsed.button_text || DEFAULT_SETTINGS.button_text,
+      enabled: isEnabled,
+      whatsapp_number: parsed.whatsapp_number !== undefined ? parsed.whatsapp_number : (profile.whatsapp_number || ''),
+      title: parsed.title || profile.inquiry_title || DEFAULT_SETTINGS.title,
+      subtitle: parsed.subtitle || profile.inquiry_subtitle || DEFAULT_SETTINGS.subtitle,
+      placeholder: parsed.placeholder || profile.inquiry_placeholder || DEFAULT_SETTINGS.placeholder,
+      button_text: parsed.button_text || profile.inquiry_button_text || DEFAULT_SETTINGS.button_text,
       auto_open_whatsapp: parsed.auto_open_whatsapp ?? true,
     }
   } catch (e) {
@@ -31,14 +48,21 @@ export function getInquirySettings(profile) {
   }
 }
 
-export function saveInquirySettingsLocally(profileId, settings) {
+export function saveInquirySettingsLocally(profile, settings) {
+  if (!profile) return
   try {
-    const key = `linksocio_inquiry_settings_${profileId}`
-    localStorage.setItem(key, JSON.stringify(settings))
+    const dataStr = JSON.stringify(settings)
+    if (profile.id) {
+      localStorage.setItem(`linksocio_inquiry_${profile.id}`, dataStr)
+    }
+    if (profile.username) {
+      localStorage.setItem(`linksocio_inquiry_${profile.username}`, dataStr)
+    }
   } catch (e) {}
 }
 
 export function getStoredLeads(profileUsername) {
+  if (!profileUsername) return []
   try {
     const key = `linksocio_leads_${profileUsername}`
     const data = localStorage.getItem(key)
@@ -49,6 +73,7 @@ export function getStoredLeads(profileUsername) {
 }
 
 export function recordLeadLocally(profileUsername, lead) {
+  if (!profileUsername) return null
   try {
     const key = `linksocio_leads_${profileUsername}`
     const existing = getStoredLeads(profileUsername)
@@ -67,7 +92,7 @@ export function recordLeadLocally(profileUsername, lead) {
 }
 
 export default function InquiryTab({ profile, onUpdated }) {
-  const [settings, setSettings] = useState(getInquirySettings(profile))
+  const [settings, setSettings] = useState(() => getInquirySettings(profile))
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [leads, setLeads] = useState([])
@@ -88,12 +113,28 @@ export default function InquiryTab({ profile, onUpdated }) {
     setLeads(stored)
   }
 
+  // Toggle handler that immediately saves and updates state
+  async function handleToggleEnabled(newVal) {
+    const updated = { ...settings, enabled: newVal }
+    setSettings(updated)
+    saveInquirySettingsLocally(profile, updated)
+
+    try {
+      await supabase.from('profiles').update({
+        inquiry_enabled: newVal,
+      }).eq('id', profile.id)
+    } catch (err) {
+      // Ignored if column doesn't exist
+    }
+
+    if (onUpdated) onUpdated()
+  }
+
   async function handleSaveSettings(e) {
     e?.preventDefault()
     setSaving(true)
-    saveInquirySettingsLocally(profile.id, settings)
+    saveInquirySettingsLocally(profile, settings)
 
-    // Try updating Supabase profile columns if they exist (silently catch if not yet added in table)
     try {
       await supabase.from('profiles').update({
         inquiry_enabled: settings.enabled,
@@ -102,7 +143,7 @@ export default function InquiryTab({ profile, onUpdated }) {
         inquiry_subtitle: settings.subtitle,
       }).eq('id', profile.id)
     } catch (err) {
-      console.warn('Supabase custom columns not active, saved locally.')
+      // Supabase custom columns catch
     }
 
     setSaving(false)
@@ -170,7 +211,7 @@ export default function InquiryTab({ profile, onUpdated }) {
       <div style={{ background: 'white', border: '1px solid #E7EDEC', borderRadius: 20, padding: 22 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ width: 40, height: 40, borderRadius: 12, background: '#E6F7F5', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>
+            <div style={{ width: 40, height: 40, borderRadius: 12, background: settings.enabled ? '#E6F7F5' : '#F1F5F9', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>
               💬
             </div>
             <div>
@@ -178,26 +219,26 @@ export default function InquiryTab({ profile, onUpdated }) {
                 Direct WhatsApp & Inquiry Box
               </h3>
               <p style={{ margin: '2px 0 0', fontSize: 12.5, color: '#64748B' }}>
-                Enable a high-converting message & lead capture box on your public page.
+                {settings.enabled ? 'Enabled: Visitors can send you inquiries directly from your page.' : 'Disabled: The inquiry box is currently hidden from your page.'}
               </p>
             </div>
           </div>
 
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', userSelect: 'none' }}>
             <span style={{ fontSize: 12.5, fontWeight: 600, color: settings.enabled ? '#0D9488' : '#94A3B8' }}>
               {settings.enabled ? 'Active' : 'Disabled'}
             </span>
             <input
               type="checkbox"
               checked={settings.enabled}
-              onChange={(e) => setSettings({ ...settings, enabled: e.target.checked })}
-              style={{ width: 18, height: 18, accentColor: '#0D9488', cursor: 'pointer' }}
+              onChange={(e) => handleToggleEnabled(e.target.checked)}
+              style={{ width: 20, height: 20, accentColor: '#0D9488', cursor: 'pointer' }}
             />
           </label>
         </div>
 
         {settings.enabled && (
-          <form onSubmit={handleSaveSettings} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <form onSubmit={handleSaveSettings} style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 10, paddingTop: 14, borderTop: '1px solid #F1F5F9' }}>
             {/* WhatsApp Number */}
             <div>
               <label style={{ display: 'block', fontSize: 12.5, fontWeight: 600, color: '#334155', marginBottom: 6 }}>
@@ -226,7 +267,7 @@ export default function InquiryTab({ profile, onUpdated }) {
               </p>
             </div>
 
-            {/* Title & Subtitle Grid */}
+            {/* Title & Button Text */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <div>
                 <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#334155', marginBottom: 5 }}>

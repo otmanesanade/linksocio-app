@@ -161,7 +161,7 @@ export default function Dashboard({ user }) {
 
   async function loadProfile() {
     const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single()
-    setProfile(data)
+    setProfile(data ? { ...data, _ts: Date.now() } : null)
   }
 
   async function loadLinks() {
