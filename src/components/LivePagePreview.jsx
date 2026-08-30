@@ -5,9 +5,7 @@ import confetti from 'canvas-confetti'
 import QRCode from 'qrcode'
 import InquiryCard from './InquiryCard'
 import MediaEmbedCard from './MediaEmbedCard'
-import WalletPassModal from './WalletPassModal'
 import { getMediaEmbedInfo } from '../utils/mediaEmbed'
-import { downloadVCard } from '../utils/walletPass'
 
 // SVG Social Icons
 const IconInstagram = ({ color = 'currentColor', size = 18 }) => (
@@ -100,7 +98,6 @@ export function LivePagePreview({ profile, links = [], products = [], isEmbedded
   const [pressedId, setPressedId] = useState(null)
   const [copiedContact, setCopiedContact] = useState(false)
   const [showQrModal, setShowQrModal] = useState(false)
-  const [showWalletModal, setShowWalletModal] = useState(false)
   const [publicQrUrl, setPublicQrUrl] = useState(null)
 
   useEffect(() => {
@@ -290,32 +287,31 @@ export function LivePagePreview({ profile, links = [], products = [], isEmbedded
             )}
 
             {/* Save contact & Quick action buttons */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: isEmbedded ? 12 : 16, flexWrap: 'wrap', justifyContent: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: isEmbedded ? 12 : 16 }}>
               <button
-                onClick={() => setShowWalletModal(true)}
-                title="Add to Apple & Google Wallet"
+                onClick={saveContact}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
-                  gap: 5,
-                  background: '#0F172A',
-                  color: '#FFFFFF',
+                  gap: 6,
+                  background: tint,
+                  color: theme.textColor,
                   border: 'none',
                   borderRadius: 100,
-                  padding: isEmbedded ? '6px 11px' : '8px 15px',
-                  fontSize: isEmbedded ? 11 : 12,
-                  fontWeight: 700,
+                  padding: isEmbedded ? '6px 13px' : '8px 18px',
+                  fontSize: isEmbedded ? 11 : 12.5,
+                  fontWeight: 600,
                   cursor: 'pointer',
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
                   transition: 'all 0.15s ease',
                 }}
               >
-                <span> 💳</span>
-                <span>Wallet Pass</span>
+                <span>📇</span>
+                <span>{copiedContact ? '✓ Saved!' : 'Save Contact'}</span>
               </button>
 
               <button
-                onClick={saveContact}
+                onClick={() => setShowQrModal(true)}
+                title="View QR Code"
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -325,36 +321,14 @@ export function LivePagePreview({ profile, links = [], products = [], isEmbedded
                   border: 'none',
                   borderRadius: 100,
                   padding: isEmbedded ? '6px 11px' : '8px 14px',
-                  fontSize: isEmbedded ? 11 : 12,
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  transition: 'all 0.15s ease',
-                }}
-              >
-                <span>📇</span>
-                <span>{copiedContact ? '✓ Saved!' : 'Contact'}</span>
-              </button>
-
-              <button
-                onClick={() => setShowQrModal(true)}
-                title="View QR Code"
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 4,
-                  background: tint,
-                  color: theme.textColor,
-                  border: 'none',
-                  borderRadius: 100,
-                  padding: isEmbedded ? '6px 9px' : '8px 12px',
-                  fontSize: isEmbedded ? 11 : 12,
+                  fontSize: isEmbedded ? 11 : 12.5,
                   fontWeight: 600,
                   cursor: 'pointer',
                   transition: 'all 0.15s ease',
                 }}
               >
                 <span>🔲</span>
-                <span>QR</span>
+                <span>QR Code</span>
               </button>
 
               {whatsappLink && (
@@ -365,17 +339,17 @@ export function LivePagePreview({ profile, links = [], products = [], isEmbedded
                   style={{
                     display: 'flex',
                     alignItems: 'center',
-                    gap: 5,
+                    gap: 6,
                     background: '#22C55E',
                     color: '#FFFFFF',
                     borderRadius: 100,
-                    padding: isEmbedded ? '6px 11px' : '8px 14px',
-                    fontSize: isEmbedded ? 11 : 12,
+                    padding: isEmbedded ? '6px 12px' : '8px 16px',
+                    fontSize: isEmbedded ? 11 : 12.5,
                     fontWeight: 600,
                     textDecoration: 'none',
                   }}
                 >
-                  <IconWhatsapp color="#FFFFFF" size={13} />
+                  <IconWhatsapp color="#FFFFFF" size={14} />
                   <span>WhatsApp</span>
                 </a>
               )}
@@ -809,16 +783,6 @@ export function LivePagePreview({ profile, links = [], products = [], isEmbedded
             </div>
           </div>
         </div>
-      )}
-
-      {/* Wallet Pass Modal */}
-      {showWalletModal && (
-        <WalletPassModal
-          profile={profile}
-          qrUrl={publicQrUrl}
-          whatsappPhone={whatsappLink?.url?.match(/(\d{6,15})/)?.[1] || ''}
-          onClose={() => setShowWalletModal(false)}
-        />
       )}
 
       <style>{`
