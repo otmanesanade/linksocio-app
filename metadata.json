@@ -1,0 +1,6 @@
+{
+  "name": "LinkSocio",
+  "description": "Customizable bio link and digital storefront platform to showcase links, products, themes, and analytics.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

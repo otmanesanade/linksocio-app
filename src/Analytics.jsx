@@ -1,102 +1,83 @@
-import { useEffect, useState } from 'react'
-import { supabase } from './supabaseClient'
+import React from 'react'
 
-export default function Analytics({ user, goBack }) {
-  const [links, setLinks] = useState([])
-
-  useEffect(() => {
-    load()
-  }, [])
-
-  async function load() {
-    const { data } = await supabase
-      .from('links')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('clicks', { ascending: false })
-    setLinks(data || [])
-  }
-
+export default function Analytics({ links = [] }) {
   const totalClicks = links.reduce((sum, l) => sum + (l.clicks || 0), 0)
   const maxClicks = Math.max(1, ...links.map((l) => l.clicks || 0))
+  const sorted = [...links].sort((a, b) => (b.clicks || 0) - (a.clicks || 0))
+  const activeCount = links.filter((l) => l.active !== false).length
 
   return (
-    <div
-      style={{
-        minHeight: '100vh',
-        width: '100%',
-        background: '#F8FAFA',
-        fontFamily: '-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif',
-        padding: '32px 16px 64px',
-      }}
-    >
-      <div style={{ width: '100%', maxWidth: 480, margin: '0 auto' }}>
-        {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
-          <button
-            onClick={goBack}
-            style={{
-              background: 'none',
-              border: '1px solid #E7EDEC',
-              borderRadius: 10,
-              padding: '7px 11px',
-              fontSize: 14,
-              color: '#0F172A',
-              cursor: 'pointer',
-            }}
-          >
-            ←
-          </button>
-          <h1 style={{ fontSize: 18, fontWeight: 600, color: '#0F172A', margin: 0 }}>Analytics</h1>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+      {/* Top Metrics Cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
+        <div style={{ background: '#0F172A', borderRadius: 20, padding: '20px 18px', textAlign: 'center', color: 'white' }}>
+          <p style={{ margin: 0, fontSize: 32, fontWeight: 700, color: '#2DD4BF' }}>{totalClicks}</p>
+          <p style={{ margin: '4px 0 0', fontSize: 12, color: '#94A3B8', fontWeight: 500 }}>Total Link Clicks</p>
         </div>
 
-        {/* Total clicks */}
-        <div
-          style={{
-            background: '#0F172A',
-            borderRadius: 20,
-            padding: '24px',
-            marginBottom: 20,
-            textAlign: 'center',
-          }}
-        >
-          <p style={{ margin: 0, fontSize: 36, fontWeight: 700, color: 'white' }}>{totalClicks}</p>
-          <p style={{ margin: '4px 0 0', fontSize: 13, color: '#8A97A3' }}>total clicks across all links</p>
+        <div style={{ background: 'white', border: '1px solid #E7EDEC', borderRadius: 20, padding: '20px 18px', textAlign: 'center' }}>
+          <p style={{ margin: 0, fontSize: 32, fontWeight: 700, color: '#0F172A' }}>{activeCount}</p>
+          <p style={{ margin: '4px 0 0', fontSize: 12, color: '#64748B', fontWeight: 500 }}>Active Links</p>
         </div>
 
-        {/* Per-link breakdown */}
-        <div
-          style={{
-            background: 'white',
-            border: '1px solid #E7EDEC',
-            borderRadius: 20,
-            padding: 20,
-          }}
-        >
-          <p style={{ margin: '0 0 16px', fontSize: 13, fontWeight: 600, color: '#0F172A' }}>Clicks per link</p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            {links.map((link) => (
-              <div key={link.id}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                  <span style={{ fontSize: 13, fontWeight: 500, color: '#0F172A' }}>{link.label}</span>
-                  <span style={{ fontSize: 13, fontWeight: 600, color: '#0D9488' }}>{link.clicks || 0}</span>
+        <div style={{ background: 'white', border: '1px solid #E7EDEC', borderRadius: 20, padding: '20px 18px', textAlign: 'center' }}>
+          <p style={{ margin: 0, fontSize: 32, fontWeight: 700, color: '#F59E0B' }}>
+            {sorted[0]?.clicks || 0}
+          </p>
+          <p style={{ margin: '4px 0 0', fontSize: 12, color: '#64748B', fontWeight: 500 }}>Top Performer</p>
+        </div>
+      </div>
+
+      {/* Clicks breakdown */}
+      <div style={{ background: 'white', border: '1px solid #E7EDEC', borderRadius: 20, padding: 22 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
+          <div>
+            <p style={{ margin: 0, fontSize: 14.5, fontWeight: 600, color: '#0F172A' }}>Click Performance by Link</p>
+            <p style={{ margin: '3px 0 0', fontSize: 12, color: '#8A97A3' }}>Real-time traffic breakdown across your channels</p>
+          </div>
+          <span style={{ fontSize: 11.5, background: '#F1F5F9', padding: '4px 10px', borderRadius: 8, color: '#475569', fontWeight: 600 }}>
+            Ranked by visits
+          </span>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {sorted.map((link, idx) => {
+            const percentage = Math.round(((link.clicks || 0) / maxClicks) * 100)
+            return (
+              <div key={link.id} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: idx === 0 ? '#14B8A6' : '#94A3B8', width: 16 }}>
+                      #{idx + 1}
+                    </span>
+                    <span style={{ fontSize: 13.5, fontWeight: 600, color: '#0F172A' }}>{link.label}</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span style={{ fontSize: 11.5, color: '#64748B' }}>{percentage}%</span>
+                    <span style={{ fontSize: 13.5, fontWeight: 700, color: '#0D9488' }}>
+                      {link.clicks || 0} <span style={{ fontSize: 11, fontWeight: 500, color: '#94A3B8' }}>clicks</span>
+                    </span>
+                  </div>
                 </div>
-                <div style={{ background: '#F1F2F4', borderRadius: 8, height: 8, overflow: 'hidden' }}>
+                <div style={{ background: '#F1F5F9', borderRadius: 8, height: 10, overflow: 'hidden' }}>
                   <div
                     style={{
-                      width: `${((link.clicks || 0) / maxClicks) * 100}%`,
-                      background: '#14B8A6',
+                      width: `${percentage}%`,
+                      background: idx === 0 ? 'linear-gradient(90deg, #14B8A6, #2DD4BF)' : '#14B8A6',
                       height: '100%',
                       borderRadius: 8,
+                      transition: 'width 0.4s ease',
                     }}
                   />
                 </div>
               </div>
-            ))}
-            {links.length === 0 && (
-              <p style={{ textAlign: 'center', color: '#8A97A3', fontSize: 13 }}>No links yet.</p>
-            )}
-          </div>
+            )
+          })}
+          {sorted.length === 0 && (
+            <p style={{ textAlign: 'center', color: '#8A97A3', fontSize: 13, padding: '24px 0' }}>
+              No click data yet. Share your LinkSocio page to start tracking visits.
+            </p>
+          )}
         </div>
       </div>
     </div>

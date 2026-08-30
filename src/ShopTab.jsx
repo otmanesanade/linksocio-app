@@ -7,27 +7,14 @@ function normalizeUrl(url) {
   return url
 }
 
-export default function ShopTab({ user }) {
-  const [products, setProducts] = useState([])
+export default function ShopTab({ user, products = [], reloadProducts }) {
   const [name, setName] = useState('')
   const [price, setPrice] = useState('')
   const [imageUrl, setImageUrl] = useState('')
   const [externalUrl, setExternalUrl] = useState('')
   const [adding, setAdding] = useState(false)
   const [fetching, setFetching] = useState(false)
-
-  useEffect(() => {
-    load()
-  }, [])
-
-  async function load() {
-    const { data } = await supabase
-      .from('products')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('position', { ascending: true })
-    setProducts(data || [])
-  }
+  const [draggedIdx, setDraggedIdx] = useState(null)
 
   async function fetchInfo() {
     if (!externalUrl) return
@@ -54,10 +41,10 @@ export default function ShopTab({ user }) {
 
     const { error } = await supabase.from('products').insert({
       user_id: user.id,
-      name,
-      price: price || null,
-      image_url: imageUrl || null,
-      external_url: normalizeUrl(externalUrl),
+      name: name.trim(),
+      price: price.trim() || null,
+      image_url: imageUrl.trim() || null,
+      external_url: normalizeUrl(externalUrl.trim()),
       position: products.length,
     })
 
@@ -67,23 +54,55 @@ export default function ShopTab({ user }) {
       setPrice('')
       setImageUrl('')
       setExternalUrl('')
-      load()
+      reloadProducts()
     }
   }
 
   async function deleteProduct(id) {
     await supabase.from('products').delete().eq('id', id)
-    load()
+    reloadProducts()
+  }
+
+  // Drag & drop reorder for products
+  const handleDragStart = (idx) => {
+    setDraggedIdx(idx)
+  }
+
+  const handleDrop = async (dropIdx) => {
+    if (draggedIdx === null || draggedIdx === dropIdx) {
+      setDraggedIdx(null)
+      return
+    }
+
+    const reordered = [...products]
+    const [moved] = reordered.splice(draggedIdx, 1)
+    reordered.splice(dropIdx, 0, moved)
+
+    setDraggedIdx(null)
+
+    for (let i = 0; i < reordered.length; i++) {
+      await supabase.from('products').update({ position: i }).eq('id', reordered[i].id)
+    }
+    reloadProducts()
   }
 
   return (
-    <div>
-      <div style={{ background: 'white', border: '1px solid #E7EDEC', borderRadius: 20, padding: 20, marginBottom: 20 }}>
-        <p style={{ margin: '0 0 12px', fontSize: 13, fontWeight: 600, color: '#0F172A' }}>Add a product</p>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+      {/* Add Product Card */}
+      <div style={{ background: 'white', border: '1px solid #E7EDEC', borderRadius: 20, padding: 22 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+          <div>
+            <p style={{ margin: '0 0 2px', fontSize: 14.5, fontWeight: 600, color: '#0F172A' }}>🛍️ Digital Storefront & Products</p>
+            <p style={{ margin: 0, fontSize: 12.5, color: '#8A97A3' }}>
+              Add affiliate links, courses, e-books, merchandise, or consultation links.
+            </p>
+          </div>
+        </div>
+
         <form onSubmit={addProduct} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           <div style={{ display: 'flex', gap: 8 }}>
             <input
-              placeholder="Paste product link (Shopify, Etsy...)"
+              placeholder="Paste product link (Amazon, Shopify, Etsy, Gumroad...)"
               value={externalUrl}
               onChange={(e) => setExternalUrl(e.target.value)}
               style={{ ...inputStyle, flex: 1 }}
@@ -94,59 +113,138 @@ export default function ShopTab({ user }) {
               disabled={!externalUrl || fetching}
               style={{
                 flexShrink: 0,
-                background: fetching ? '#5DCAA5' : '#0F172A',
+                background: fetching ? '#94A3B8' : '#0F172A',
                 color: 'white',
                 border: 'none',
                 borderRadius: 12,
                 padding: '0 16px',
                 fontSize: 12.5,
-                fontWeight: 500,
+                fontWeight: 600,
                 cursor: !externalUrl || fetching ? 'default' : 'pointer',
               }}
             >
-              {fetching ? 'Fetching...' : 'Fetch info'}
+              {fetching ? 'Auto Fetching...' : '⚡ Auto-Fetch Info'}
             </button>
           </div>
-          <input placeholder="Product name" value={name} onChange={(e) => setName(e.target.value)} style={inputStyle} />
-          <input placeholder="Price (optional, e.g. 25€)" value={price} onChange={(e) => setPrice(e.target.value)} style={inputStyle} />
-          <input placeholder="Image URL (optional)" value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} style={inputStyle} />
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <input placeholder="Product / Service Title *" value={name} onChange={(e) => setName(e.target.value)} style={inputStyle} />
+            <input placeholder="Price (e.g. 199 DH / $29)" value={price} onChange={(e) => setPrice(e.target.value)} style={inputStyle} />
+          </div>
+
+          <input placeholder="Image URL (optional if auto-fetched)" value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} style={inputStyle} />
+
           <button
             type="submit"
-            disabled={adding}
-            style={{ background: adding ? '#5DCAA5' : '#14B8A6', color: 'white', border: 'none', borderRadius: 12, padding: '11px', fontSize: 13, fontWeight: 500, cursor: adding ? 'default' : 'pointer' }}
+            disabled={adding || !name || !externalUrl}
+            style={{
+              background: adding || !name || !externalUrl ? '#94A3B8' : '#14B8A6',
+              color: 'white',
+              border: 'none',
+              borderRadius: 12,
+              padding: '12px',
+              fontSize: 13.5,
+              fontWeight: 600,
+              cursor: adding || !name || !externalUrl ? 'default' : 'pointer',
+              transition: 'background 0.15s ease',
+            }}
           >
-            {adding ? 'Adding...' : 'Add product'}
+            {adding ? 'Adding Product...' : 'Add Product to Store'}
           </button>
         </form>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
-        {products.map((p) => (
-          <div key={p.id} style={{ background: 'white', border: '1px solid #E7EDEC', borderRadius: 16, overflow: 'hidden', position: 'relative' }}>
-            <button
-              onClick={() => deleteProduct(p.id)}
-              style={{ position: 'absolute', top: 6, right: 6, width: 22, height: 22, borderRadius: '50%', background: 'rgba(15,23,42,0.6)', color: 'white', border: 'none', fontSize: 11, cursor: 'pointer' }}
-            >
-              ✕
-            </button>
-            <div style={{ width: '100%', aspectRatio: '1', background: '#F1F2F4', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              {p.image_url ? (
-                <img src={p.image_url} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              ) : (
-                <span style={{ fontSize: 24 }}>🛍️</span>
-              )}
-            </div>
-            <div style={{ padding: '10px 12px' }}>
-              <p style={{ margin: 0, fontSize: 12.5, fontWeight: 500, color: '#0F172A' }}>{p.name}</p>
-              {p.price && <p style={{ margin: '2px 0 0', fontSize: 12, color: '#0D9488', fontWeight: 600 }}>{p.price}</p>}
-            </div>
-          </div>
-        ))}
-        {products.length === 0 && (
-          <p style={{ gridColumn: '1 / -1', textAlign: 'center', color: '#8A97A3', fontSize: 13, marginTop: 12 }}>
-            No products yet. Add your first one above.
+      {/* Product Grid with Drag-to-reorder */}
+      <div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, padding: '0 4px' }}>
+          <p style={{ margin: 0, fontSize: 13.5, fontWeight: 600, color: '#0F172A' }}>
+            Store Catalog ({products.length})
           </p>
-        )}
+          <span style={{ fontSize: 11.5, color: '#8A97A3' }}>
+            ↕ Drag to reorder products
+          </span>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
+          {products.map((p, idx) => {
+            const isDragging = draggedIdx === idx
+            return (
+              <div
+                key={p.id}
+                draggable
+                onDragStart={() => handleDragStart(idx)}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={() => handleDrop(idx)}
+                style={{
+                  background: 'white',
+                  border: '1px solid #E7EDEC',
+                  borderRadius: 16,
+                  overflow: 'hidden',
+                  position: 'relative',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
+                  opacity: isDragging ? 0.4 : 1,
+                  cursor: 'grab',
+                }}
+              >
+                <button
+                  onClick={() => deleteProduct(p.id)}
+                  style={{
+                    position: 'absolute',
+                    top: 8,
+                    right: 8,
+                    width: 26,
+                    height: 26,
+                    borderRadius: '50%',
+                    background: 'rgba(15,23,42,0.7)',
+                    color: 'white',
+                    border: 'none',
+                    fontSize: 12,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                    zIndex: 2,
+                  }}
+                  title="Delete Product"
+                >
+                  ✕
+                </button>
+                <div style={{ width: '100%', aspectRatio: '1.2', background: '#F8FAFC', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                  {p.image_url ? (
+                    <img src={p.image_url} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : (
+                    <span style={{ fontSize: 32 }}>🛍️</span>
+                  )}
+                </div>
+                <div style={{ padding: '12px 14px' }}>
+                  <p style={{ margin: 0, fontSize: 13.5, fontWeight: 600, color: '#0F172A', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {p.name}
+                  </p>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
+                    <p style={{ margin: 0, fontSize: 13, color: '#0D9488', fontWeight: 700 }}>
+                      {p.price || 'Free'}
+                    </p>
+                    <a
+                      href={p.external_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{ fontSize: 11, color: '#64748B', textDecoration: 'none', background: '#F1F5F9', padding: '3px 8px', borderRadius: 6, fontWeight: 500 }}
+                    >
+                      Visit ↗
+                    </a>
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+
+          {products.length === 0 && (
+            <div style={{ gridColumn: '1 / -1', textAlign: 'center', background: 'white', border: '1px dashed #CBD5E1', borderRadius: 16, padding: '32px 16px', color: '#8A97A3' }}>
+              <p style={{ margin: '0 0 4px', fontSize: 14, fontWeight: 500, color: '#0F172A' }}>No products listed yet</p>
+              <p style={{ margin: 0, fontSize: 12 }}>Paste an external link above to showcase your merchandise or digital downloads.</p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )
@@ -159,7 +257,7 @@ const inputStyle = {
   border: '1px solid #E7EDEC',
   background: '#FBFCFC',
   padding: '11px 14px',
-  fontSize: 14,
+  fontSize: 13.5,
   color: '#0F172A',
   outline: 'none',
 }
