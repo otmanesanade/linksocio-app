@@ -7,6 +7,7 @@ import ThemeTab from './ThemeTab'
 import Analytics from './Analytics'
 import QrTab from './components/QrTab'
 import AvatarUpload from './components/AvatarUpload'
+import InquiryTab from './InquiryTab'
 import { LivePagePreview } from './components/LivePagePreview'
 import confetti from 'canvas-confetti'
 
@@ -222,6 +223,7 @@ export default function Dashboard({ user }) {
 
   const navItems = [
     { key: 'links', label: 'Links & Socials', icon: '🔗' },
+    { key: 'inquiries', label: 'Messages & Leads', icon: '💬' },
     { key: 'shop', label: 'Store & Products', icon: '🛍️' },
     { key: 'theme', label: 'Appearance & Themes', icon: '🎨' },
     { key: 'qr', label: 'QR Code', icon: '🔲' },
@@ -389,6 +391,9 @@ export default function Dashboard({ user }) {
                 downloadQr={downloadQr}
               />
             </div>
+          )}
+          {tab === 'inquiries' && (
+            <InquiryTab profile={profile} onUpdated={loadProfile} />
           )}
           {tab === 'shop' && (
             <ShopTab user={user} products={products} reloadProducts={loadProducts} />
