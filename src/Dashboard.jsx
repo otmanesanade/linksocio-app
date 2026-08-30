@@ -6,10 +6,11 @@ import ShopTab from './ShopTab'
 import ThemeTab from './ThemeTab'
 import Analytics from './Analytics'
 import QrTab from './components/QrTab'
+import AvatarUpload from './components/AvatarUpload'
 import { LivePagePreview } from './components/LivePagePreview'
 import confetti from 'canvas-confetti'
 
-function ProfileCard({ profile, onSaved }) {
+function ProfileCard({ user, profile, onSaved }) {
   const [displayName, setDisplayName] = useState(profile?.display_name || '')
   const [bio, setBio] = useState(profile?.bio || '')
   const [saving, setSaving] = useState(false)
@@ -67,27 +68,15 @@ function ProfileCard({ profile, onSaved }) {
 
   return (
     <div style={{ background: 'white', border: '1px solid #E7EDEC', borderRadius: 20, padding: 20, marginBottom: 20 }}>
+      {/* Avatar / Photo Upload Section */}
+      <div style={{ marginBottom: 16 }}>
+        <AvatarUpload user={user} profile={profile} onUpdated={onSaved} />
+      </div>
+
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 14 }}>
         <div>
-          <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: '#0F172A' }}>Profile Information</p>
-          <p style={{ margin: '3px 0 0', fontSize: 12, color: '#8A97A3' }}>Update your avatar initial, title, and bio description.</p>
-        </div>
-        <div
-          style={{
-            width: 44,
-            height: 44,
-            borderRadius: '50%',
-            background: `linear-gradient(135deg, ${profile.theme_color || '#14B8A6'}, #0F172A)`,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: 'white',
-            fontSize: 16,
-            fontWeight: 700,
-            flexShrink: 0,
-          }}
-        >
-          {displayName.trim()?.[0]?.toUpperCase() || '?'}
+          <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: '#0F172A' }}>Profile Details</p>
+          <p style={{ margin: '3px 0 0', fontSize: 12, color: '#8A97A3' }}>Update your page name and bio description.</p>
         </div>
       </div>
 
@@ -318,6 +307,48 @@ export default function Dashboard({ user }) {
           </div>
 
           <div style={{ marginTop: 24, paddingTop: 16, borderTop: '1px solid #F1F5F9' }}>
+            {profile && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, padding: '4px 6px' }}>
+                <div
+                  style={{
+                    width: 34,
+                    height: 34,
+                    borderRadius: '50%',
+                    background: profile.avatar_url
+                      ? '#F1F5F9'
+                      : `linear-gradient(135deg, ${profile.theme_color || '#14B8A6'}, #0F172A)`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: 'white',
+                    fontSize: 13,
+                    fontWeight: 700,
+                    overflow: 'hidden',
+                    flexShrink: 0,
+                    border: '1px solid #E2E8F0',
+                  }}
+                >
+                  {profile.avatar_url ? (
+                    <img
+                      src={profile.avatar_url}
+                      alt="Avatar"
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    />
+                  ) : (
+                    profile.display_name?.[0]?.toUpperCase() || profile.username?.[0]?.toUpperCase() || '?'
+                  )}
+                </div>
+                <div style={{ minWidth: 0, overflow: 'hidden' }}>
+                  <p style={{ margin: 0, fontSize: 12.5, fontWeight: 700, color: '#0F172A', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {profile.display_name || profile.username}
+                  </p>
+                  <p style={{ margin: 0, fontSize: 11, color: '#94A3B8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    @{profile.username}
+                  </p>
+                </div>
+              </div>
+            )}
+
             <button
               onClick={logout}
               style={{
@@ -346,7 +377,7 @@ export default function Dashboard({ user }) {
         <div>
           {tab === 'links' && (
             <div>
-              <ProfileCard profile={profile} onSaved={loadProfile} />
+              <ProfileCard user={user} profile={profile} onSaved={loadProfile} />
               <LinksManager
                 profile={profile}
                 links={links}

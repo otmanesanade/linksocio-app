@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { supabase } from './supabaseClient'
 import { THEMES, FONTS, BUTTON_STYLES } from './themes'
+import AvatarUpload from './components/AvatarUpload'
 
 export default function ThemeTab({ user, profile, onUpdated }) {
   const [selectedTheme, setSelectedTheme] = useState(profile?.theme_preset || 'default')
@@ -22,6 +23,9 @@ export default function ThemeTab({ user, profile, onUpdated }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      {/* Branding & Avatar Upload */}
+      <AvatarUpload user={user} profile={profile} onUpdated={onUpdated} />
+
       {/* Sub tabs */}
       <div style={{ display: 'flex', gap: 8, background: '#E2E8F0', padding: 4, borderRadius: 14 }}>
         {[

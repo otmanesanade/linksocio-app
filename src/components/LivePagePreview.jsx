@@ -226,7 +226,9 @@ export function LivePagePreview({ profile, links = [], products = [], isEmbedded
                 width: isEmbedded ? 64 : 88,
                 height: isEmbedded ? 64 : 88,
                 borderRadius: '50%',
-                background: `linear-gradient(135deg, ${color}, #0F172A)`,
+                background: profile?.avatar_url
+                  ? '#F1F5F9'
+                  : `linear-gradient(135deg, ${color}, #0F172A)`,
                 border: '3px solid white',
                 boxShadow: `0 4px 16px ${color}33`,
                 display: 'flex',
@@ -236,9 +238,19 @@ export function LivePagePreview({ profile, links = [], products = [], isEmbedded
                 fontSize: isEmbedded ? 22 : 30,
                 fontWeight: 700,
                 marginBottom: isEmbedded ? 10 : 14,
+                overflow: 'hidden',
+                position: 'relative',
               }}
             >
-              {profile?.display_name?.[0]?.toUpperCase() || profile?.username?.[0]?.toUpperCase() || '?'}
+              {profile?.avatar_url ? (
+                <img
+                  src={profile.avatar_url}
+                  alt={profile?.display_name || profile?.username || 'Avatar'}
+                  style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                />
+              ) : (
+                profile?.display_name?.[0]?.toUpperCase() || profile?.username?.[0]?.toUpperCase() || '?'
+              )}
             </div>
 
             <h1
