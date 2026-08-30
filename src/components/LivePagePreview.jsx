@@ -168,8 +168,14 @@ export function LivePagePreview({ profile, links = [], products = [], isEmbedded
       style={{
         minHeight: isEmbedded ? '100%' : '100vh',
         width: '100%',
-        background: theme.pageBg,
-        backgroundSize: theme.isAnimated ? '400% 400%' : 'cover',
+        ...(theme.pageBg?.startsWith('linear-gradient')
+          ? {
+              backgroundImage: theme.pageBg,
+              backgroundSize: theme.isAnimated ? '400% 400%' : 'cover',
+            }
+          : {
+              backgroundColor: theme.pageBg || '#F8FAFA',
+            }),
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',

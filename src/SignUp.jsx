@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { supabase } from './supabaseClient'
 
-export default function SignUp({ onDone, switchToLogin }) {
+export default function SignUp({ onDone, switchToLogin, initialUsername = '' }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [username, setUsername] = useState('')
+  const [username, setUsername] = useState(initialUsername || sessionStorage.getItem('linksocio_claim_user') || '')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
