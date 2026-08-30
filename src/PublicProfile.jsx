@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from './supabaseClient'
 import { LivePagePreview } from './components/LivePagePreview'
+import { fetchServerInquirySettings } from './InquiryTab'
 
 export default function PublicProfile({ username }) {
   const [profile, setProfile] = useState(null)
@@ -25,6 +26,15 @@ export default function PublicProfile({ username }) {
       setNotFound(true)
       setLoading(false)
       return
+    }
+
+    // Fetch server inquiry settings in parallel
+    const inquirySettings = await fetchServerInquirySettings(username, profileData.id)
+    if (inquirySettings) {
+      profileData._inquirySettings = inquirySettings
+      if (inquirySettings.enabled !== undefined) {
+        profileData.inquiry_enabled = inquirySettings.enabled
+      }
     }
 
     setProfile(profileData)

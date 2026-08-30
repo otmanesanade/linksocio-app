@@ -7,7 +7,7 @@ import ThemeTab from './ThemeTab'
 import Analytics from './Analytics'
 import QrTab from './components/QrTab'
 import AvatarUpload from './components/AvatarUpload'
-import InquiryTab from './InquiryTab'
+import InquiryTab, { fetchServerInquirySettings } from './InquiryTab'
 import { LivePagePreview } from './components/LivePagePreview'
 import confetti from 'canvas-confetti'
 
@@ -161,7 +161,20 @@ export default function Dashboard({ user }) {
 
   async function loadProfile() {
     const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single()
-    setProfile(data ? { ...data, _ts: Date.now() } : null)
+    if (!data) {
+      setProfile(null)
+      return
+    }
+
+    const serverInquiry = await fetchServerInquirySettings(data.username, data.id)
+    if (serverInquiry) {
+      data._inquirySettings = serverInquiry
+      if (serverInquiry.enabled !== undefined) {
+        data.inquiry_enabled = serverInquiry.enabled
+      }
+    }
+
+    setProfile({ ...data, _ts: Date.now() })
   }
 
   async function loadLinks() {

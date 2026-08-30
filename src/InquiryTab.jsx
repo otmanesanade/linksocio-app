@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react'
 import { supabase } from './supabaseClient'
 import confetti from 'canvas-confetti'
 
-const DEFAULT_SETTINGS = {
-  enabled: true,
+export const DEFAULT_SETTINGS = {
+  enabled: false,
   whatsapp_number: '',
   title: 'Send a Message',
   subtitle: 'Got a question or project inquiry? Write to me directly!',
@@ -14,11 +14,21 @@ const DEFAULT_SETTINGS = {
 
 export function getInquirySettings(profile) {
   if (!profile) return DEFAULT_SETTINGS
+
+  // If already fetched/attached from server
+  if (profile._inquirySettings) {
+    return {
+      ...DEFAULT_SETTINGS,
+      ...profile._inquirySettings,
+      enabled: Boolean(profile._inquirySettings.enabled),
+    }
+  }
+
   try {
     const idKey = profile.id ? `linksocio_inquiry_${profile.id}` : null
     const userKey = profile.username ? `linksocio_inquiry_${profile.username}` : null
 
-    let parsed = {}
+    let parsed = null
     const stored = (idKey && localStorage.getItem(idKey)) || (userKey && localStorage.getItem(userKey))
     if (stored) {
       try {
@@ -26,9 +36,9 @@ export function getInquirySettings(profile) {
       } catch (e) {}
     }
 
-    // Determine active status: prioritize local toggle if set, else profile column, else default true
-    let isEnabled = true
-    if (parsed.enabled !== undefined) {
+    // Explicit check for enabled status:
+    let isEnabled = false
+    if (parsed && parsed.enabled !== undefined) {
       isEnabled = Boolean(parsed.enabled)
     } else if (profile.inquiry_enabled !== undefined && profile.inquiry_enabled !== null) {
       isEnabled = Boolean(profile.inquiry_enabled)
@@ -36,16 +46,31 @@ export function getInquirySettings(profile) {
 
     return {
       enabled: isEnabled,
-      whatsapp_number: parsed.whatsapp_number !== undefined ? parsed.whatsapp_number : (profile.whatsapp_number || ''),
-      title: parsed.title || profile.inquiry_title || DEFAULT_SETTINGS.title,
-      subtitle: parsed.subtitle || profile.inquiry_subtitle || DEFAULT_SETTINGS.subtitle,
-      placeholder: parsed.placeholder || profile.inquiry_placeholder || DEFAULT_SETTINGS.placeholder,
-      button_text: parsed.button_text || profile.inquiry_button_text || DEFAULT_SETTINGS.button_text,
-      auto_open_whatsapp: parsed.auto_open_whatsapp ?? true,
+      whatsapp_number: (parsed && parsed.whatsapp_number !== undefined) ? parsed.whatsapp_number : (profile.whatsapp_number || ''),
+      title: (parsed && parsed.title) || profile.inquiry_title || DEFAULT_SETTINGS.title,
+      subtitle: (parsed && parsed.subtitle) || profile.inquiry_subtitle || DEFAULT_SETTINGS.subtitle,
+      placeholder: (parsed && parsed.placeholder) || profile.inquiry_placeholder || DEFAULT_SETTINGS.placeholder,
+      button_text: (parsed && parsed.button_text) || profile.inquiry_button_text || DEFAULT_SETTINGS.button_text,
+      auto_open_whatsapp: (parsed && parsed.auto_open_whatsapp !== undefined) ? parsed.auto_open_whatsapp : true,
     }
   } catch (e) {
     return DEFAULT_SETTINGS
   }
+}
+
+export async function fetchServerInquirySettings(username, userId) {
+  if (!username && !userId) return null
+  try {
+    const query = username ? `username=${encodeURIComponent(username)}` : `userId=${encodeURIComponent(userId)}`
+    const res = await fetch(`/api/inquiry-settings?${query}`)
+    if (res.ok) {
+      const data = await res.json()
+      if (data && data.settings) {
+        return data.settings
+      }
+    }
+  } catch (e) {}
+  return null
 }
 
 export function saveInquirySettingsLocally(profile, settings) {
@@ -58,6 +83,19 @@ export function saveInquirySettingsLocally(profile, settings) {
     if (profile.username) {
       localStorage.setItem(`linksocio_inquiry_${profile.username}`, dataStr)
     }
+  } catch (e) {}
+
+  // Sync with server API
+  try {
+    fetch('/api/inquiry-settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username: profile.username || '',
+        userId: profile.id || '',
+        settings,
+      }),
+    }).catch(() => {})
   } catch (e) {}
 }
 
@@ -85,6 +123,14 @@ export function recordLeadLocally(profileUsername, lead) {
     }
     const updated = [newLead, ...existing]
     localStorage.setItem(key, JSON.stringify(updated))
+
+    // Sync to server API
+    fetch('/api/inquiry-leads', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: profileUsername, lead: newLead }),
+    }).catch(() => {})
+
     return newLead
   } catch (e) {
     return null
@@ -102,18 +148,40 @@ export default function InquiryTab({ profile, onUpdated }) {
 
   useEffect(() => {
     if (profile) {
-      setSettings(getInquirySettings(profile))
+      const local = getInquirySettings(profile)
+      setSettings(local)
       loadLeads()
-    }
-  }, [profile])
 
-  function loadLeads() {
+      // Also check server settings in background
+      fetchServerInquirySettings(profile.username, profile.id).then((serverSettings) => {
+        if (serverSettings) {
+          setSettings((prev) => ({ ...prev, ...serverSettings }))
+          if (profile) {
+            saveInquirySettingsLocally(profile, { ...local, ...serverSettings })
+          }
+        }
+      })
+    }
+  }, [profile?.id, profile?.username])
+
+  async function loadLeads() {
     if (!profile?.username) return
-    const stored = getStoredLeads(profile.username)
-    setLeads(stored)
+    const localLeads = getStoredLeads(profile.username)
+    setLeads(localLeads)
+
+    try {
+      const res = await fetch(`/api/inquiry-leads?username=${encodeURIComponent(profile.username)}`)
+      if (res.ok) {
+        const data = await res.json()
+        if (data.leads && Array.isArray(data.leads) && data.leads.length > 0) {
+          setLeads(data.leads)
+          localStorage.setItem(`linksocio_leads_${profile.username}`, JSON.stringify(data.leads))
+        }
+      }
+    } catch (e) {}
   }
 
-  // Toggle handler that immediately saves and updates state
+  // Toggle handler that immediately saves and updates state everywhere
   async function handleToggleEnabled(newVal) {
     const updated = { ...settings, enabled: newVal }
     setSettings(updated)
@@ -124,7 +192,7 @@ export default function InquiryTab({ profile, onUpdated }) {
         inquiry_enabled: newVal,
       }).eq('id', profile.id)
     } catch (err) {
-      // Ignored if column doesn't exist
+      // Ignored if column doesn't exist in Supabase schema
     }
 
     if (onUpdated) onUpdated()
