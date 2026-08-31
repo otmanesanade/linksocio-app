@@ -125,7 +125,7 @@ export function saveBookingSettingsLocally(profile, settings) {
 
 export function getStoredBookings(profileUsername) {
   if (!profileUsername) return []
-  const clean = String(profileUsername).toLowerCase().trim()
+  const clean = String(profileUsername).toLowerCase().trim().replace(/^@/, '')
   try {
     const raw =
       localStorage.getItem(`linksocio_bookings_${clean}`) ||
@@ -136,32 +136,42 @@ export function getStoredBookings(profileUsername) {
   }
 }
 
-export async function recordNewBooking(profileUsername, booking) {
-  if (!profileUsername || !booking) return null
-  const clean = String(profileUsername).toLowerCase().trim()
+export async function recordNewBooking(profileOrUsername, booking) {
+  if (!profileOrUsername || !booking) return null
+  const username =
+    typeof profileOrUsername === 'string'
+      ? profileOrUsername
+      : profileOrUsername.username || ''
+  const userId =
+    typeof profileOrUsername === 'object'
+      ? profileOrUsername.id || ''
+      : ''
+
+  const clean = String(username || userId).toLowerCase().trim().replace(/^@/, '')
   try {
     const existing = getStoredBookings(clean)
     const newBooking = {
-      id: 'booking_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
-      createdAt: new Date().toISOString(),
-      status: 'confirmed',
+      id: booking.id || 'booking_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+      createdAt: booking.createdAt || new Date().toISOString(),
+      status: booking.status || 'confirmed',
       ...booking,
     }
-    const updated = [newBooking, ...existing]
+    const updated = [newBooking, ...existing.filter((b) => b.id !== newBooking.id)]
     const jsonStr = JSON.stringify(updated)
-    localStorage.setItem(`linksocio_bookings_${clean}`, jsonStr)
-    localStorage.setItem(`linksocio_bookings_${profileUsername}`, jsonStr)
+    if (clean) localStorage.setItem(`linksocio_bookings_${clean}`, jsonStr)
+    if (username) localStorage.setItem(`linksocio_bookings_${username}`, jsonStr)
+    if (userId) localStorage.setItem(`linksocio_bookings_${userId}`, jsonStr)
 
     // Trigger local and cross-tab update event
     try {
       window.dispatchEvent(new CustomEvent('linksocio_new_booking', { detail: newBooking }))
     } catch (e) {}
 
-    // Sync to server API
+    // Sync to server API across devices
     await fetch('/api/bookings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: clean, booking: newBooking }),
+      body: JSON.stringify({ username: clean, userId, booking: newBooking }),
     }).catch(() => {})
 
     return newBooking
@@ -235,34 +245,48 @@ export default function BookingTab({ profile, onUpdated }) {
   }, [profile?.id, profile?.username])
 
   async function loadBookings(showIndicator = false) {
-    if (!profile?.username) return
-    const cleanUsername = String(profile.username).toLowerCase().trim()
+    if (!profile?.username && !profile?.id) return
+    const cleanUsername = String(profile?.username || '').toLowerCase().trim().replace(/^@/, '')
+    const userId = profile?.id || ''
     if (showIndicator) setIsRefreshing(true)
 
     const localBookings = getStoredBookings(cleanUsername)
     if (localBookings && localBookings.length > 0) {
       setBookings((prev) => {
-        // Keep freshest list
         return localBookings.length >= prev.length ? localBookings : prev
       })
     }
 
     try {
-      const res = await fetch(`/api/bookings?username=${encodeURIComponent(cleanUsername)}`)
+      const query = `username=${encodeURIComponent(cleanUsername)}&userId=${encodeURIComponent(userId)}`
+      const res = await fetch(`/api/bookings?${query}`)
       if (res.ok) {
         const data = await res.json()
         if (data.bookings && Array.isArray(data.bookings)) {
-          // Merge local and server bookings by unique ID
-          const combined = [...data.bookings]
-          const existingIds = new Set(data.bookings.map((b) => b.id))
+          const serverBookings = data.bookings
+          const combined = [...serverBookings]
+          const serverIds = new Set(serverBookings.map((b) => b.id))
+
+          // Auto-push any local bookings to server store if not yet there
           for (const lb of localBookings) {
-            if (!existingIds.has(lb.id)) {
+            if (lb && lb.id && !serverIds.has(lb.id)) {
               combined.push(lb)
+              fetch('/api/bookings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: cleanUsername, userId, booking: lb }),
+              }).catch(() => {})
             }
           }
+
           combined.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
           setBookings(combined)
-          localStorage.setItem(`linksocio_bookings_${cleanUsername}`, JSON.stringify(combined))
+          if (cleanUsername) {
+            localStorage.setItem(`linksocio_bookings_${cleanUsername}`, JSON.stringify(combined))
+          }
+          if (userId) {
+            localStorage.setItem(`linksocio_bookings_${userId}`, JSON.stringify(combined))
+          }
         }
       }
     } catch (e) {

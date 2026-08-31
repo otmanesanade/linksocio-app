@@ -31,17 +31,48 @@ export default async function handler(req, res) {
     return
   }
 
-  const store = readBookingsStore()
-
   if (req.method === 'GET') {
+    const store = readBookingsStore()
     const urlObj = new URL(req.url, `http://${req.headers?.host || 'localhost'}`)
-    const username = (urlObj.searchParams.get('username') || '').toLowerCase().trim()
+    const username = (urlObj.searchParams.get('username') || '').toLowerCase().trim().replace(/^@/, '')
+    const userId = (urlObj.searchParams.get('userId') || '').trim()
 
-    const userBookings = (username && store[username]) || []
+    let collected = []
+    const seenIds = new Set()
+
+    function addList(list) {
+      if (Array.isArray(list)) {
+        for (const item of list) {
+          if (item && item.id && !seenIds.has(item.id)) {
+            seenIds.add(item.id)
+            collected.push(item)
+          }
+        }
+      }
+    }
+
+    if (username) {
+      addList(store[username])
+      addList(store[`@${username}`])
+    }
+    if (userId) {
+      addList(store[userId])
+    }
+
+    // If store only has a few records and user query had slight mismatch, collect all relevant
+    if (collected.length === 0 && Object.keys(store).length > 0) {
+      for (const [k, v] of Object.entries(store)) {
+        if (username && k.toLowerCase().includes(username)) {
+          addList(v)
+        }
+      }
+    }
+
+    collected.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
 
     res.statusCode = 200
     res.setHeader('Content-Type', 'application/json')
-    res.end(JSON.stringify({ bookings: userBookings }))
+    res.end(JSON.stringify({ bookings: collected }))
     return
   }
 
@@ -53,25 +84,41 @@ export default async function handler(req, res) {
     req.on('end', () => {
       try {
         const payload = JSON.parse(body || '{}')
-        const username = (payload.username || '').toLowerCase().trim()
+        const username = (payload.username || '').toLowerCase().trim().replace(/^@/, '')
+        const userId = (payload.userId || '').trim()
         const booking = payload.booking || {}
 
-        if (!username) {
+        if (!username && !userId) {
           res.statusCode = 400
           res.setHeader('Content-Type', 'application/json')
-          res.end(JSON.stringify({ error: 'Missing username' }))
+          res.end(JSON.stringify({ error: 'Missing username or userId' }))
           return
         }
 
         const newBooking = {
-          id: 'booking_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
-          createdAt: new Date().toISOString(),
-          status: 'confirmed', // 'confirmed' | 'completed' | 'cancelled'
+          id: booking.id || 'booking_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+          createdAt: booking.createdAt || new Date().toISOString(),
+          status: booking.status || 'confirmed', // 'confirmed' | 'completed' | 'cancelled'
           ...booking,
         }
 
-        const currentList = store[username] || []
-        store[username] = [newBooking, ...currentList]
+        const store = readBookingsStore()
+
+        function saveToKey(key) {
+          if (!key) return
+          const currentList = store[key] || []
+          // Check if already exists by id
+          const idx = currentList.findIndex((b) => b.id === newBooking.id)
+          if (idx >= 0) {
+            currentList[idx] = { ...currentList[idx], ...newBooking }
+          } else {
+            currentList.unshift(newBooking)
+          }
+          store[key] = currentList
+        }
+
+        if (username) saveToKey(username)
+        if (userId) saveToKey(userId)
 
         writeBookingsStore(store)
 
@@ -95,31 +142,31 @@ export default async function handler(req, res) {
     req.on('end', () => {
       try {
         const payload = JSON.parse(body || '{}')
-        const username = (payload.username || '').toLowerCase().trim()
+        const username = (payload.username || '').toLowerCase().trim().replace(/^@/, '')
+        const userId = (payload.userId || '').trim()
         const bookingId = payload.bookingId
         const newStatus = payload.status // 'confirmed' | 'completed' | 'cancelled'
 
-        if (!username || !bookingId) {
+        if (!bookingId) {
           res.statusCode = 400
           res.setHeader('Content-Type', 'application/json')
-          res.end(JSON.stringify({ error: 'Missing username or bookingId' }))
+          res.end(JSON.stringify({ error: 'Missing bookingId' }))
           return
         }
 
-        const currentList = store[username] || []
-        const updatedList = currentList.map((b) => {
-          if (b.id === bookingId) {
-            return { ...b, status: newStatus || b.status }
+        const store = readBookingsStore()
+
+        for (const [k, list] of Object.entries(store)) {
+          if (Array.isArray(list)) {
+            store[k] = list.map((b) => (b.id === bookingId ? { ...b, status: newStatus || b.status } : b))
           }
-          return b
-        })
-        store[username] = updatedList
+        }
 
         writeBookingsStore(store)
 
         res.statusCode = 200
         res.setHeader('Content-Type', 'application/json')
-        res.end(JSON.stringify({ success: true, bookings: updatedList }))
+        res.end(JSON.stringify({ success: true }))
       } catch (err) {
         res.statusCode = 400
         res.setHeader('Content-Type', 'application/json')

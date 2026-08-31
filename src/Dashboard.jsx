@@ -182,14 +182,15 @@ export default function Dashboard({ user }) {
   }, [profile?.username])
 
   async function syncCounts() {
-    if (!profile?.username) return
-    const clean = String(profile.username).toLowerCase().trim()
+    if (!profile?.username && !profile?.id) return
+    const clean = String(profile?.username || '').toLowerCase().trim().replace(/^@/, '')
+    const userId = profile?.id || ''
 
     // 1. Sync Bookings Count
     const localBookings = getStoredBookings(clean)
     setBookingCount(localBookings.length)
     try {
-      const res = await fetch(`/api/bookings?username=${encodeURIComponent(clean)}`)
+      const res = await fetch(`/api/bookings?username=${encodeURIComponent(clean)}&userId=${encodeURIComponent(userId)}`)
       if (res.ok) {
         const data = await res.json()
         if (data.bookings && Array.isArray(data.bookings)) {

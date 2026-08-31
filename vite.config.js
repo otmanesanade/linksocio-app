@@ -227,15 +227,47 @@ function apiPlugin() {
 
         // 5. Bookings Management API
         if (urlObj.pathname === '/api/bookings') {
-          const bookingsStore = readJson(BOOKINGS_PATH)
-
           if (req.method === 'GET') {
-            const username = (urlObj.searchParams.get('username') || '').toLowerCase().trim()
-            const userBookings = (username && bookingsStore[username]) || []
+            const bookingsStore = readJson(BOOKINGS_PATH)
+            const username = (urlObj.searchParams.get('username') || '').toLowerCase().trim().replace(/^@/, '')
+            const userId = (urlObj.searchParams.get('userId') || '').trim()
+
+            let collected = []
+            const seenIds = new Set()
+
+            function addList(list) {
+              if (Array.isArray(list)) {
+                for (const item of list) {
+                  if (item && item.id && !seenIds.has(item.id)) {
+                    seenIds.add(item.id)
+                    collected.push(item)
+                  }
+                }
+              }
+            }
+
+            if (username) {
+              addList(bookingsStore[username])
+              addList(bookingsStore[`@${username}`])
+            }
+            if (userId) {
+              addList(bookingsStore[userId])
+            }
+
+            // Fallback matching if store has entries
+            if (collected.length === 0 && Object.keys(bookingsStore).length > 0) {
+              for (const [k, v] of Object.entries(bookingsStore)) {
+                if (username && k.toLowerCase().includes(username)) {
+                  addList(v)
+                }
+              }
+            }
+
+            collected.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
 
             res.statusCode = 200
             res.setHeader('Content-Type', 'application/json')
-            res.end(JSON.stringify({ bookings: userBookings }))
+            res.end(JSON.stringify({ bookings: collected }))
             return
           }
 
@@ -245,25 +277,40 @@ function apiPlugin() {
             req.on('end', () => {
               try {
                 const payload = JSON.parse(body || '{}')
-                const username = (payload.username || '').toLowerCase().trim()
+                const username = (payload.username || '').toLowerCase().trim().replace(/^@/, '')
+                const userId = (payload.userId || '').trim()
                 const booking = payload.booking || {}
 
-                if (!username) {
+                if (!username && !userId) {
                   res.statusCode = 400
                   res.setHeader('Content-Type', 'application/json')
-                  res.end(JSON.stringify({ error: 'Missing username' }))
+                  res.end(JSON.stringify({ error: 'Missing username or userId' }))
                   return
                 }
 
                 const newBooking = {
-                  id: 'booking_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
-                  createdAt: new Date().toISOString(),
-                  status: 'confirmed',
+                  id: booking.id || 'booking_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+                  createdAt: booking.createdAt || new Date().toISOString(),
+                  status: booking.status || 'confirmed',
                   ...booking,
                 }
 
-                const currentList = bookingsStore[username] || []
-                bookingsStore[username] = [newBooking, ...currentList]
+                const bookingsStore = readJson(BOOKINGS_PATH)
+
+                function saveToKey(key) {
+                  if (!key) return
+                  const currentList = bookingsStore[key] || []
+                  const idx = currentList.findIndex((b) => b.id === newBooking.id)
+                  if (idx >= 0) {
+                    currentList[idx] = { ...currentList[idx], ...newBooking }
+                  } else {
+                    currentList.unshift(newBooking)
+                  }
+                  bookingsStore[key] = currentList
+                }
+
+                if (username) saveToKey(username)
+                if (userId) saveToKey(userId)
 
                 writeJson(BOOKINGS_PATH, bookingsStore)
 
@@ -285,31 +332,29 @@ function apiPlugin() {
             req.on('end', () => {
               try {
                 const payload = JSON.parse(body || '{}')
-                const username = (payload.username || '').toLowerCase().trim()
                 const bookingId = payload.bookingId
                 const newStatus = payload.status
 
-                if (!username || !bookingId) {
+                if (!bookingId) {
                   res.statusCode = 400
                   res.setHeader('Content-Type', 'application/json')
-                  res.end(JSON.stringify({ error: 'Missing username or bookingId' }))
+                  res.end(JSON.stringify({ error: 'Missing bookingId' }))
                   return
                 }
 
-                const currentList = bookingsStore[username] || []
-                const updatedList = currentList.map((b) => {
-                  if (b.id === bookingId) {
-                    return { ...b, status: newStatus || b.status }
+                const bookingsStore = readJson(BOOKINGS_PATH)
+
+                for (const [k, list] of Object.entries(bookingsStore)) {
+                  if (Array.isArray(list)) {
+                    bookingsStore[k] = list.map((b) => (b.id === bookingId ? { ...b, status: newStatus || b.status } : b))
                   }
-                  return b
-                })
-                bookingsStore[username] = updatedList
+                }
 
                 writeJson(BOOKINGS_PATH, bookingsStore)
 
                 res.statusCode = 200
                 res.setHeader('Content-Type', 'application/json')
-                res.end(JSON.stringify({ success: true, bookings: updatedList }))
+                res.end(JSON.stringify({ success: true }))
               } catch (e) {
                 res.statusCode = 400
                 res.setHeader('Content-Type', 'application/json')

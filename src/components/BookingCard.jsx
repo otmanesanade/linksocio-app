@@ -132,13 +132,12 @@ export default function BookingCard({ profile, links = [], theme, isEmbedded = f
       notes: notes.trim(),
     }
 
-    const targetUsername =
-      profile?.username ||
-      profile?.id ||
-      (typeof window !== 'undefined' ? window.location.pathname.replace(/^\//, '').split('/')[0] : '')
+    const targetProfile =
+      profile ||
+      (typeof window !== 'undefined' ? { username: window.location.pathname.replace(/^\//, '').split('/')[0] } : null)
 
-    if (targetUsername) {
-      recordNewBooking(targetUsername, bookingData).catch(() => {})
+    if (targetProfile) {
+      recordNewBooking(targetProfile, bookingData).catch(() => {})
     }
 
     setConfirmedBookingData(bookingData)
