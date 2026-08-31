@@ -99,37 +99,67 @@ export function saveInquirySettingsLocally(profile, settings) {
   } catch (e) {}
 }
 
-export function getStoredLeads(profileUsername) {
-  if (!profileUsername) return []
+export function getStoredLeads(profileOrUsername) {
+  if (!profileOrUsername) return []
+  const username = typeof profileOrUsername === 'string' ? profileOrUsername : profileOrUsername.username || ''
+  const userId = typeof profileOrUsername === 'object' ? profileOrUsername.id || '' : ''
+  const clean = String(username || userId).toLowerCase().trim().replace(/^@/, '')
+
   try {
-    const key = `linksocio_leads_${profileUsername}`
-    const data = localStorage.getItem(key)
-    return data ? JSON.parse(data) : []
+    const raw =
+      localStorage.getItem(`linksocio_leads_${clean}`) ||
+      (username && localStorage.getItem(`linksocio_leads_${username}`)) ||
+      (userId && localStorage.getItem(`linksocio_leads_${userId}`))
+    return raw ? JSON.parse(raw) : []
   } catch (e) {
     return []
   }
 }
 
-export function recordLeadLocally(profileUsername, lead) {
-  if (!profileUsername) return null
+export function recordLeadLocally(profileOrUsername, lead) {
+  if (!profileOrUsername || !lead) return null
+  const username =
+    typeof profileOrUsername === 'string'
+      ? profileOrUsername
+      : profileOrUsername.username || ''
+  const userId =
+    typeof profileOrUsername === 'object'
+      ? profileOrUsername.id || ''
+      : ''
+
+  const clean = String(username || userId).toLowerCase().trim().replace(/^@/, '')
   try {
-    const key = `linksocio_leads_${profileUsername}`
-    const existing = getStoredLeads(profileUsername)
+    const existing = getStoredLeads(clean)
     const newLead = {
       id: 'lead_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
-      createdAt: new Date().toISOString(),
-      status: 'new',
+      createdAt: lead.createdAt || new Date().toISOString(),
+      status: lead.status || 'new',
       ...lead,
     }
-    const updated = [newLead, ...existing]
-    localStorage.setItem(key, JSON.stringify(updated))
+    const updated = [newLead, ...existing.filter((l) => l.id !== newLead.id)]
+    const jsonStr = JSON.stringify(updated)
+
+    if (clean) localStorage.setItem(`linksocio_leads_${clean}`, jsonStr)
+    if (username) localStorage.setItem(`linksocio_leads_${username}`, jsonStr)
+    if (userId) localStorage.setItem(`linksocio_leads_${userId}`, jsonStr)
 
     // Sync to server API
     fetch('/api/inquiry-leads', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: profileUsername, lead: newLead }),
+      body: JSON.stringify({
+        username: clean,
+        userId: userId || undefined,
+        lead: newLead,
+      }),
     }).catch(() => {})
+
+    // Notify same window/dashboard
+    if (typeof window !== 'undefined') {
+      try {
+        window.dispatchEvent(new CustomEvent('linksocio_new_booking'))
+      } catch (e) {}
+    }
 
     return newLead
   } catch (e) {
@@ -145,6 +175,7 @@ export default function InquiryTab({ profile, onUpdated }) {
   const [filter, setFilter] = useState('all')
   const [search, setSearch] = useState('')
   const [copiedLeadId, setCopiedLeadId] = useState(null)
+  const [isRefreshing, setIsRefreshing] = useState(false)
 
   useEffect(() => {
     if (profile) {
@@ -161,24 +192,75 @@ export default function InquiryTab({ profile, onUpdated }) {
           }
         }
       })
+
+      // Polling for new leads from other devices every 3s
+      const interval = setInterval(() => {
+        loadLeads(false)
+      }, 3000)
+
+      function handleNewLeadEvent() {
+        loadLeads(false)
+      }
+      window.addEventListener('linksocio_new_booking', handleNewLeadEvent)
+      window.addEventListener('storage', handleNewLeadEvent)
+
+      return () => {
+        clearInterval(interval)
+        window.removeEventListener('linksocio_new_booking', handleNewLeadEvent)
+        window.removeEventListener('storage', handleNewLeadEvent)
+      }
     }
   }, [profile?.id, profile?.username])
 
-  async function loadLeads() {
-    if (!profile?.username) return
-    const localLeads = getStoredLeads(profile.username)
-    setLeads(localLeads)
+  async function loadLeads(showIndicator = false) {
+    if (!profile?.username && !profile?.id) return
+    const cleanUsername = String(profile?.username || '').toLowerCase().trim().replace(/^@/, '')
+    const userId = profile?.id || ''
+    if (showIndicator) setIsRefreshing(true)
+
+    const localLeads = getStoredLeads(cleanUsername)
+    if (localLeads && localLeads.length > 0) {
+      setLeads((prev) => (localLeads.length >= prev.length ? localLeads : prev))
+    }
 
     try {
-      const res = await fetch(`/api/inquiry-leads?username=${encodeURIComponent(profile.username)}`)
+      const query = `username=${encodeURIComponent(cleanUsername)}&userId=${encodeURIComponent(userId)}`
+      const res = await fetch(`/api/inquiry-leads?${query}`)
       if (res.ok) {
         const data = await res.json()
-        if (data.leads && Array.isArray(data.leads) && data.leads.length > 0) {
-          setLeads(data.leads)
-          localStorage.setItem(`linksocio_leads_${profile.username}`, JSON.stringify(data.leads))
+        if (data.leads && Array.isArray(data.leads)) {
+          const serverLeads = data.leads
+          const combined = [...serverLeads]
+          const serverIds = new Set(serverLeads.map((l) => l.id))
+
+          // Auto-push local leads to server store if missing
+          for (const ll of localLeads) {
+            if (ll && ll.id && !serverIds.has(ll.id)) {
+              combined.push(ll)
+              fetch('/api/inquiry-leads', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: cleanUsername, userId, lead: ll }),
+              }).catch(() => {})
+            }
+          }
+
+          combined.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
+          setLeads(combined)
+          if (cleanUsername) {
+            localStorage.setItem(`linksocio_leads_${cleanUsername}`, JSON.stringify(combined))
+          }
+          if (userId) {
+            localStorage.setItem(`linksocio_leads_${userId}`, JSON.stringify(combined))
+          }
         }
       }
-    } catch (e) {}
+    } catch (e) {
+    } finally {
+      if (showIndicator) {
+        setTimeout(() => setIsRefreshing(false), 400)
+      }
+    }
   }
 
   // Toggle handler that immediately saves and updates state everywhere
@@ -223,16 +305,45 @@ export default function InquiryTab({ profile, onUpdated }) {
     setTimeout(() => setSaved(false), 2000)
   }
 
-  function handleUpdateLeadStatus(leadId, newStatus) {
+  async function handleUpdateLeadStatus(leadId, newStatus) {
     const updated = leads.map((l) => (l.id === leadId ? { ...l, status: newStatus } : l))
     setLeads(updated)
-    localStorage.setItem(`linksocio_leads_${profile.username}`, JSON.stringify(updated))
+    const cleanUsername = String(profile?.username || '').toLowerCase().trim().replace(/^@/, '')
+    if (cleanUsername) localStorage.setItem(`linksocio_leads_${cleanUsername}`, JSON.stringify(updated))
+    if (profile?.id) localStorage.setItem(`linksocio_leads_${profile.id}`, JSON.stringify(updated))
+
+    try {
+      await fetch('/api/inquiry-leads', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: cleanUsername,
+          userId: profile?.id,
+          leadId,
+          status: newStatus,
+        }),
+      })
+    } catch (e) {}
   }
 
-  function handleDeleteLead(leadId) {
+  async function handleDeleteLead(leadId) {
     const updated = leads.filter((l) => l.id !== leadId)
     setLeads(updated)
-    localStorage.setItem(`linksocio_leads_${profile.username}`, JSON.stringify(updated))
+    const cleanUsername = String(profile?.username || '').toLowerCase().trim().replace(/^@/, '')
+    if (cleanUsername) localStorage.setItem(`linksocio_leads_${cleanUsername}`, JSON.stringify(updated))
+    if (profile?.id) localStorage.setItem(`linksocio_leads_${profile.id}`, JSON.stringify(updated))
+
+    try {
+      await fetch('/api/inquiry-leads', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: cleanUsername,
+          userId: profile?.id,
+          leadId,
+        }),
+      })
+    } catch (e) {}
   }
 
   function handleExportCsv() {

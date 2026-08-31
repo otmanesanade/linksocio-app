@@ -1,0 +1,33 @@
+{
+  "otmank": [
+    {
+      "id": "booking_1788169458261_y28t",
+      "createdAt": "2026-08-31T09:44:18.261Z",
+      "status": "confirmed",
+      "client_name": "Fatima Phone",
+      "service_title": "1-on-1 Consultation",
+      "date": "2026-09-05",
+      "time_slot": "14:00"
+    },
+    {
+      "id": "booking_1788169359778_hxtg",
+      "createdAt": "2026-08-31T09:42:39.778Z",
+      "status": "confirmed",
+      "client_name": "Test Client",
+      "service_title": "30 Min Call",
+      "date": "2026-09-01",
+      "time_slot": "10:00 AM"
+    }
+  ],
+  "user_123": [
+    {
+      "id": "booking_1788169458261_y28t",
+      "createdAt": "2026-08-31T09:44:18.261Z",
+      "status": "confirmed",
+      "client_name": "Fatima Phone",
+      "service_title": "1-on-1 Consultation",
+      "date": "2026-09-05",
+      "time_slot": "14:00"
+    }
+  ]
+}

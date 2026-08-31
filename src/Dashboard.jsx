@@ -203,7 +203,7 @@ export default function Dashboard({ user }) {
     const localLeads = getStoredLeads(clean)
     setLeadsCount(localLeads.length)
     try {
-      const res = await fetch(`/api/inquiry-leads?username=${encodeURIComponent(clean)}`)
+      const res = await fetch(`/api/inquiry-leads?username=${encodeURIComponent(clean)}&userId=${encodeURIComponent(userId)}`)
       if (res.ok) {
         const data = await res.json()
         if (data.leads && Array.isArray(data.leads)) {

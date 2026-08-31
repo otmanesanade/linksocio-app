@@ -129,15 +129,46 @@ function apiPlugin() {
 
         // 3. Inquiry Leads API
         if (urlObj.pathname === '/api/inquiry-leads') {
-          const leadsStore = readJson(LEADS_PATH)
-
           if (req.method === 'GET') {
-            const username = (urlObj.searchParams.get('username') || '').toLowerCase().trim()
-            const userLeads = (username && leadsStore[username]) || []
+            const leadsStore = readJson(LEADS_PATH)
+            const username = (urlObj.searchParams.get('username') || '').toLowerCase().trim().replace(/^@/, '')
+            const userId = (urlObj.searchParams.get('userId') || '').trim()
+
+            let collected = []
+            const seenIds = new Set()
+
+            function addList(list) {
+              if (Array.isArray(list)) {
+                for (const item of list) {
+                  if (item && item.id && !seenIds.has(item.id)) {
+                    seenIds.add(item.id)
+                    collected.push(item)
+                  }
+                }
+              }
+            }
+
+            if (username) {
+              addList(leadsStore[username])
+              addList(leadsStore[`@${username}`])
+            }
+            if (userId) {
+              addList(leadsStore[userId])
+            }
+
+            if (collected.length === 0 && Object.keys(leadsStore).length > 0) {
+              for (const [k, v] of Object.entries(leadsStore)) {
+                if (username && k.toLowerCase().includes(username)) {
+                  addList(v)
+                }
+              }
+            }
+
+            collected.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
 
             res.statusCode = 200
             res.setHeader('Content-Type', 'application/json')
-            res.end(JSON.stringify({ leads: userLeads }))
+            res.end(JSON.stringify({ leads: collected }))
             return
           }
 
@@ -147,31 +178,118 @@ function apiPlugin() {
             req.on('end', () => {
               try {
                 const payload = JSON.parse(body || '{}')
-                const username = (payload.username || '').toLowerCase().trim()
+                const username = (payload.username || '').toLowerCase().trim().replace(/^@/, '')
+                const userId = (payload.userId || '').trim()
                 const lead = payload.lead || {}
 
-                if (!username) {
+                if (!username && !userId) {
                   res.statusCode = 400
                   res.setHeader('Content-Type', 'application/json')
-                  res.end(JSON.stringify({ error: 'Missing username' }))
+                  res.end(JSON.stringify({ error: 'Missing username or userId' }))
                   return
                 }
 
                 const newLead = {
-                  id: 'lead_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
-                  createdAt: new Date().toISOString(),
-                  status: 'new',
+                  id: lead.id || 'lead_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+                  createdAt: lead.createdAt || new Date().toISOString(),
+                  status: lead.status || 'new',
                   ...lead,
                 }
 
-                const currentList = leadsStore[username] || []
-                leadsStore[username] = [newLead, ...currentList]
+                const leadsStore = readJson(LEADS_PATH)
+
+                function saveToKey(key) {
+                  if (!key) return
+                  const currentList = leadsStore[key] || []
+                  const idx = currentList.findIndex((l) => l.id === newLead.id)
+                  if (idx >= 0) {
+                    leadsStore[key][idx] = { ...leadsStore[key][idx], ...newLead }
+                  } else {
+                    leadsStore[key] = [newLead, ...currentList]
+                  }
+                }
+
+                if (username) saveToKey(username)
+                if (userId) saveToKey(userId)
 
                 writeJson(LEADS_PATH, leadsStore)
 
                 res.statusCode = 200
                 res.setHeader('Content-Type', 'application/json')
                 res.end(JSON.stringify({ success: true, lead: newLead }))
+              } catch (e) {
+                res.statusCode = 400
+                res.setHeader('Content-Type', 'application/json')
+                res.end(JSON.stringify({ error: 'Invalid JSON' }))
+              }
+            })
+            return
+          }
+
+          if (req.method === 'PUT' || req.method === 'PATCH') {
+            let body = ''
+            req.on('data', (chunk) => { body += chunk })
+            req.on('end', () => {
+              try {
+                const payload = JSON.parse(body || '{}')
+                const leadId = payload.leadId
+                const newStatus = payload.status
+
+                if (!leadId) {
+                  res.statusCode = 400
+                  res.setHeader('Content-Type', 'application/json')
+                  res.end(JSON.stringify({ error: 'Missing leadId' }))
+                  return
+                }
+
+                const leadsStore = readJson(LEADS_PATH)
+                for (const [k, list] of Object.entries(leadsStore)) {
+                  if (Array.isArray(list)) {
+                    leadsStore[k] = list.map((l) => (l.id === leadId ? { ...l, status: newStatus || l.status } : l))
+                  }
+                }
+
+                writeJson(LEADS_PATH, leadsStore)
+
+                res.statusCode = 200
+                res.setHeader('Content-Type', 'application/json')
+                res.end(JSON.stringify({ success: true }))
+              } catch (e) {
+                res.statusCode = 400
+                res.setHeader('Content-Type', 'application/json')
+                res.end(JSON.stringify({ error: 'Invalid JSON' }))
+              }
+            })
+            return
+          }
+
+          if (req.method === 'DELETE') {
+            let body = ''
+            req.on('data', (chunk) => { body += chunk })
+            req.on('end', () => {
+              try {
+                const payload = JSON.parse(body || '{}')
+                const leadId = payload.leadId
+
+                if (!leadId) {
+                  res.statusCode = 400
+                  res.setHeader('Content-Type', 'application/json')
+                  res.end(JSON.stringify({ error: 'Missing leadId' }))
+                  return
+                }
+
+                const leadsStore = readJson(LEADS_PATH)
+                for (const [k, list] of Object.entries(leadsStore)) {
+                  if (Array.isArray(list)) {
+                    leadsStore[k] = list.filter((l) => l.id !== leadId)
+                  }
+                }
+
+                writeJson(LEADS_PATH, leadsStore)
+
+                res.statusCode = 200
+                res.setHeader('Content-Type', 'application/json')
+                res.end(JSON.stringify({ success: true }))
               } catch (e) {
                 res.statusCode = 400
                 res.setHeader('Content-Type', 'application/json')

@@ -43,8 +43,12 @@ export default function InquiryCard({ profile, links = [], theme, isEmbedded = f
     setError('')
 
     // 1. Record lead locally/database
-    if (profile?.username) {
-      recordLeadLocally(profile.username, {
+    const targetProfile =
+      profile ||
+      (typeof window !== 'undefined' ? { username: window.location.pathname.replace(/^\//, '').split('/')[0] } : null)
+
+    if (targetProfile) {
+      recordLeadLocally(targetProfile, {
         name: name.trim(),
         phone: phone.trim(),
         message: message.trim(),
