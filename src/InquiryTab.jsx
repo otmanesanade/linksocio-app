@@ -180,7 +180,7 @@ export default function InquiryTab({ profile, onUpdated }) {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [leads, setLeads] = useState([])
-  const [filter, setFilter] = useState('all')
+  const [filter, setFilter] = useState('new') // default to 'new' so replied/done leads don't clutter active inbox
   const [search, setSearch] = useState('')
   const [copiedLeadId, setCopiedLeadId] = useState(null)
   const [isRefreshing, setIsRefreshing] = useState(false)
@@ -339,6 +339,11 @@ export default function InquiryTab({ profile, onUpdated }) {
     if (profile?.id) localStorage.setItem(`linksocio_leads_${profile.id}`, JSON.stringify(updated))
 
     try {
+      window.dispatchEvent(new CustomEvent('linksocio_lead_updated', { detail: { leadId, status: newStatus } }))
+      window.dispatchEvent(new Event('linksocio_new_booking'))
+    } catch (e) {}
+
+    try {
       await fetch('/api/inquiry-leads', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -353,11 +358,18 @@ export default function InquiryTab({ profile, onUpdated }) {
   }
 
   async function handleDeleteLead(leadId) {
+    if (!window.confirm('Are you sure you want to delete this message?')) return
+
     const updated = leads.filter((l) => l.id !== leadId)
     setLeads(updated)
     const cleanUsername = String(profile?.username || '').toLowerCase().trim().replace(/^@/, '')
     if (cleanUsername) localStorage.setItem(`linksocio_leads_${cleanUsername}`, JSON.stringify(updated))
     if (profile?.id) localStorage.setItem(`linksocio_leads_${profile.id}`, JSON.stringify(updated))
+
+    try {
+      window.dispatchEvent(new CustomEvent('linksocio_lead_updated', { detail: { leadId, deleted: true } }))
+      window.dispatchEvent(new Event('linksocio_new_booking'))
+    } catch (e) {}
 
     try {
       await fetch('/api/inquiry-leads', {

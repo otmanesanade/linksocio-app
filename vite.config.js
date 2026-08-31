@@ -516,6 +516,43 @@ function apiPlugin() {
             })
             return
           }
+
+          if (req.method === 'DELETE') {
+            let body = ''
+            req.on('data', (chunk) => { body += chunk })
+            req.on('end', () => {
+              try {
+                const payload = JSON.parse(body || '{}')
+                const bookingId = payload.bookingId
+
+                if (!bookingId) {
+                  res.statusCode = 400
+                  res.setHeader('Content-Type', 'application/json')
+                  res.end(JSON.stringify({ error: 'Missing bookingId' }))
+                  return
+                }
+
+                const bookingsStore = readJson(BOOKINGS_PATH)
+
+                for (const [k, list] of Object.entries(bookingsStore)) {
+                  if (Array.isArray(list)) {
+                    bookingsStore[k] = list.filter((b) => b.id !== bookingId)
+                  }
+                }
+
+                writeJson(BOOKINGS_PATH, bookingsStore)
+
+                res.statusCode = 200
+                res.setHeader('Content-Type', 'application/json')
+                res.end(JSON.stringify({ success: true }))
+              } catch (e) {
+                res.statusCode = 400
+                res.setHeader('Content-Type', 'application/json')
+                res.end(JSON.stringify({ error: 'Invalid JSON' }))
+              }
+            })
+            return
+          }
         }
 
         next()

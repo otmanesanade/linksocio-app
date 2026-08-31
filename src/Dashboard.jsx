@@ -171,11 +171,15 @@ export default function Dashboard({ user }) {
         syncCounts()
       }
       window.addEventListener('linksocio_new_booking', onNewBookingOrLead)
+      window.addEventListener('linksocio_booking_updated', onNewBookingOrLead)
+      window.addEventListener('linksocio_lead_updated', onNewBookingOrLead)
       window.addEventListener('storage', onNewBookingOrLead)
 
       return () => {
         clearInterval(interval)
         window.removeEventListener('linksocio_new_booking', onNewBookingOrLead)
+        window.removeEventListener('linksocio_booking_updated', onNewBookingOrLead)
+        window.removeEventListener('linksocio_lead_updated', onNewBookingOrLead)
         window.removeEventListener('storage', onNewBookingOrLead)
       }
     }
@@ -186,7 +190,7 @@ export default function Dashboard({ user }) {
     const clean = String(profile?.username || '').toLowerCase().trim().replace(/^@/, '')
     const userId = profile?.id || ''
 
-    // 1. Sync Bookings Count
+    // 1. Sync Active Bookings Count (Exclude Cancelled and Completed/Done)
     const bClean = getStoredBookings(clean)
     const bUser = profile?.username ? getStoredBookings(profile.username) : []
     const bId = userId ? getStoredBookings(userId) : []
@@ -195,7 +199,10 @@ export default function Dashboard({ user }) {
       if (b && b.id) bMap.set(b.id, b)
     }
     const localBookings = Array.from(bMap.values())
-    setBookingCount(localBookings.length)
+    const activeLocalBookings = localBookings.filter(
+      (b) => b.status !== 'cancelled' && b.status !== 'completed'
+    )
+    setBookingCount(activeLocalBookings.length)
 
     try {
       if (localBookings.length > 0) {
@@ -216,14 +223,17 @@ export default function Dashboard({ user }) {
             for (const b of [...localBookings, ...data.bookings]) {
               if (b && b.id) mergedMap.set(b.id, b)
             }
-            const total = mergedMap.size
-            setBookingCount(total)
+            const allBookings = Array.from(mergedMap.values())
+            const activeBookings = allBookings.filter(
+              (b) => b.status !== 'cancelled' && b.status !== 'completed'
+            )
+            setBookingCount(activeBookings.length)
           }
         }
       }
     } catch (e) {}
 
-    // 2. Sync Leads Count
+    // 2. Sync Active Leads Count (Exclude Closed, Replied, Completed and Cancelled)
     const lClean = getStoredLeads(clean)
     const lUser = profile?.username ? getStoredLeads(profile.username) : []
     const lId = userId ? getStoredLeads(userId) : []
@@ -232,7 +242,10 @@ export default function Dashboard({ user }) {
       if (l && l.id) lMap.set(l.id, l)
     }
     const localLeads = Array.from(lMap.values())
-    setLeadsCount(localLeads.length)
+    const activeLocalLeads = localLeads.filter(
+      (l) => l.status !== 'closed' && l.status !== 'cancelled' && l.status !== 'replied' && l.status !== 'completed' && l.status !== 'done'
+    )
+    setLeadsCount(activeLocalLeads.length)
 
     try {
       if (localLeads.length > 0) {
@@ -253,8 +266,11 @@ export default function Dashboard({ user }) {
             for (const l of [...localLeads, ...data.leads]) {
               if (l && l.id) mergedMap.set(l.id, l)
             }
-            const total = mergedMap.size
-            setLeadsCount(total)
+            const allLeads = Array.from(mergedMap.values())
+            const activeLeads = allLeads.filter(
+              (l) => l.status !== 'closed' && l.status !== 'cancelled' && l.status !== 'replied' && l.status !== 'completed' && l.status !== 'done'
+            )
+            setLeadsCount(activeLeads.length)
           }
         }
       }

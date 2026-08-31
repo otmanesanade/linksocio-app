@@ -191,7 +191,7 @@ export async function recordNewBooking(profileOrUsername, booking) {
 export default function BookingTab({ profile, onUpdated }) {
   const [settings, setSettings] = useState(DEFAULT_BOOKING_SETTINGS)
   const [bookings, setBookings] = useState([])
-  const [statusFilter, setStatusFilter] = useState('all') // 'all' | 'confirmed' | 'completed' | 'cancelled'
+  const [statusFilter, setStatusFilter] = useState('active') // 'active' | 'all' | 'completed' | 'cancelled'
   const [saving, setSaving] = useState(false)
   const [savedSuccess, setSavedSuccess] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
@@ -440,16 +440,62 @@ export default function BookingTab({ profile, onUpdated }) {
       return b
     })
     setBookings(updated)
-    localStorage.setItem(`linksocio_bookings_${profile.username}`, JSON.stringify(updated))
+
+    const clean = String(profile?.username || '').toLowerCase().trim().replace(/^@/, '')
+    const userId = profile?.id || ''
+    const jsonStr = JSON.stringify(updated)
+    if (clean) localStorage.setItem(`linksocio_bookings_${clean}`, jsonStr)
+    if (userId) localStorage.setItem(`linksocio_bookings_${userId}`, jsonStr)
+    if (profile?.username) localStorage.setItem(`linksocio_bookings_${profile.username}`, jsonStr)
+
+    // Notify Dashboard and other tabs immediately
+    try {
+      window.dispatchEvent(new CustomEvent('linksocio_booking_updated', { detail: { bookingId, status: newStatus } }))
+      window.dispatchEvent(new Event('linksocio_new_booking'))
+    } catch (e) {}
 
     try {
       await fetch('/api/bookings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          username: profile.username,
+          username: clean,
+          userId,
           bookingId,
           status: newStatus,
+        }),
+      })
+    } catch (e) {}
+  }
+
+  async function handleDeleteBooking(bookingId) {
+    if (!window.confirm('Are you sure you want to permanently delete this appointment?')) {
+      return
+    }
+
+    const updated = bookings.filter((b) => b.id !== bookingId)
+    setBookings(updated)
+
+    const clean = String(profile?.username || '').toLowerCase().trim().replace(/^@/, '')
+    const userId = profile?.id || ''
+    const jsonStr = JSON.stringify(updated)
+    if (clean) localStorage.setItem(`linksocio_bookings_${clean}`, jsonStr)
+    if (userId) localStorage.setItem(`linksocio_bookings_${userId}`, jsonStr)
+    if (profile?.username) localStorage.setItem(`linksocio_bookings_${profile.username}`, jsonStr)
+
+    try {
+      window.dispatchEvent(new CustomEvent('linksocio_booking_updated', { detail: { bookingId, deleted: true } }))
+      window.dispatchEvent(new Event('linksocio_new_booking'))
+    } catch (e) {}
+
+    try {
+      await fetch('/api/bookings', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: clean,
+          userId,
+          bookingId,
         }),
       })
     } catch (e) {}
@@ -486,13 +532,18 @@ export default function BookingTab({ profile, onUpdated }) {
     return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&details=${details}`
   }
 
+  const activeCount = bookings.filter((b) => b.status !== 'completed' && b.status !== 'cancelled').length
+  const completedCount = bookings.filter((b) => b.status === 'completed').length
+  const cancelledCount = bookings.filter((b) => b.status === 'cancelled').length
+  const allCount = bookings.length
+
   const filteredBookings = bookings.filter((b) => {
+    if (statusFilter === 'active') {
+      return b.status !== 'completed' && b.status !== 'cancelled'
+    }
     if (statusFilter === 'all') return true
     return b.status === statusFilter
   })
-
-  const confirmedCount = bookings.filter((b) => b.status === 'confirmed').length
-  const completedCount = bookings.filter((b) => b.status === 'completed').length
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -917,25 +968,45 @@ export default function BookingTab({ profile, onUpdated }) {
             </button>
 
             {/* Filter Tabs */}
-            <div style={{ display: 'flex', background: '#F1F5F9', padding: 3, borderRadius: 10 }}>
-              {['all', 'confirmed', 'completed', 'cancelled'].map((tabKey) => (
+            <div style={{ display: 'flex', background: '#F1F5F9', padding: 3, borderRadius: 10, gap: 2 }}>
+              {[
+                { key: 'active', label: 'Active', count: activeCount },
+                { key: 'all', label: 'All', count: allCount },
+                { key: 'completed', label: 'Done', count: completedCount },
+                { key: 'cancelled', label: 'Cancelled', count: cancelledCount },
+              ].map((tab) => (
                 <button
-                  key={tabKey}
-                  onClick={() => setStatusFilter(tabKey)}
+                  key={tab.key}
+                  type="button"
+                  onClick={() => setStatusFilter(tab.key)}
                   style={{
                     border: 'none',
                     borderRadius: 8,
                     padding: '5px 10px',
                     fontSize: 11.5,
-                    fontWeight: 600,
+                    fontWeight: 700,
                     cursor: 'pointer',
-                    background: statusFilter === tabKey ? 'white' : 'transparent',
-                    color: statusFilter === tabKey ? '#0F172A' : '#64748B',
-                    boxShadow: statusFilter === tabKey ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-                    textTransform: 'capitalize',
+                    background: statusFilter === tab.key ? 'white' : 'transparent',
+                    color: statusFilter === tab.key ? '#0F172A' : '#64748B',
+                    boxShadow: statusFilter === tab.key ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 5,
                   }}
                 >
-                  {tabKey}
+                  <span>{tab.label}</span>
+                  <span
+                    style={{
+                      background: statusFilter === tab.key ? '#0D9488' : '#CBD5E1',
+                      color: 'white',
+                      fontSize: 10,
+                      fontWeight: 800,
+                      padding: '1px 6px',
+                      borderRadius: 10,
+                    }}
+                  >
+                    {tab.count}
+                  </span>
                 </button>
               ))}
             </div>
@@ -1031,11 +1102,12 @@ export default function BookingTab({ profile, onUpdated }) {
                     </div>
 
                     {/* Status Toggle Actions */}
-                    <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
                       {b.status !== 'completed' && (
                         <button
                           type="button"
                           onClick={() => updateBookingStatus(b.id, 'completed')}
+                          title="Mark as completed/done (will hide from active dashboard)"
                           style={{
                             background: '#F0FDFA',
                             border: '1px solid #99F6E4',
@@ -1055,6 +1127,7 @@ export default function BookingTab({ profile, onUpdated }) {
                         <button
                           type="button"
                           onClick={() => updateBookingStatus(b.id, 'cancelled')}
+                          title="Cancel appointment (will hide from active dashboard)"
                           style={{
                             background: '#FEF2F2',
                             border: '1px solid #FECACA',
@@ -1069,6 +1142,43 @@ export default function BookingTab({ profile, onUpdated }) {
                           ✕ Cancel
                         </button>
                       )}
+
+                      {(b.status === 'completed' || b.status === 'cancelled') && (
+                        <button
+                          type="button"
+                          onClick={() => updateBookingStatus(b.id, 'confirmed')}
+                          title="Restore back to Active"
+                          style={{
+                            background: '#F1F5F9',
+                            border: '1px solid #CBD5E1',
+                            borderRadius: 8,
+                            padding: '6px 10px',
+                            fontSize: 11.5,
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            color: '#475569',
+                          }}
+                        >
+                          ↺ Restore
+                        </button>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteBooking(b.id)}
+                        title="Permanently remove appointment"
+                        style={{
+                          background: '#FFFFFF',
+                          border: '1px solid #E2E8F0',
+                          borderRadius: 8,
+                          padding: '6px 8px',
+                          fontSize: 11.5,
+                          cursor: 'pointer',
+                          color: '#94A3B8',
+                        }}
+                      >
+                        🗑️
+                      </button>
                     </div>
                   </div>
 
