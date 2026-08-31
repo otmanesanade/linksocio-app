@@ -13,7 +13,7 @@ export const CURRENCIES = [
 ]
 
 export const DEFAULT_BOOKING_SETTINGS = {
-  enabled: false,
+  enabled: true,
   title: 'Book a Consultation',
   subtitle: 'Select a suitable date & time for a 1-on-1 meeting with me.',
   whatsapp_number: '',
@@ -65,7 +65,7 @@ export function getBookingSettings(profile) {
       } catch (e) {}
     }
 
-    let isEnabled = false
+    let isEnabled = true
     if (parsed && parsed.enabled !== undefined) {
       isEnabled = Boolean(parsed.enabled)
     } else if (profile.booking_enabled !== undefined && profile.booking_enabled !== null) {
