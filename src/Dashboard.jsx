@@ -8,6 +8,7 @@ import Analytics from './Analytics'
 import QrTab from './components/QrTab'
 import AvatarUpload from './components/AvatarUpload'
 import InquiryTab, { fetchServerInquirySettings } from './InquiryTab'
+import BookingTab, { fetchServerBookingSettings } from './BookingTab'
 import { LivePagePreview } from './components/LivePagePreview'
 import confetti from 'canvas-confetti'
 
@@ -166,11 +167,22 @@ export default function Dashboard({ user }) {
       return
     }
 
-    const serverInquiry = await fetchServerInquirySettings(data.username, data.id)
+    const [serverInquiry, serverBooking] = await Promise.all([
+      fetchServerInquirySettings(data.username, data.id),
+      fetchServerBookingSettings(data.username, data.id),
+    ])
+
     if (serverInquiry) {
       data._inquirySettings = serverInquiry
       if (serverInquiry.enabled !== undefined) {
         data.inquiry_enabled = serverInquiry.enabled
+      }
+    }
+
+    if (serverBooking) {
+      data._bookingSettings = serverBooking
+      if (serverBooking.enabled !== undefined) {
+        data.booking_enabled = serverBooking.enabled
       }
     }
 
@@ -236,6 +248,7 @@ export default function Dashboard({ user }) {
 
   const navItems = [
     { key: 'links', label: 'Links & Socials', icon: '🔗' },
+    { key: 'bookings', label: 'Appointments & Calendar', icon: '🗓️' },
     { key: 'inquiries', label: 'Messages & Leads', icon: '💬' },
     { key: 'shop', label: 'Store & Products', icon: '🛍️' },
     { key: 'theme', label: 'Appearance & Themes', icon: '🎨' },
@@ -407,6 +420,9 @@ export default function Dashboard({ user }) {
           )}
           {tab === 'inquiries' && (
             <InquiryTab profile={profile} onUpdated={loadProfile} />
+          )}
+          {tab === 'bookings' && (
+            <BookingTab profile={profile} onUpdated={loadProfile} />
           )}
           {tab === 'shop' && (
             <ShopTab user={user} products={products} reloadProducts={loadProducts} />

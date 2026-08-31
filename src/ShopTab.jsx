@@ -129,7 +129,30 @@ export default function ShopTab({ user, products = [], reloadProducts }) {
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
             <input placeholder="Product / Service Title *" value={name} onChange={(e) => setName(e.target.value)} style={inputStyle} />
-            <input placeholder="Price (e.g. 199 DH / $29)" value={price} onChange={(e) => setPrice(e.target.value)} style={inputStyle} />
+            <div>
+              <input placeholder="Price (e.g. $29, 29 €, 199 DH)" value={price} onChange={(e) => setPrice(e.target.value)} style={{ ...inputStyle, width: '100%' }} />
+              <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 4 }}>
+                {['$19', '$29', '$49', '$99', '19 €', '29 €', '49 €', '99 DH', '199 DH', '299 DH', 'Free'].map((tag) => (
+                  <button
+                    type="button"
+                    key={tag}
+                    onClick={() => setPrice(tag)}
+                    style={{
+                      background: price === tag ? '#14B8A6' : '#F1F5F9',
+                      color: price === tag ? 'white' : '#475569',
+                      border: 'none',
+                      borderRadius: 4,
+                      padding: '2px 6px',
+                      fontSize: 10.5,
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {tag}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
 
           <input placeholder="Image URL (optional if auto-fetched)" value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} style={inputStyle} />

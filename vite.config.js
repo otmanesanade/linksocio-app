@@ -6,6 +6,8 @@ import path from 'path'
 function apiPlugin() {
   const STORE_PATH = path.join(process.cwd(), '.inquiry_store.json')
   const LEADS_PATH = path.join(process.cwd(), '.leads_store.json')
+  const BOOKING_SETTINGS_PATH = path.join(process.cwd(), '.booking_settings.json')
+  const BOOKINGS_PATH = path.join(process.cwd(), '.bookings_store.json')
 
   function readJson(filePath) {
     try {
@@ -158,6 +160,144 @@ function apiPlugin() {
                 res.statusCode = 200
                 res.setHeader('Content-Type', 'application/json')
                 res.end(JSON.stringify({ success: true, lead: newLead }))
+              } catch (e) {
+                res.statusCode = 400
+                res.setHeader('Content-Type', 'application/json')
+                res.end(JSON.stringify({ error: 'Invalid JSON' }))
+              }
+            })
+            return
+          }
+        }
+
+        // 4. Booking Settings API
+        if (urlObj.pathname === '/api/booking-settings') {
+          const bStore = readJson(BOOKING_SETTINGS_PATH)
+
+          if (req.method === 'GET') {
+            const username = (urlObj.searchParams.get('username') || '').toLowerCase().trim()
+            const userId = urlObj.searchParams.get('userId') || ''
+            const userSettings = (username && bStore[username]) || (userId && bStore[userId]) || null
+
+            res.statusCode = 200
+            res.setHeader('Content-Type', 'application/json')
+            res.end(JSON.stringify({ settings: userSettings }))
+            return
+          }
+
+          if (req.method === 'POST') {
+            let body = ''
+            req.on('data', (chunk) => { body += chunk })
+            req.on('end', () => {
+              try {
+                const payload = JSON.parse(body || '{}')
+                const username = (payload.username || '').toLowerCase().trim()
+                const userId = payload.userId || ''
+                const settings = payload.settings || {}
+
+                if (username) bStore[username] = settings
+                if (userId) bStore[userId] = settings
+
+                writeJson(BOOKING_SETTINGS_PATH, bStore)
+
+                res.statusCode = 200
+                res.setHeader('Content-Type', 'application/json')
+                res.end(JSON.stringify({ success: true, settings }))
+              } catch (e) {
+                res.statusCode = 400
+                res.setHeader('Content-Type', 'application/json')
+                res.end(JSON.stringify({ error: 'Invalid JSON' }))
+              }
+            })
+            return
+          }
+        }
+
+        // 5. Bookings Management API
+        if (urlObj.pathname === '/api/bookings') {
+          const bookingsStore = readJson(BOOKINGS_PATH)
+
+          if (req.method === 'GET') {
+            const username = (urlObj.searchParams.get('username') || '').toLowerCase().trim()
+            const userBookings = (username && bookingsStore[username]) || []
+
+            res.statusCode = 200
+            res.setHeader('Content-Type', 'application/json')
+            res.end(JSON.stringify({ bookings: userBookings }))
+            return
+          }
+
+          if (req.method === 'POST') {
+            let body = ''
+            req.on('data', (chunk) => { body += chunk })
+            req.on('end', () => {
+              try {
+                const payload = JSON.parse(body || '{}')
+                const username = (payload.username || '').toLowerCase().trim()
+                const booking = payload.booking || {}
+
+                if (!username) {
+                  res.statusCode = 400
+                  res.setHeader('Content-Type', 'application/json')
+                  res.end(JSON.stringify({ error: 'Missing username' }))
+                  return
+                }
+
+                const newBooking = {
+                  id: 'booking_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+                  createdAt: new Date().toISOString(),
+                  status: 'confirmed',
+                  ...booking,
+                }
+
+                const currentList = bookingsStore[username] || []
+                bookingsStore[username] = [newBooking, ...currentList]
+
+                writeJson(BOOKINGS_PATH, bookingsStore)
+
+                res.statusCode = 200
+                res.setHeader('Content-Type', 'application/json')
+                res.end(JSON.stringify({ success: true, booking: newBooking }))
+              } catch (e) {
+                res.statusCode = 400
+                res.setHeader('Content-Type', 'application/json')
+                res.end(JSON.stringify({ error: 'Invalid JSON' }))
+              }
+            })
+            return
+          }
+
+          if (req.method === 'PUT' || req.method === 'PATCH') {
+            let body = ''
+            req.on('data', (chunk) => { body += chunk })
+            req.on('end', () => {
+              try {
+                const payload = JSON.parse(body || '{}')
+                const username = (payload.username || '').toLowerCase().trim()
+                const bookingId = payload.bookingId
+                const newStatus = payload.status
+
+                if (!username || !bookingId) {
+                  res.statusCode = 400
+                  res.setHeader('Content-Type', 'application/json')
+                  res.end(JSON.stringify({ error: 'Missing username or bookingId' }))
+                  return
+                }
+
+                const currentList = bookingsStore[username] || []
+                const updatedList = currentList.map((b) => {
+                  if (b.id === bookingId) {
+                    return { ...b, status: newStatus || b.status }
+                  }
+                  return b
+                })
+                bookingsStore[username] = updatedList
+
+                writeJson(BOOKINGS_PATH, bookingsStore)
+
+                res.statusCode = 200
+                res.setHeader('Content-Type', 'application/json')
+                res.end(JSON.stringify({ success: true, bookings: updatedList }))
               } catch (e) {
                 res.statusCode = 400
                 res.setHeader('Content-Type', 'application/json')
