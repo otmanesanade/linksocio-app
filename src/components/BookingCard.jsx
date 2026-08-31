@@ -191,7 +191,15 @@ export default function BookingCard({ profile, links = [], theme, isEmbedded = f
     >
       {/* Header Bar */}
       <div
+        role="button"
+        tabIndex={0}
         onClick={() => setIsOpen(!isOpen)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            setIsOpen(!isOpen)
+          }
+        }}
         style={{
           padding: isEmbedded ? '12px 14px' : '16px 18px',
           display: 'flex',
@@ -200,9 +208,11 @@ export default function BookingCard({ profile, links = [], theme, isEmbedded = f
           cursor: 'pointer',
           background: isOpen ? `${color}10` : 'transparent',
           transition: 'all 0.2s ease',
+          WebkitTapHighlightColor: 'transparent',
+          userSelect: 'none',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: isEmbedded ? 10 : 12, minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: isEmbedded ? 10 : 12, minWidth: 0, flex: 1, pointerEvents: 'none' }}>
           <span
             style={{
               width: isEmbedded ? 34 : 40,
@@ -249,16 +259,21 @@ export default function BookingCard({ profile, links = [], theme, isEmbedded = f
 
         <button
           type="button"
+          onClick={(e) => {
+            e.stopPropagation()
+            setIsOpen(!isOpen)
+          }}
           style={{
             background: isOpen ? 'transparent' : color,
             color: isOpen ? color : '#FFFFFF',
             border: isOpen ? `1px solid ${color}` : 'none',
             borderRadius: 100,
-            padding: isEmbedded ? '5px 10px' : '7px 14px',
-            fontSize: isEmbedded ? 11 : 12.5,
+            padding: isEmbedded ? '6px 12px' : '8px 16px',
+            fontSize: isEmbedded ? 11.5 : 13,
             fontWeight: 700,
             cursor: 'pointer',
             flexShrink: 0,
+            WebkitTapHighlightColor: 'transparent',
           }}
         >
           {isOpen ? 'Close' : 'Schedule'}
@@ -267,30 +282,30 @@ export default function BookingCard({ profile, links = [], theme, isEmbedded = f
 
       {/* Expanded Booking Body */}
       {isOpen && (
-        <div style={{ padding: isEmbedded ? '12px 14px 16px' : '16px 18px 20px', borderTop: `1px solid ${color}20` }}>
+        <div style={{ padding: isEmbedded ? '14px 14px 18px' : '18px 18px 22px', borderTop: `1px solid ${color}20` }}>
           {bookingConfirmed ? (
             /* Confirmation Screen */
             <div style={{ textAlign: 'center', padding: '10px 0' }}>
               <div
                 style={{
-                  width: 48,
-                  height: 48,
+                  width: 52,
+                  height: 52,
                   borderRadius: '50%',
                   background: '#E6F7F5',
                   color: '#0D9488',
-                  fontSize: 24,
+                  fontSize: 26,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  margin: '0 auto 10px',
+                  margin: '0 auto 12px',
                 }}
               >
                 ✓
               </div>
-              <h4 style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 800, color: theme.textColor }}>
+              <h4 style={{ margin: '0 0 6px', fontSize: 17, fontWeight: 800, color: theme.textColor }}>
                 Booking Confirmed!
               </h4>
-              <p style={{ margin: '0 0 16px', fontSize: 12.5, color: theme.subTextColor || '#64748B' }}>
+              <p style={{ margin: '0 0 16px', fontSize: 13, color: theme.subTextColor || '#64748B' }}>
                 Your appointment has been successfully scheduled.
               </p>
 
@@ -300,14 +315,14 @@ export default function BookingCard({ profile, links = [], theme, isEmbedded = f
                   background: `${color}0D`,
                   border: `1px solid ${color}30`,
                   borderRadius: 14,
-                  padding: '12px 16px',
+                  padding: '14px 16px',
                   textAlign: 'left',
                   marginBottom: 16,
-                  fontSize: 12.5,
+                  fontSize: 13,
                   color: theme.textColor,
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: 6,
+                  gap: 8,
                 }}
               >
                 <div>🏷️ <strong>Service:</strong> {confirmedBookingData?.service_title} ({confirmedBookingData?.service_duration} mins)</div>
@@ -317,7 +332,7 @@ export default function BookingCard({ profile, links = [], theme, isEmbedded = f
               </div>
 
               {/* Action Buttons */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <a
                   href={getGoogleCalendarUrl(confirmedBookingData)}
                   target="_blank"
@@ -325,15 +340,16 @@ export default function BookingCard({ profile, links = [], theme, isEmbedded = f
                   style={{
                     background: '#2563EB',
                     color: 'white',
-                    padding: '10px 16px',
+                    padding: '12px 18px',
                     borderRadius: 12,
-                    fontSize: 13,
+                    fontSize: 13.5,
                     fontWeight: 700,
                     textDecoration: 'none',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    gap: 6,
+                    gap: 8,
+                    WebkitTapHighlightColor: 'transparent',
                   }}
                 >
                   <span>📅 Add to Google Calendar</span>
@@ -346,15 +362,16 @@ export default function BookingCard({ profile, links = [], theme, isEmbedded = f
                   style={{
                     background: '#22C55E',
                     color: 'white',
-                    padding: '10px 16px',
+                    padding: '12px 18px',
                     borderRadius: 12,
-                    fontSize: 13,
+                    fontSize: 13.5,
                     fontWeight: 700,
                     textDecoration: 'none',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    gap: 6,
+                    gap: 8,
+                    WebkitTapHighlightColor: 'transparent',
                   }}
                 >
                   <span>💬 Confirm on WhatsApp</span>
@@ -367,10 +384,12 @@ export default function BookingCard({ profile, links = [], theme, isEmbedded = f
                     background: 'transparent',
                     border: 'none',
                     color: theme.subTextColor || '#64748B',
-                    fontSize: 12,
+                    fontSize: 13,
                     fontWeight: 600,
-                    marginTop: 4,
+                    marginTop: 6,
                     cursor: 'pointer',
+                    padding: '8px 0',
+                    WebkitTapHighlightColor: 'transparent',
                   }}
                 >
                   + Book another session
@@ -379,38 +398,41 @@ export default function BookingCard({ profile, links = [], theme, isEmbedded = f
             </div>
           ) : (
             /* Booking Selection Form */
-            <form onSubmit={handleBookingSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <form onSubmit={handleBookingSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               {/* 1. Service Selection (if multiple) */}
               {services.length > 1 && (
                 <div>
-                  <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: theme.textColor, marginBottom: 6 }}>
+                  <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, color: theme.textColor, marginBottom: 6 }}>
                     Select Consultation Type:
                   </label>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                     {services.map((srv) => {
                       const isSelected = activeService.id === srv.id
                       return (
                         <div
                           key={srv.id}
+                          role="button"
+                          tabIndex={0}
                           onClick={() => setSelectedService(srv)}
                           style={{
                             border: isSelected ? `2px solid ${color}` : `1px solid ${color}30`,
-                            background: isSelected ? `${color}15` : 'transparent',
+                            background: isSelected ? `${color}15` : 'rgba(255,255,255,0.06)',
                             borderRadius: 12,
-                            padding: '8px 12px',
+                            padding: '10px 14px',
                             cursor: 'pointer',
                             display: 'flex',
                             justifyContent: 'space-between',
                             alignItems: 'center',
+                            WebkitTapHighlightColor: 'transparent',
                           }}
                         >
                           <div>
-                            <div style={{ fontSize: 13, fontWeight: 700, color: theme.textColor }}>{srv.title}</div>
-                            <div style={{ fontSize: 11, color: theme.subTextColor || '#64748B' }}>
+                            <div style={{ fontSize: 13.5, fontWeight: 700, color: theme.textColor }}>{srv.title}</div>
+                            <div style={{ fontSize: 11.5, color: theme.subTextColor || '#64748B', marginTop: 2 }}>
                               ⏱️ {srv.duration} mins • 📹 {srv.platform || 'Online'}
                             </div>
                           </div>
-                          <span style={{ fontSize: 12, fontWeight: 800, color: color }}>{srv.price || 'Free'}</span>
+                          <span style={{ fontSize: 13, fontWeight: 800, color: color }}>{srv.price || 'Free'}</span>
                         </div>
                       )
                     })}
@@ -420,15 +442,23 @@ export default function BookingCard({ profile, links = [], theme, isEmbedded = f
 
               {/* 2. Date Picker (Horizontal Scrolling Chips) */}
               <div>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: theme.textColor, marginBottom: 6 }}>
-                  Select a Date:
-                </label>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                  <label style={{ fontSize: 12.5, fontWeight: 700, color: theme.textColor }}>
+                    Select a Date:
+                  </label>
+                  {selectedDate && (
+                    <span style={{ fontSize: 11.5, color: color, fontWeight: 700 }}>
+                      Selected: {selectedDate}
+                    </span>
+                  )}
+                </div>
                 <div
                   style={{
                     display: 'flex',
                     gap: 8,
                     overflowX: 'auto',
-                    paddingBottom: 6,
+                    paddingBottom: 8,
+                    WebkitOverflowScrolling: 'touch',
                     scrollbarWidth: 'none',
                   }}
                 >
@@ -441,21 +471,22 @@ export default function BookingCard({ profile, links = [], theme, isEmbedded = f
                         onClick={() => setSelectedDate(item.dateStr)}
                         style={{
                           flexShrink: 0,
-                          border: isSelected ? `2px solid ${color}` : `1px solid ${color}30`,
-                          background: isSelected ? color : 'transparent',
+                          border: isSelected ? `2px solid ${color}` : `1px solid ${color}35`,
+                          background: isSelected ? color : 'rgba(255,255,255,0.1)',
                           color: isSelected ? '#FFFFFF' : theme.textColor,
-                          borderRadius: 12,
-                          padding: '8px 12px',
+                          borderRadius: 14,
+                          padding: '10px 14px',
                           display: 'flex',
                           flexDirection: 'column',
                           alignItems: 'center',
                           cursor: 'pointer',
-                          minWidth: 54,
+                          minWidth: 58,
                           transition: 'all 0.15s ease',
+                          WebkitTapHighlightColor: 'transparent',
                         }}
                       >
-                        <span style={{ fontSize: 10, textTransform: 'uppercase', opacity: 0.8 }}>{item.dayLabel}</span>
-                        <span style={{ fontSize: 13, fontWeight: 800, marginTop: 2 }}>{item.monthLabel}</span>
+                        <span style={{ fontSize: 10.5, textTransform: 'uppercase', opacity: 0.85, fontWeight: 600 }}>{item.dayLabel}</span>
+                        <span style={{ fontSize: 13.5, fontWeight: 800, marginTop: 3 }}>{item.monthLabel}</span>
                       </button>
                     )
                   })}
@@ -464,17 +495,25 @@ export default function BookingCard({ profile, links = [], theme, isEmbedded = f
 
               {/* 3. Time Slot Picker */}
               <div>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: theme.textColor, marginBottom: 6 }}>
-                  Select Time Slot {selectedDate && `for ${selectedDate}`}:
-                </label>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                  <label style={{ fontSize: 12.5, fontWeight: 700, color: theme.textColor }}>
+                    Select Time Slot:
+                  </label>
+                  {selectedTime && (
+                    <span style={{ fontSize: 11.5, color: color, fontWeight: 700 }}>
+                      Selected: {selectedTime}
+                    </span>
+                  )}
+                </div>
                 <div
                   style={{
                     display: 'grid',
                     gridTemplateColumns: isEmbedded ? 'repeat(3, 1fr)' : 'repeat(4, 1fr)',
                     gap: 6,
-                    maxHeight: 140,
+                    maxHeight: 150,
                     overflowY: 'auto',
                     paddingRight: 4,
+                    WebkitOverflowScrolling: 'touch',
                   }}
                 >
                   {availableSlots.map((slot) => {
@@ -485,16 +524,17 @@ export default function BookingCard({ profile, links = [], theme, isEmbedded = f
                         type="button"
                         onClick={() => setSelectedTime(slot)}
                         style={{
-                          border: isSelected ? `2px solid ${color}` : `1px solid ${color}30`,
-                          background: isSelected ? color : 'transparent',
+                          border: isSelected ? `2px solid ${color}` : `1px solid ${color}35`,
+                          background: isSelected ? color : 'rgba(255,255,255,0.1)',
                           color: isSelected ? '#FFFFFF' : theme.textColor,
-                          borderRadius: 8,
-                          padding: '6px 4px',
-                          fontSize: 11.5,
+                          borderRadius: 10,
+                          padding: '8px 4px',
+                          fontSize: 12,
                           fontWeight: 700,
                           cursor: 'pointer',
                           textAlign: 'center',
                           transition: 'all 0.15s ease',
+                          WebkitTapHighlightColor: 'transparent',
                         }}
                       >
                         {slot}
@@ -505,7 +545,7 @@ export default function BookingCard({ profile, links = [], theme, isEmbedded = f
               </div>
 
               {/* 4. Client Contact Form */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <input
                   type="text"
                   required
@@ -514,13 +554,14 @@ export default function BookingCard({ profile, links = [], theme, isEmbedded = f
                   onChange={(e) => setClientName(e.target.value)}
                   style={{
                     width: '100%',
-                    padding: '8px 12px',
-                    borderRadius: 10,
+                    padding: '10px 14px',
+                    borderRadius: 12,
                     border: `1px solid ${color}40`,
-                    background: 'rgba(255,255,255,0.2)',
-                    color: theme.textColor,
-                    fontSize: 12.5,
+                    background: 'rgba(255, 255, 255, 0.9)',
+                    color: '#0F172A',
+                    fontSize: 14,
                     boxSizing: 'border-box',
+                    outline: 'none',
                   }}
                 />
 
@@ -532,13 +573,14 @@ export default function BookingCard({ profile, links = [], theme, isEmbedded = f
                     onChange={(e) => setClientEmail(e.target.value)}
                     style={{
                       width: '100%',
-                      padding: '8px 12px',
-                      borderRadius: 10,
+                      padding: '10px 14px',
+                      borderRadius: 12,
                       border: `1px solid ${color}40`,
-                      background: 'rgba(255,255,255,0.2)',
-                      color: theme.textColor,
-                      fontSize: 12,
+                      background: 'rgba(255, 255, 255, 0.9)',
+                      color: '#0F172A',
+                      fontSize: 14,
                       boxSizing: 'border-box',
+                      outline: 'none',
                     }}
                   />
 
@@ -549,13 +591,14 @@ export default function BookingCard({ profile, links = [], theme, isEmbedded = f
                     onChange={(e) => setClientPhone(e.target.value)}
                     style={{
                       width: '100%',
-                      padding: '8px 12px',
-                      borderRadius: 10,
+                      padding: '10px 14px',
+                      borderRadius: 12,
                       border: `1px solid ${color}40`,
-                      background: 'rgba(255,255,255,0.2)',
-                      color: theme.textColor,
-                      fontSize: 12,
+                      background: 'rgba(255, 255, 255, 0.9)',
+                      color: '#0F172A',
+                      fontSize: 14,
                       boxSizing: 'border-box',
+                      outline: 'none',
                     }}
                   />
                 </div>
@@ -567,20 +610,21 @@ export default function BookingCard({ profile, links = [], theme, isEmbedded = f
                   onChange={(e) => setNotes(e.target.value)}
                   style={{
                     width: '100%',
-                    padding: '8px 12px',
-                    borderRadius: 10,
+                    padding: '10px 14px',
+                    borderRadius: 12,
                     border: `1px solid ${color}40`,
-                    background: 'rgba(255,255,255,0.2)',
-                    color: theme.textColor,
-                    fontSize: 12,
+                    background: 'rgba(255, 255, 255, 0.9)',
+                    color: '#0F172A',
+                    fontSize: 14,
                     boxSizing: 'border-box',
                     resize: 'none',
+                    outline: 'none',
                   }}
                 />
               </div>
 
               {error && (
-                <div style={{ color: '#EF4444', fontSize: 11.5, fontWeight: 600 }}>
+                <div style={{ color: '#EF4444', fontSize: 12.5, fontWeight: 600, background: '#FEE2E2', padding: '8px 12px', borderRadius: 8 }}>
                   ⚠️ {error}
                 </div>
               )}
@@ -593,8 +637,8 @@ export default function BookingCard({ profile, links = [], theme, isEmbedded = f
                   color: '#FFFFFF',
                   border: 'none',
                   borderRadius: 12,
-                  padding: '11px 16px',
-                  fontSize: 13,
+                  padding: '12px 18px',
+                  fontSize: 14,
                   fontWeight: 700,
                   cursor: 'pointer',
                   width: '100%',
@@ -602,7 +646,8 @@ export default function BookingCard({ profile, links = [], theme, isEmbedded = f
                   alignItems: 'center',
                   justifyContent: 'center',
                   gap: 6,
-                  boxShadow: `0 4px 12px ${color}40`,
+                  boxShadow: `0 4px 14px ${color}40`,
+                  WebkitTapHighlightColor: 'transparent',
                 }}
               >
                 <span>🗓️ Confirm Appointment</span>
