@@ -125,20 +125,22 @@ export function saveBookingSettingsLocally(profile, settings) {
 
 export function getStoredBookings(profileUsername) {
   if (!profileUsername) return []
+  const clean = String(profileUsername).toLowerCase().trim()
   try {
-    const key = `linksocio_bookings_${profileUsername}`
-    const raw = localStorage.getItem(key)
+    const raw =
+      localStorage.getItem(`linksocio_bookings_${clean}`) ||
+      localStorage.getItem(`linksocio_bookings_${profileUsername}`)
     return raw ? JSON.parse(raw) : []
   } catch (e) {
     return []
   }
 }
 
-export function recordNewBooking(profileUsername, booking) {
+export async function recordNewBooking(profileUsername, booking) {
   if (!profileUsername || !booking) return null
+  const clean = String(profileUsername).toLowerCase().trim()
   try {
-    const key = `linksocio_bookings_${profileUsername}`
-    const existing = getStoredBookings(profileUsername)
+    const existing = getStoredBookings(clean)
     const newBooking = {
       id: 'booking_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
       createdAt: new Date().toISOString(),
@@ -146,13 +148,20 @@ export function recordNewBooking(profileUsername, booking) {
       ...booking,
     }
     const updated = [newBooking, ...existing]
-    localStorage.setItem(key, JSON.stringify(updated))
+    const jsonStr = JSON.stringify(updated)
+    localStorage.setItem(`linksocio_bookings_${clean}`, jsonStr)
+    localStorage.setItem(`linksocio_bookings_${profileUsername}`, jsonStr)
+
+    // Trigger local and cross-tab update event
+    try {
+      window.dispatchEvent(new CustomEvent('linksocio_new_booking', { detail: newBooking }))
+    } catch (e) {}
 
     // Sync to server API
-    fetch('/api/bookings', {
+    await fetch('/api/bookings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: profileUsername, booking: newBooking }),
+      body: JSON.stringify({ username: clean, booking: newBooking }),
     }).catch(() => {})
 
     return newBooking
@@ -167,6 +176,7 @@ export default function BookingTab({ profile, onUpdated }) {
   const [statusFilter, setStatusFilter] = useState('all') // 'all' | 'confirmed' | 'completed' | 'cancelled'
   const [saving, setSaving] = useState(false)
   const [savedSuccess, setSavedSuccess] = useState(false)
+  const [isRefreshing, setIsRefreshing] = useState(false)
   const [showServiceModal, setShowServiceModal] = useState(false)
   const [editingService, setEditingService] = useState(null)
 
@@ -193,7 +203,7 @@ export default function BookingTab({ profile, onUpdated }) {
     if (profile) {
       const local = getBookingSettings(profile)
       setSettings(local)
-      loadBookings()
+      loadBookings(false)
 
       fetchServerBookingSettings(profile.username, profile.id).then((serverSettings) => {
         if (serverSettings) {
@@ -203,24 +213,64 @@ export default function BookingTab({ profile, onUpdated }) {
           }
         }
       })
+
+      // Realtime polling every 3 seconds for new appointments from server
+      const interval = setInterval(() => {
+        loadBookings(false)
+      }, 3000)
+
+      // Listen for direct local/preview booking events
+      function handleNewBookingEvent() {
+        loadBookings(false)
+      }
+      window.addEventListener('linksocio_new_booking', handleNewBookingEvent)
+      window.addEventListener('storage', handleNewBookingEvent)
+
+      return () => {
+        clearInterval(interval)
+        window.removeEventListener('linksocio_new_booking', handleNewBookingEvent)
+        window.removeEventListener('storage', handleNewBookingEvent)
+      }
     }
   }, [profile?.id, profile?.username])
 
-  async function loadBookings() {
+  async function loadBookings(showIndicator = false) {
     if (!profile?.username) return
-    const localBookings = getStoredBookings(profile.username)
-    setBookings(localBookings)
+    const cleanUsername = String(profile.username).toLowerCase().trim()
+    if (showIndicator) setIsRefreshing(true)
+
+    const localBookings = getStoredBookings(cleanUsername)
+    if (localBookings && localBookings.length > 0) {
+      setBookings((prev) => {
+        // Keep freshest list
+        return localBookings.length >= prev.length ? localBookings : prev
+      })
+    }
 
     try {
-      const res = await fetch(`/api/bookings?username=${encodeURIComponent(profile.username)}`)
+      const res = await fetch(`/api/bookings?username=${encodeURIComponent(cleanUsername)}`)
       if (res.ok) {
         const data = await res.json()
-        if (data.bookings && Array.isArray(data.bookings) && data.bookings.length > 0) {
-          setBookings(data.bookings)
-          localStorage.setItem(`linksocio_bookings_${profile.username}`, JSON.stringify(data.bookings))
+        if (data.bookings && Array.isArray(data.bookings)) {
+          // Merge local and server bookings by unique ID
+          const combined = [...data.bookings]
+          const existingIds = new Set(data.bookings.map((b) => b.id))
+          for (const lb of localBookings) {
+            if (!existingIds.has(lb.id)) {
+              combined.push(lb)
+            }
+          }
+          combined.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
+          setBookings(combined)
+          localStorage.setItem(`linksocio_bookings_${cleanUsername}`, JSON.stringify(combined))
         }
       }
-    } catch (e) {}
+    } catch (e) {
+    } finally {
+      if (showIndicator) {
+        setTimeout(() => setIsRefreshing(false), 400)
+      }
+    }
   }
 
   async function handleToggleEnabled(newVal) {
@@ -787,7 +837,36 @@ export default function BookingTab({ profile, onUpdated }) {
             </p>
           </div>
 
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            {/* Live real-time indicator */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#ECFDF5', border: '1px solid #A7F3D0', padding: '4px 10px', borderRadius: 100, fontSize: 11, fontWeight: 700, color: '#059669' }}>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#10B981', display: 'inline-block' }}></span>
+              <span>Live Auto-Sync</span>
+            </div>
+
+            {/* Refresh Button */}
+            <button
+              type="button"
+              onClick={() => loadBookings(true)}
+              disabled={isRefreshing}
+              style={{
+                background: '#F8FAFC',
+                border: '1px solid #CBD5E1',
+                borderRadius: 10,
+                padding: '6px 12px',
+                fontSize: 12,
+                fontWeight: 600,
+                cursor: 'pointer',
+                color: '#334155',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4,
+              }}
+            >
+              <span>{isRefreshing ? '⏳' : '🔄'}</span>
+              <span>{isRefreshing ? 'Checking...' : 'Refresh'}</span>
+            </button>
+
             {/* Filter Tabs */}
             <div style={{ display: 'flex', background: '#F1F5F9', padding: 3, borderRadius: 10 }}>
               {['all', 'confirmed', 'completed', 'cancelled'].map((tabKey) => (

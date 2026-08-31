@@ -7,8 +7,8 @@ import ThemeTab from './ThemeTab'
 import Analytics from './Analytics'
 import QrTab from './components/QrTab'
 import AvatarUpload from './components/AvatarUpload'
-import InquiryTab, { fetchServerInquirySettings } from './InquiryTab'
-import BookingTab, { fetchServerBookingSettings } from './BookingTab'
+import InquiryTab, { fetchServerInquirySettings, getStoredLeads } from './InquiryTab'
+import BookingTab, { fetchServerBookingSettings, getStoredBookings } from './BookingTab'
 import { LivePagePreview } from './components/LivePagePreview'
 import confetti from 'canvas-confetti'
 
@@ -149,6 +149,8 @@ export default function Dashboard({ user }) {
   const [qrUrl, setQrUrl] = useState(null)
   const [tab, setTab] = useState('links')
   const [showMobilePreviewModal, setShowMobilePreviewModal] = useState(false)
+  const [bookingCount, setBookingCount] = useState(0)
+  const [leadsCount, setLeadsCount] = useState(0)
 
   useEffect(() => {
     loadProfile()
@@ -157,8 +159,58 @@ export default function Dashboard({ user }) {
   }, [])
 
   useEffect(() => {
-    if (profile?.username) generateQr()
+    if (profile?.username) {
+      generateQr()
+      syncCounts()
+
+      const interval = setInterval(() => {
+        syncCounts()
+      }, 3000)
+
+      function onNewBookingOrLead() {
+        syncCounts()
+      }
+      window.addEventListener('linksocio_new_booking', onNewBookingOrLead)
+      window.addEventListener('storage', onNewBookingOrLead)
+
+      return () => {
+        clearInterval(interval)
+        window.removeEventListener('linksocio_new_booking', onNewBookingOrLead)
+        window.removeEventListener('storage', onNewBookingOrLead)
+      }
+    }
   }, [profile?.username])
+
+  async function syncCounts() {
+    if (!profile?.username) return
+    const clean = String(profile.username).toLowerCase().trim()
+
+    // 1. Sync Bookings Count
+    const localBookings = getStoredBookings(clean)
+    setBookingCount(localBookings.length)
+    try {
+      const res = await fetch(`/api/bookings?username=${encodeURIComponent(clean)}`)
+      if (res.ok) {
+        const data = await res.json()
+        if (data.bookings && Array.isArray(data.bookings)) {
+          setBookingCount(data.bookings.length)
+        }
+      }
+    } catch (e) {}
+
+    // 2. Sync Leads Count
+    const localLeads = getStoredLeads(clean)
+    setLeadsCount(localLeads.length)
+    try {
+      const res = await fetch(`/api/inquiry-leads?username=${encodeURIComponent(clean)}`)
+      if (res.ok) {
+        const data = await res.json()
+        if (data.leads && Array.isArray(data.leads)) {
+          setLeadsCount(data.leads.length)
+        }
+      }
+    } catch (e) {}
+  }
 
   async function loadProfile() {
     const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single()
@@ -307,6 +359,7 @@ export default function Dashboard({ user }) {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             {navItems.map((item) => {
               const isActive = tab === item.key
+              const badgeNum = item.key === 'bookings' ? bookingCount : item.key === 'inquiries' ? leadsCount : 0
               return (
                 <button
                   key={item.key}
@@ -314,7 +367,7 @@ export default function Dashboard({ user }) {
                   style={{
                     display: 'flex',
                     alignItems: 'center',
-                    gap: 10,
+                    justifyContent: 'space-between',
                     textAlign: 'left',
                     background: isActive ? '#0F172A' : 'transparent',
                     border: 'none',
@@ -327,8 +380,25 @@ export default function Dashboard({ user }) {
                     transition: 'all 0.15s ease',
                   }}
                 >
-                  <span style={{ fontSize: 15 }}>{item.icon}</span>
-                  <span>{item.label}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span style={{ fontSize: 15 }}>{item.icon}</span>
+                    <span>{item.label}</span>
+                  </div>
+
+                  {badgeNum > 0 && (
+                    <span
+                      style={{
+                        background: isActive ? '#14B8A6' : '#E6F7F5',
+                        color: isActive ? 'white' : '#0D9488',
+                        fontSize: 11,
+                        fontWeight: 700,
+                        padding: '2px 7px',
+                        borderRadius: 100,
+                      }}
+                    >
+                      {badgeNum}
+                    </span>
+                  )}
                 </button>
               )
             })}

@@ -28,6 +28,18 @@ function apiPlugin() {
     name: 'api-server',
     configureServer(server) {
       server.middlewares.use(async (req, res, next) => {
+        // Global CORS headers for API routes
+        if (req.url && req.url.startsWith('/api/')) {
+          res.setHeader('Access-Control-Allow-Origin', '*')
+          res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, OPTIONS')
+          res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+          if (req.method === 'OPTIONS') {
+            res.statusCode = 200
+            res.end()
+            return
+          }
+        }
+
         const urlObj = new URL(req.url, `http://${req.headers.host || 'localhost'}`)
 
         // 1. Fetch Product
