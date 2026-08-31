@@ -18,5 +18,28 @@
       "phone": "+212600112233",
       "message": "Hello from mobile device!"
     }
+  ],
+  "otmanesanade": [
+    {
+      "id": "lead_3",
+      "createdAt": "2026-08-31T10:00:00Z",
+      "status": "new",
+      "full_name": "Customer 3",
+      "phone": "0612345680"
+    },
+    {
+      "id": "lead_2",
+      "createdAt": "2026-08-31T09:30:00Z",
+      "status": "new",
+      "full_name": "Customer 2",
+      "phone": "0612345679"
+    },
+    {
+      "id": "lead_1",
+      "createdAt": "2026-08-31T09:00:00Z",
+      "status": "new",
+      "full_name": "Customer 1",
+      "phone": "0612345678"
+    }
   ]
 }

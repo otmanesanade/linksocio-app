@@ -180,7 +180,8 @@ function apiPlugin() {
                 const payload = JSON.parse(body || '{}')
                 const username = (payload.username || '').toLowerCase().trim().replace(/^@/, '')
                 const userId = (payload.userId || '').trim()
-                const lead = payload.lead || {}
+                const singleLead = payload.lead
+                const batchLeads = payload.leads
 
                 if (!username && !userId) {
                   res.statusCode = 400
@@ -189,34 +190,51 @@ function apiPlugin() {
                   return
                 }
 
-                const newLead = {
-                  id: lead.id || 'lead_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
-                  createdAt: lead.createdAt || new Date().toISOString(),
-                  status: lead.status || 'new',
-                  ...lead,
-                }
-
                 const leadsStore = readJson(LEADS_PATH)
+                const primaryKey = username || userId
+                const existingList = [...(leadsStore[primaryKey] || [])]
 
-                function saveToKey(key) {
-                  if (!key) return
-                  const currentList = leadsStore[key] || []
-                  const idx = currentList.findIndex((l) => l.id === newLead.id)
-                  if (idx >= 0) {
-                    leadsStore[key][idx] = { ...leadsStore[key][idx], ...newLead }
-                  } else {
-                    leadsStore[key] = [newLead, ...currentList]
+                if (userId && leadsStore[userId]) {
+                  for (const item of leadsStore[userId]) {
+                    if (item && item.id && !existingList.some((x) => x.id === item.id)) {
+                      existingList.push(item)
+                    }
                   }
                 }
 
-                if (username) saveToKey(username)
-                if (userId) saveToKey(userId)
+                const itemsToProcess = []
+                if (singleLead) itemsToProcess.push(singleLead)
+                if (Array.isArray(batchLeads)) {
+                  for (const l of batchLeads) {
+                    if (l) itemsToProcess.push(l)
+                  }
+                }
+
+                for (const lead of itemsToProcess) {
+                  const newLead = {
+                    id: lead.id || 'lead_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+                    createdAt: lead.createdAt || new Date().toISOString(),
+                    status: lead.status || 'new',
+                    ...lead,
+                  }
+                  const idx = existingList.findIndex((l) => l.id === newLead.id)
+                  if (idx >= 0) {
+                    existingList[idx] = { ...existingList[idx], ...newLead }
+                  } else {
+                    existingList.unshift(newLead)
+                  }
+                }
+
+                existingList.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
+
+                if (username) leadsStore[username] = existingList
+                if (userId) leadsStore[userId] = existingList
 
                 writeJson(LEADS_PATH, leadsStore)
 
                 res.statusCode = 200
                 res.setHeader('Content-Type', 'application/json')
-                res.end(JSON.stringify({ success: true, lead: newLead }))
+                res.end(JSON.stringify({ success: true, leads: existingList }))
               } catch (e) {
                 res.statusCode = 400
                 res.setHeader('Content-Type', 'application/json')
@@ -397,7 +415,8 @@ function apiPlugin() {
                 const payload = JSON.parse(body || '{}')
                 const username = (payload.username || '').toLowerCase().trim().replace(/^@/, '')
                 const userId = (payload.userId || '').trim()
-                const booking = payload.booking || {}
+                const singleBooking = payload.booking
+                const batchBookings = payload.bookings
 
                 if (!username && !userId) {
                   res.statusCode = 400
@@ -406,35 +425,51 @@ function apiPlugin() {
                   return
                 }
 
-                const newBooking = {
-                  id: booking.id || 'booking_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
-                  createdAt: booking.createdAt || new Date().toISOString(),
-                  status: booking.status || 'confirmed',
-                  ...booking,
-                }
-
                 const bookingsStore = readJson(BOOKINGS_PATH)
+                const primaryKey = username || userId
+                const existingList = [...(bookingsStore[primaryKey] || [])]
 
-                function saveToKey(key) {
-                  if (!key) return
-                  const currentList = bookingsStore[key] || []
-                  const idx = currentList.findIndex((b) => b.id === newBooking.id)
-                  if (idx >= 0) {
-                    currentList[idx] = { ...currentList[idx], ...newBooking }
-                  } else {
-                    currentList.unshift(newBooking)
+                if (userId && bookingsStore[userId]) {
+                  for (const item of bookingsStore[userId]) {
+                    if (item && item.id && !existingList.some((x) => x.id === item.id)) {
+                      existingList.push(item)
+                    }
                   }
-                  bookingsStore[key] = currentList
                 }
 
-                if (username) saveToKey(username)
-                if (userId) saveToKey(userId)
+                const itemsToProcess = []
+                if (singleBooking) itemsToProcess.push(singleBooking)
+                if (Array.isArray(batchBookings)) {
+                  for (const b of batchBookings) {
+                    if (b) itemsToProcess.push(b)
+                  }
+                }
+
+                for (const booking of itemsToProcess) {
+                  const newBooking = {
+                    id: booking.id || 'booking_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+                    createdAt: booking.createdAt || new Date().toISOString(),
+                    status: booking.status || 'confirmed',
+                    ...booking,
+                  }
+                  const idx = existingList.findIndex((b) => b.id === newBooking.id)
+                  if (idx >= 0) {
+                    existingList[idx] = { ...existingList[idx], ...newBooking }
+                  } else {
+                    existingList.unshift(newBooking)
+                  }
+                }
+
+                existingList.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
+
+                if (username) bookingsStore[username] = existingList
+                if (userId) bookingsStore[userId] = existingList
 
                 writeJson(BOOKINGS_PATH, bookingsStore)
 
                 res.statusCode = 200
                 res.setHeader('Content-Type', 'application/json')
-                res.end(JSON.stringify({ success: true, booking: newBooking }))
+                res.end(JSON.stringify({ success: true, bookings: existingList }))
               } catch (e) {
                 res.statusCode = 400
                 res.setHeader('Content-Type', 'application/json')

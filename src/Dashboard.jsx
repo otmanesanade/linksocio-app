@@ -187,27 +187,75 @@ export default function Dashboard({ user }) {
     const userId = profile?.id || ''
 
     // 1. Sync Bookings Count
-    const localBookings = getStoredBookings(clean)
+    const bClean = getStoredBookings(clean)
+    const bUser = profile?.username ? getStoredBookings(profile.username) : []
+    const bId = userId ? getStoredBookings(userId) : []
+    const bMap = new Map()
+    for (const b of [...bClean, ...bUser, ...bId]) {
+      if (b && b.id) bMap.set(b.id, b)
+    }
+    const localBookings = Array.from(bMap.values())
     setBookingCount(localBookings.length)
+
     try {
+      if (localBookings.length > 0) {
+        fetch('/api/bookings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: clean, userId, bookings: localBookings }),
+        }).catch(() => {})
+      }
+
       const res = await fetch(`/api/bookings?username=${encodeURIComponent(clean)}&userId=${encodeURIComponent(userId)}`)
       if (res.ok) {
-        const data = await res.json()
-        if (data.bookings && Array.isArray(data.bookings)) {
-          setBookingCount(data.bookings.length)
+        const contentType = res.headers.get('content-type') || ''
+        if (contentType.includes('application/json')) {
+          const data = await res.json()
+          if (data.bookings && Array.isArray(data.bookings)) {
+            const mergedMap = new Map()
+            for (const b of [...localBookings, ...data.bookings]) {
+              if (b && b.id) mergedMap.set(b.id, b)
+            }
+            const total = mergedMap.size
+            setBookingCount(total)
+          }
         }
       }
     } catch (e) {}
 
     // 2. Sync Leads Count
-    const localLeads = getStoredLeads(clean)
+    const lClean = getStoredLeads(clean)
+    const lUser = profile?.username ? getStoredLeads(profile.username) : []
+    const lId = userId ? getStoredLeads(userId) : []
+    const lMap = new Map()
+    for (const l of [...lClean, ...lUser, ...lId]) {
+      if (l && l.id) lMap.set(l.id, l)
+    }
+    const localLeads = Array.from(lMap.values())
     setLeadsCount(localLeads.length)
+
     try {
+      if (localLeads.length > 0) {
+        fetch('/api/inquiry-leads', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: clean, userId, leads: localLeads }),
+        }).catch(() => {})
+      }
+
       const res = await fetch(`/api/inquiry-leads?username=${encodeURIComponent(clean)}&userId=${encodeURIComponent(userId)}`)
       if (res.ok) {
-        const data = await res.json()
-        if (data.leads && Array.isArray(data.leads)) {
-          setLeadsCount(data.leads.length)
+        const contentType = res.headers.get('content-type') || ''
+        if (contentType.includes('application/json')) {
+          const data = await res.json()
+          if (data.leads && Array.isArray(data.leads)) {
+            const mergedMap = new Map()
+            for (const l of [...localLeads, ...data.leads]) {
+              if (l && l.id) mergedMap.set(l.id, l)
+            }
+            const total = mergedMap.size
+            setLeadsCount(total)
+          }
         }
       }
     } catch (e) {}

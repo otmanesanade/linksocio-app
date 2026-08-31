@@ -1,32 +1,63 @@
 // Server endpoint to get and save booking / calendar consultation settings
 import fs from 'fs'
 import path from 'path'
+import os from 'os'
 
-const STORE_PATH = path.join(process.cwd(), '.booking_settings.json')
+const PRIMARY_PATH = path.join(process.cwd(), '.booking_settings.json')
+const TMP_PATH = path.join(os.tmpdir(), '.linksocio_booking_settings.json')
+
+if (!global.__linksocio_booking_settings_cache) {
+  global.__linksocio_booking_settings_cache = {}
+}
 
 function readStore() {
+  let store = global.__linksocio_booking_settings_cache || {}
   try {
-    if (fs.existsSync(STORE_PATH)) {
-      const data = fs.readFileSync(STORE_PATH, 'utf-8')
-      return JSON.parse(data || '{}')
+    if (fs.existsSync(PRIMARY_PATH)) {
+      const data = fs.readFileSync(PRIMARY_PATH, 'utf-8')
+      const parsed = JSON.parse(data || '{}')
+      store = { ...store, ...parsed }
     }
   } catch (e) {}
-  return {}
+  try {
+    if (fs.existsSync(TMP_PATH)) {
+      const data = fs.readFileSync(TMP_PATH, 'utf-8')
+      const parsed = JSON.parse(data || '{}')
+      store = { ...store, ...parsed }
+    }
+  } catch (e) {}
+  global.__linksocio_booking_settings_cache = store
+  return store
 }
 
 function writeStore(store) {
+  global.__linksocio_booking_settings_cache = store
+  const data = JSON.stringify(store, null, 2)
   try {
-    fs.writeFileSync(STORE_PATH, JSON.stringify(store, null, 2), 'utf-8')
+    fs.writeFileSync(PRIMARY_PATH, data, 'utf-8')
+  } catch (e) {}
+  try {
+    fs.writeFileSync(TMP_PATH, data, 'utf-8')
   } catch (e) {}
 }
 
 export default async function handler(req, res) {
+  res.setHeader('Access-Control-Allow-Origin', '*')
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+
+  if (req.method === 'OPTIONS') {
+    res.statusCode = 200
+    res.end()
+    return
+  }
+
   const store = readStore()
 
   if (req.method === 'GET') {
     const urlObj = new URL(req.url, `http://${req.headers?.host || 'localhost'}`)
-    const username = (urlObj.searchParams.get('username') || '').toLowerCase().trim()
-    const userId = urlObj.searchParams.get('userId') || ''
+    const username = (urlObj.searchParams.get('username') || '').toLowerCase().trim().replace(/^@/, '')
+    const userId = (urlObj.searchParams.get('userId') || '').trim()
 
     const userSettings = (username && store[username]) || (userId && store[userId]) || null
 
@@ -44,8 +75,8 @@ export default async function handler(req, res) {
     req.on('end', () => {
       try {
         const payload = JSON.parse(body || '{}')
-        const username = (payload.username || '').toLowerCase().trim()
-        const userId = payload.userId || ''
+        const username = (payload.username || '').toLowerCase().trim().replace(/^@/, '')
+        const userId = (payload.userId || '').trim()
         const settings = payload.settings || {}
 
         if (username) store[username] = settings

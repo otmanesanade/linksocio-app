@@ -106,11 +106,19 @@ export function getStoredLeads(profileOrUsername) {
   const clean = String(username || userId).toLowerCase().trim().replace(/^@/, '')
 
   try {
-    const raw =
-      localStorage.getItem(`linksocio_leads_${clean}`) ||
-      (username && localStorage.getItem(`linksocio_leads_${username}`)) ||
-      (userId && localStorage.getItem(`linksocio_leads_${userId}`))
-    return raw ? JSON.parse(raw) : []
+    const rawClean = localStorage.getItem(`linksocio_leads_${clean}`)
+    const rawUser = username ? localStorage.getItem(`linksocio_leads_${username}`) : null
+    const rawId = userId ? localStorage.getItem(`linksocio_leads_${userId}`) : null
+
+    const pClean = rawClean ? JSON.parse(rawClean) : []
+    const pUser = rawUser ? JSON.parse(rawUser) : []
+    const pId = rawId ? JSON.parse(rawId) : []
+
+    const map = new Map()
+    for (const item of [...pClean, ...pUser, ...pId]) {
+      if (item && item.id) map.set(item.id, item)
+    }
+    return Array.from(map.values()).sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
   } catch (e) {
     return []
   }
@@ -218,40 +226,58 @@ export default function InquiryTab({ profile, onUpdated }) {
     const userId = profile?.id || ''
     if (showIndicator) setIsRefreshing(true)
 
-    const localLeads = getStoredLeads(cleanUsername)
-    if (localLeads && localLeads.length > 0) {
-      setLeads((prev) => (localLeads.length >= prev.length ? localLeads : prev))
+    const byClean = getStoredLeads(cleanUsername)
+    const byUser = profile?.username ? getStoredLeads(profile.username) : []
+    const byId = userId ? getStoredLeads(userId) : []
+
+    const localMap = new Map()
+    for (const l of [...byClean, ...byUser, ...byId]) {
+      if (l && l.id) localMap.set(l.id, l)
+    }
+    const allLocal = Array.from(localMap.values()).sort(
+      (a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)
+    )
+
+    if (allLocal.length > 0) {
+      setLeads((prev) => (allLocal.length >= prev.length ? allLocal : prev))
     }
 
     try {
+      // 1. Proactively batch sync any local leads to server
+      if (allLocal.length > 0) {
+        await fetch('/api/inquiry-leads', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            username: cleanUsername,
+            userId,
+            leads: allLocal,
+          }),
+        }).catch(() => {})
+      }
+
+      // 2. Query server for the master list
       const query = `username=${encodeURIComponent(cleanUsername)}&userId=${encodeURIComponent(userId)}`
       const res = await fetch(`/api/inquiry-leads?${query}`)
       if (res.ok) {
-        const data = await res.json()
-        if (data.leads && Array.isArray(data.leads)) {
-          const serverLeads = data.leads
-          const combined = [...serverLeads]
-          const serverIds = new Set(serverLeads.map((l) => l.id))
-
-          // Auto-push local leads to server store if missing
-          for (const ll of localLeads) {
-            if (ll && ll.id && !serverIds.has(ll.id)) {
-              combined.push(ll)
-              fetch('/api/inquiry-leads', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username: cleanUsername, userId, lead: ll }),
-              }).catch(() => {})
+        const contentType = res.headers.get('content-type') || ''
+        if (contentType.includes('application/json')) {
+          const data = await res.json()
+          if (data.leads && Array.isArray(data.leads)) {
+            const serverLeads = data.leads
+            const mergedMap = new Map()
+            for (const l of [...allLocal, ...serverLeads]) {
+              if (l && l.id) mergedMap.set(l.id, l)
             }
-          }
+            const combined = Array.from(mergedMap.values()).sort(
+              (a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)
+            )
 
-          combined.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
-          setLeads(combined)
-          if (cleanUsername) {
-            localStorage.setItem(`linksocio_leads_${cleanUsername}`, JSON.stringify(combined))
-          }
-          if (userId) {
-            localStorage.setItem(`linksocio_leads_${userId}`, JSON.stringify(combined))
+            setLeads(combined)
+            const jsonStr = JSON.stringify(combined)
+            if (cleanUsername) localStorage.setItem(`linksocio_leads_${cleanUsername}`, jsonStr)
+            if (userId) localStorage.setItem(`linksocio_leads_${userId}`, jsonStr)
+            if (profile?.username) localStorage.setItem(`linksocio_leads_${profile.username}`, jsonStr)
           }
         }
       }

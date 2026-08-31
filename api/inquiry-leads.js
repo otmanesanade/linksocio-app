@@ -1,22 +1,45 @@
 // Server endpoint to record, retrieve and update inquiry leads across devices
 import fs from 'fs'
 import path from 'path'
+import os from 'os'
 
-const LEADS_PATH = path.join(process.cwd(), '.leads_store.json')
+const PRIMARY_PATH = path.join(process.cwd(), '.leads_store.json')
+const TMP_PATH = path.join(os.tmpdir(), '.linksocio_leads_store.json')
+
+if (!global.__linksocio_leads_cache) {
+  global.__linksocio_leads_cache = {}
+}
 
 function readLeadsStore() {
+  let store = global.__linksocio_leads_cache || {}
   try {
-    if (fs.existsSync(LEADS_PATH)) {
-      const data = fs.readFileSync(LEADS_PATH, 'utf-8')
-      return JSON.parse(data || '{}')
+    if (fs.existsSync(PRIMARY_PATH)) {
+      const data = fs.readFileSync(PRIMARY_PATH, 'utf-8')
+      const parsed = JSON.parse(data || '{}')
+      store = { ...store, ...parsed }
     }
   } catch (e) {}
-  return {}
+
+  try {
+    if (fs.existsSync(TMP_PATH)) {
+      const data = fs.readFileSync(TMP_PATH, 'utf-8')
+      const parsed = JSON.parse(data || '{}')
+      store = { ...store, ...parsed }
+    }
+  } catch (e) {}
+
+  global.__linksocio_leads_cache = store
+  return store
 }
 
 function writeLeadsStore(store) {
+  global.__linksocio_leads_cache = store
+  const data = JSON.stringify(store, null, 2)
   try {
-    fs.writeFileSync(LEADS_PATH, JSON.stringify(store, null, 2), 'utf-8')
+    fs.writeFileSync(PRIMARY_PATH, data, 'utf-8')
+  } catch (e) {}
+  try {
+    fs.writeFileSync(TMP_PATH, data, 'utf-8')
   } catch (e) {}
 }
 
@@ -85,7 +108,8 @@ export default async function handler(req, res) {
         const payload = JSON.parse(body || '{}')
         const username = (payload.username || '').toLowerCase().trim().replace(/^@/, '')
         const userId = (payload.userId || '').trim()
-        const lead = payload.lead || {}
+        const singleLead = payload.lead
+        const batchLeads = payload.leads
 
         if (!username && !userId) {
           res.statusCode = 400
@@ -94,35 +118,51 @@ export default async function handler(req, res) {
           return
         }
 
-        const newLead = {
-          id: lead.id || 'lead_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
-          createdAt: lead.createdAt || new Date().toISOString(),
-          status: lead.status || 'new',
-          ...lead,
-        }
-
         const store = readLeadsStore()
+        const primaryKey = username || userId
+        const existingList = [...(store[primaryKey] || [])]
 
-        function saveToKey(key) {
-          if (!key) return
-          const currentList = store[key] || []
-          const idx = currentList.findIndex((l) => l.id === newLead.id)
-          if (idx >= 0) {
-            currentList[idx] = { ...currentList[idx], ...newLead }
-          } else {
-            currentList.unshift(newLead)
+        if (userId && store[userId]) {
+          for (const item of store[userId]) {
+            if (item && item.id && !existingList.some((x) => x.id === item.id)) {
+              existingList.push(item)
+            }
           }
-          store[key] = currentList
         }
 
-        if (username) saveToKey(username)
-        if (userId) saveToKey(userId)
+        const itemsToProcess = []
+        if (singleLead) itemsToProcess.push(singleLead)
+        if (Array.isArray(batchLeads)) {
+          for (const l of batchLeads) {
+            if (l) itemsToProcess.push(l)
+          }
+        }
+
+        for (const lead of itemsToProcess) {
+          const newLead = {
+            id: lead.id || 'lead_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+            createdAt: lead.createdAt || new Date().toISOString(),
+            status: lead.status || 'new',
+            ...lead,
+          }
+          const idx = existingList.findIndex((l) => l.id === newLead.id)
+          if (idx >= 0) {
+            existingList[idx] = { ...existingList[idx], ...newLead }
+          } else {
+            existingList.unshift(newLead)
+          }
+        }
+
+        existingList.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
+
+        if (username) store[username] = existingList
+        if (userId) store[userId] = existingList
 
         writeLeadsStore(store)
 
         res.statusCode = 200
         res.setHeader('Content-Type', 'application/json')
-        res.end(JSON.stringify({ success: true, lead: newLead }))
+        res.end(JSON.stringify({ success: true, leads: existingList }))
       } catch (err) {
         res.statusCode = 400
         res.setHeader('Content-Type', 'application/json')
@@ -153,7 +193,7 @@ export default async function handler(req, res) {
         const store = readLeadsStore()
         for (const [k, list] of Object.entries(store)) {
           if (Array.isArray(list)) {
-            store[k] = list.map((l) => (l.id === leadId ? { ...l, status: newStatus || l.status } : l))
+            store[k] = list.map((l) => (l.id === leadId ? { ...l, status: newStatus || l.status } : b))
           }
         }
 
@@ -212,4 +252,3 @@ export default async function handler(req, res) {
   res.setHeader('Content-Type', 'application/json')
   res.end(JSON.stringify({ error: 'Method not allowed' }))
 }
-

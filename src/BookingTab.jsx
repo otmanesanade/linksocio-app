@@ -123,14 +123,22 @@ export function saveBookingSettingsLocally(profile, settings) {
   } catch (e) {}
 }
 
-export function getStoredBookings(profileUsername) {
-  if (!profileUsername) return []
-  const clean = String(profileUsername).toLowerCase().trim().replace(/^@/, '')
+export function getStoredBookings(profileUsernameOrId) {
+  if (!profileUsernameOrId) return []
+  const clean = String(profileUsernameOrId).toLowerCase().trim().replace(/^@/, '')
   try {
-    const raw =
-      localStorage.getItem(`linksocio_bookings_${clean}`) ||
-      localStorage.getItem(`linksocio_bookings_${profileUsername}`)
-    return raw ? JSON.parse(raw) : []
+    const rawClean = localStorage.getItem(`linksocio_bookings_${clean}`)
+    const rawDirect = localStorage.getItem(`linksocio_bookings_${profileUsernameOrId}`)
+    const parsedClean = rawClean ? JSON.parse(rawClean) : []
+    const parsedDirect = rawDirect ? JSON.parse(rawDirect) : []
+
+    const map = new Map()
+    for (const item of [...parsedClean, ...parsedDirect]) {
+      if (item && item.id) {
+        map.set(item.id, item)
+      }
+    }
+    return Array.from(map.values()).sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
   } catch (e) {
     return []
   }
@@ -250,42 +258,59 @@ export default function BookingTab({ profile, onUpdated }) {
     const userId = profile?.id || ''
     if (showIndicator) setIsRefreshing(true)
 
-    const localBookings = getStoredBookings(cleanUsername)
-    if (localBookings && localBookings.length > 0) {
-      setBookings((prev) => {
-        return localBookings.length >= prev.length ? localBookings : prev
-      })
+    // Gather from clean username, full username and userId
+    const byClean = getStoredBookings(cleanUsername)
+    const byUser = profile?.username ? getStoredBookings(profile.username) : []
+    const byId = userId ? getStoredBookings(userId) : []
+
+    const localMap = new Map()
+    for (const b of [...byClean, ...byUser, ...byId]) {
+      if (b && b.id) localMap.set(b.id, b)
+    }
+    const allLocal = Array.from(localMap.values()).sort(
+      (a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)
+    )
+
+    if (allLocal.length > 0) {
+      setBookings((prev) => (allLocal.length >= prev.length ? allLocal : prev))
     }
 
     try {
+      // 1. Proactively batch sync any local bookings to server so all devices share them
+      if (allLocal.length > 0) {
+        await fetch('/api/bookings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            username: cleanUsername,
+            userId,
+            bookings: allLocal,
+          }),
+        }).catch(() => {})
+      }
+
+      // 2. Fetch the latest complete aggregation across all devices
       const query = `username=${encodeURIComponent(cleanUsername)}&userId=${encodeURIComponent(userId)}`
       const res = await fetch(`/api/bookings?${query}`)
       if (res.ok) {
-        const data = await res.json()
-        if (data.bookings && Array.isArray(data.bookings)) {
-          const serverBookings = data.bookings
-          const combined = [...serverBookings]
-          const serverIds = new Set(serverBookings.map((b) => b.id))
-
-          // Auto-push any local bookings to server store if not yet there
-          for (const lb of localBookings) {
-            if (lb && lb.id && !serverIds.has(lb.id)) {
-              combined.push(lb)
-              fetch('/api/bookings', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username: cleanUsername, userId, booking: lb }),
-              }).catch(() => {})
+        const contentType = res.headers.get('content-type') || ''
+        if (contentType.includes('application/json')) {
+          const data = await res.json()
+          if (data.bookings && Array.isArray(data.bookings)) {
+            const serverBookings = data.bookings
+            const mergedMap = new Map()
+            for (const b of [...allLocal, ...serverBookings]) {
+              if (b && b.id) mergedMap.set(b.id, b)
             }
-          }
+            const combined = Array.from(mergedMap.values()).sort(
+              (a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)
+            )
 
-          combined.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
-          setBookings(combined)
-          if (cleanUsername) {
-            localStorage.setItem(`linksocio_bookings_${cleanUsername}`, JSON.stringify(combined))
-          }
-          if (userId) {
-            localStorage.setItem(`linksocio_bookings_${userId}`, JSON.stringify(combined))
+            setBookings(combined)
+            const jsonStr = JSON.stringify(combined)
+            if (cleanUsername) localStorage.setItem(`linksocio_bookings_${cleanUsername}`, jsonStr)
+            if (userId) localStorage.setItem(`linksocio_bookings_${userId}`, jsonStr)
+            if (profile?.username) localStorage.setItem(`linksocio_bookings_${profile.username}`, jsonStr)
           }
         }
       }
