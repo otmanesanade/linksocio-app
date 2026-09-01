@@ -15,6 +15,7 @@ import confetti from 'canvas-confetti'
 function ProfileCard({ user, profile, onSaved }) {
   const [displayName, setDisplayName] = useState(profile?.display_name || '')
   const [bio, setBio] = useState(profile?.bio || '')
+  const [location, setLocation] = useState(profile?.location || '')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
@@ -22,15 +23,18 @@ function ProfileCard({ user, profile, onSaved }) {
   useEffect(() => {
     setDisplayName(profile?.display_name || '')
     setBio(profile?.bio || '')
+    setLocation(profile?.location || '')
     setError('')
   }, [profile])
 
   const originalName = profile?.display_name || ''
   const originalBio = profile?.bio || ''
-  const hasChanges = displayName !== originalName || bio !== originalBio
+  const originalLocation = profile?.location || ''
+  const hasChanges = displayName !== originalName || bio !== originalBio || location !== originalLocation
   const nameTooLong = displayName.length > 50
   const bioTooLong = bio.length > 120
-  const canSave = hasChanges && !saving && !nameTooLong && !bioTooLong
+  const locTooLong = location.length > 80
+  const canSave = hasChanges && !saving && !nameTooLong && !bioTooLong && !locTooLong
 
   async function save(e) {
     e?.preventDefault()
@@ -38,6 +42,7 @@ function ProfileCard({ user, profile, onSaved }) {
 
     const cleanName = displayName.trim()
     const cleanBio = bio.trim()
+    const cleanLocation = location.trim()
 
     if (!cleanName) {
       setError('Please enter your display name.')
@@ -49,7 +54,7 @@ function ProfileCard({ user, profile, onSaved }) {
     setSaving(true)
     const { error: updateError } = await supabase
       .from('profiles')
-      .update({ display_name: cleanName, bio: cleanBio })
+      .update({ display_name: cleanName, bio: cleanBio, location: cleanLocation })
       .eq('id', profile.id)
 
     setSaving(false)
@@ -59,8 +64,15 @@ function ProfileCard({ user, profile, onSaved }) {
       return
     }
 
+    if (profile?.username) {
+      try {
+        localStorage.setItem(`linksocio_profile_location_${profile.username}`, cleanLocation)
+      } catch (e) {}
+    }
+
     setDisplayName(cleanName)
     setBio(cleanBio)
+    setLocation(cleanLocation)
     setSaved(true)
     await onSaved()
     setTimeout(() => setSaved(false), 1800)
@@ -78,7 +90,7 @@ function ProfileCard({ user, profile, onSaved }) {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 14 }}>
         <div>
           <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: '#0F172A' }}>Profile Details</p>
-          <p style={{ margin: '3px 0 0', fontSize: 12, color: '#8A97A3' }}>Update your page name and bio description.</p>
+          <p style={{ margin: '3px 0 0', fontSize: 12, color: '#8A97A3' }}>Update your page name, bio, and location.</p>
         </div>
       </div>
 
@@ -108,6 +120,24 @@ function ProfileCard({ user, profile, onSaved }) {
             style={{ ...inputStyle, marginTop: 4, resize: 'vertical', minHeight: 64, fontFamily: 'inherit', borderColor: bioTooLong ? '#EF4444' : '#E7EDEC' }}
           />
           <p style={{ margin: '3px 0 0', fontSize: 11, color: bioTooLong ? '#EF4444' : '#94A3B8', textAlign: 'right' }}>{bio.length}/120</p>
+        </div>
+
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <label htmlFor="profile-location" style={{ fontSize: 11.5, color: '#64748B', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span>📍</span> Location / City / Address
+            </label>
+            <span style={{ fontSize: 10.5, color: '#94A3B8' }}>Optional · Shows on public page</span>
+          </div>
+          <input
+            id="profile-location"
+            value={location}
+            onChange={(e) => { setLocation(e.target.value); setError('') }}
+            placeholder="e.g. Casablanca, Morocco or Marrakech, Gueliz"
+            maxLength={80}
+            style={{ ...inputStyle, marginTop: 4, borderColor: locTooLong ? '#EF4444' : '#E7EDEC' }}
+          />
+          <p style={{ margin: '3px 0 0', fontSize: 11, color: locTooLong ? '#EF4444' : '#94A3B8', textAlign: 'right' }}>{location.length}/80</p>
         </div>
 
         {error && (
@@ -288,6 +318,11 @@ export default function Dashboard({ user }) {
       if (serverBooking.enabled !== undefined) {
         data.booking_enabled = serverBooking.enabled
       }
+    }
+
+    if (!data.location && data.username) {
+      const storedLoc = localStorage.getItem(`linksocio_profile_location_${data.username}`)
+      if (storedLoc) data.location = storedLoc
     }
 
     setProfile({ ...data, _ts: Date.now() })

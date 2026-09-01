@@ -71,6 +71,12 @@ const IconGlobe = ({ color = 'currentColor', size = 18 }) => (
     <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
   </svg>
 )
+const IconMapPin = ({ color = 'currentColor', size = 18 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+    <circle cx="12" cy="10" r="3" />
+  </svg>
+)
 const IconLink = ({ color = 'currentColor', size = 18 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M10 13a5 5 0 0 0 7.5.5l2-2a5 5 0 0 0-7-7l-1.5 1.5" />
@@ -90,6 +96,7 @@ export const getSocialIcon = (label = '', color, size = 18) => {
   if (l.includes('snapchat')) return <IconSnapchat color={color} size={size} />
   if (l.includes('spotify')) return <IconSpotify color={color} size={size} />
   if (l.includes('telegram') || l.includes('t.me')) return <IconTelegram color={color} size={size} />
+  if (l.includes('map') || l.includes('location') || l.includes('gps') || l.includes('address') || l.includes('localiser')) return <IconMapPin color={color} size={size} />
   if (l.includes('website') || l.includes('store') || l.includes('shop')) return <IconGlobe color={color} size={size} />
   return <IconLink color={color} size={size} />
 }
@@ -167,6 +174,7 @@ export function LivePagePreview({ profile, links = [], products = [], isEmbedded
       `FN:${profile?.display_name || profile?.username || 'Contact'}`,
       phone ? `TEL;TYPE=CELL:${phone}` : '',
       `URL:https://linksocio.com/${profile?.username}`,
+      profile?.location ? `ADR;TYPE=WORK:;;${profile.location};;;;` : '',
       profile?.bio ? `NOTE:${profile.bio}` : '',
       'END:VCARD',
     ]
@@ -285,6 +293,40 @@ export function LivePagePreview({ profile, links = [], products = [], isEmbedded
               >
                 {profile.bio}
               </p>
+            )}
+
+            {profile?.location && (
+              <a
+                href={
+                  /^https?:\/\//i.test(profile.location)
+                    ? profile.location
+                    : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(profile.location)}`
+                }
+                target="_blank"
+                rel="noopener noreferrer"
+                title="Open location on Google Maps"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 5,
+                  marginTop: 8,
+                  background: tint,
+                  padding: isEmbedded ? '4px 10px' : '5px 12px',
+                  borderRadius: 100,
+                  fontSize: isEmbedded ? 10.5 : 12,
+                  fontWeight: 600,
+                  color: theme.textColor,
+                  textDecoration: 'none',
+                  border: '1px solid rgba(0,0,0,0.06)',
+                  maxWidth: '92%',
+                  transition: 'opacity 0.15s ease',
+                }}
+              >
+                <IconMapPin size={isEmbedded ? 12 : 14} color={color} />
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {profile.location}
+                </span>
+              </a>
             )}
 
             {/* Save contact & Quick action buttons */}

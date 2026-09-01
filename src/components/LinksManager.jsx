@@ -6,6 +6,7 @@ import { getMediaEmbedInfo } from '../utils/mediaEmbed'
 const QUICK_PRESETS = [
   { label: 'Instagram', prefix: 'https://instagram.com/', placeholder: 'username', icon: 'Instagram' },
   { label: 'WhatsApp', prefix: 'https://wa.me/', placeholder: 'phone with country code (e.g. 212600000000)', icon: 'WhatsApp' },
+  { label: 'Google Maps / Location', prefix: 'https://maps.google.com/?q=', placeholder: 'City, Address or Place (e.g. Casablanca)', icon: 'Map' },
   { label: 'TikTok', prefix: 'https://tiktok.com/@', placeholder: 'username or video link', icon: 'TikTok' },
   { label: 'YouTube', prefix: 'https://youtube.com/watch?v=', placeholder: 'Video link or Channel', icon: 'YouTube' },
   { label: 'Spotify', prefix: 'https://open.spotify.com/track/', placeholder: 'Track / Album / Playlist URL', icon: 'Music' },
@@ -76,6 +77,12 @@ export default function LinksManager({
     if (activePreset.label === 'WhatsApp') {
       const cleanPhone = cleanInput.replace(/[^0-9]/g, '')
       fullUrl = `https://wa.me/${cleanPhone}`
+    } else if (activePreset.label.includes('Google Maps') || activePreset.label.includes('Location')) {
+      if (/^https?:\/\//i.test(cleanInput)) {
+        fullUrl = cleanInput
+      } else {
+        fullUrl = `https://maps.google.com/?q=${encodeURIComponent(cleanInput)}`
+      }
     } else if (activePreset.prefix.startsWith('http')) {
       fullUrl = activePreset.prefix.endsWith('/') || activePreset.prefix.endsWith('@')
         ? `${activePreset.prefix}${cleanInput}`

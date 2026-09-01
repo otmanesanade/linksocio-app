@@ -49,6 +49,11 @@ export default function PublicProfile({ username }) {
       }
     }
 
+    if (!profileData.location && profileData.username) {
+      const storedLoc = localStorage.getItem(`linksocio_profile_location_${profileData.username}`)
+      if (storedLoc) profileData.location = storedLoc
+    }
+
     setProfile(profileData)
 
     const [{ data: linksData }, { data: productsData }] = await Promise.all([
