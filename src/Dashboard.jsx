@@ -179,6 +179,7 @@ export default function Dashboard({ user }) {
   const [copied, setCopied] = useState(false)
   const [qrUrl, setQrUrl] = useState(null)
   const [tab, setTab] = useState('links')
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [showMobilePreviewModal, setShowMobilePreviewModal] = useState(false)
   const [bookingCount, setBookingCount] = useState(0)
   const [leadsCount, setLeadsCount] = useState(0)
@@ -397,27 +398,315 @@ export default function Dashboard({ user }) {
     { key: 'analytics', label: 'Analytics', icon: '📊' },
   ]
 
+  const currentNavItem = navItems.find((it) => it.key === tab) || navItems[0]
+
   return (
     <div style={{ minHeight: '100vh', width: '100%', background: '#F8FAFA', fontFamily: "'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif" }}>
-      {/* Top Mobile Bar with floating preview button */}
-      <div className="mobile-header" style={{ display: 'none', background: 'white', borderBottom: '1px solid #E2E8F0', padding: '12px 16px', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <svg width="22" height="22" viewBox="0 0 46 46">
-            <rect x="4" y="4" width="22" height="22" rx="11" fill="none" stroke="#14B8A6" strokeWidth="6" />
-            <rect x="20" y="20" width="22" height="22" rx="11" fill="none" stroke="#0F172A" strokeWidth="6" />
-          </svg>
-          <span style={{ fontSize: 15, fontWeight: 700 }}>
-            <span style={{ color: '#0F172A' }}>Link</span>
-            <span style={{ color: '#14B8A6' }}>Socio</span>
-          </span>
+      {/* Top Mobile Bar with 3-Lines Hamburger Menu Button (3 Chartat) */}
+      <div
+        className="mobile-header"
+        style={{
+          display: 'none',
+          background: 'rgba(255, 255, 255, 0.96)',
+          backdropFilter: 'blur(10px)',
+          borderBottom: '1px solid #E2E8F0',
+          padding: '10px 14px',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          position: 'sticky',
+          top: 0,
+          zIndex: 100,
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          {/* 3 Chartat (Hamburger) Menu Button */}
+          <button
+            type="button"
+            onClick={() => setMobileMenuOpen(true)}
+            aria-label="Open Navigation Menu"
+            style={{
+              width: 38,
+              height: 38,
+              borderRadius: 10,
+              border: '1px solid #E2E8F0',
+              background: '#F8FAFC',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 4,
+              cursor: 'pointer',
+              padding: 0,
+              flexShrink: 0,
+              boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+            }}
+          >
+            <span style={{ width: 17, height: 2.2, background: '#0F172A', borderRadius: 2 }} />
+            <span style={{ width: 17, height: 2.2, background: '#0F172A', borderRadius: 2 }} />
+            <span style={{ width: 17, height: 2.2, background: '#0F172A', borderRadius: 2 }} />
+          </button>
+
+          {/* Logo & Current Active Section Badge */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <svg width="20" height="20" viewBox="0 0 46 46">
+                <rect x="4" y="4" width="22" height="22" rx="11" fill="none" stroke="#14B8A6" strokeWidth="6" />
+                <rect x="20" y="20" width="22" height="22" rx="11" fill="none" stroke="#0F172A" strokeWidth="6" />
+              </svg>
+              <span style={{ fontSize: 14, fontWeight: 700 }}>
+                <span style={{ color: '#0F172A' }}>Link</span>
+                <span style={{ color: '#14B8A6' }}>Socio</span>
+              </span>
+            </div>
+
+            <div
+              onClick={() => setMobileMenuOpen(true)}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 5,
+                background: '#F1F5F9',
+                border: '1px solid #E2E8F0',
+                borderRadius: 100,
+                padding: '3px 9px',
+                fontSize: 11.5,
+                fontWeight: 600,
+                color: '#334155',
+                cursor: 'pointer',
+                maxWidth: 140,
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}
+            >
+              <span>{currentNavItem.icon}</span>
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{currentNavItem.label.split(' & ')[0]}</span>
+              <span style={{ fontSize: 9, color: '#94A3B8' }}>▼</span>
+            </div>
+          </div>
         </div>
+
         <button
           onClick={() => setShowMobilePreviewModal(true)}
-          style={{ background: '#0F172A', color: 'white', border: 'none', borderRadius: 100, padding: '6px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
+          style={{
+            background: '#0F172A',
+            color: 'white',
+            border: 'none',
+            borderRadius: 100,
+            padding: '6px 12px',
+            fontSize: 11.5,
+            fontWeight: 600,
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 5,
+            boxShadow: '0 2px 6px rgba(15,23,42,0.15)',
+          }}
         >
-          <span>📱 Live Preview</span>
+          <span>📱 Preview</span>
         </button>
       </div>
+
+      {/* Mobile Navigation Drawer (Opens on 3 chartat click) */}
+      {mobileMenuOpen && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(15,23,42,0.65)',
+            zIndex: 99999,
+            display: 'flex',
+            backdropFilter: 'blur(4px)',
+          }}
+          onClick={() => setMobileMenuOpen(false)}
+        >
+          <div
+            style={{
+              width: '84%',
+              maxWidth: 320,
+              height: '100%',
+              background: 'white',
+              display: 'flex',
+              flexDirection: 'column',
+              boxShadow: '4px 0 25px rgba(0,0,0,0.2)',
+              overflowY: 'auto',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Drawer Header */}
+            <div
+              style={{
+                padding: '16px 18px',
+                borderBottom: '1px solid #F1F5F9',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <svg width="22" height="22" viewBox="0 0 46 46">
+                  <rect x="4" y="4" width="22" height="22" rx="11" fill="none" stroke="#14B8A6" strokeWidth="6" />
+                  <rect x="20" y="20" width="22" height="22" rx="11" fill="none" stroke="#0F172A" strokeWidth="6" />
+                </svg>
+                <span style={{ fontSize: 16, fontWeight: 700 }}>
+                  <span style={{ color: '#0F172A' }}>Link</span>
+                  <span style={{ color: '#14B8A6' }}>Socio</span>
+                </span>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setMobileMenuOpen(false)}
+                style={{
+                  background: '#F1F5F9',
+                  border: 'none',
+                  borderRadius: '50%',
+                  width: 32,
+                  height: 32,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: 14,
+                  fontWeight: 700,
+                  color: '#64748B',
+                  cursor: 'pointer',
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Navigation Items in Drawer */}
+            <div style={{ padding: '14px 12px', flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <p style={{ margin: '0 0 6px 8px', fontSize: 11, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Navigation Menu
+              </p>
+              {navItems.map((item) => {
+                const isActive = tab === item.key
+                const badgeNum = item.key === 'bookings' ? bookingCount : item.key === 'inquiries' ? leadsCount : 0
+                return (
+                  <button
+                    key={item.key}
+                    type="button"
+                    onClick={() => {
+                      setTab(item.key)
+                      setMobileMenuOpen(false)
+                    }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      textAlign: 'left',
+                      background: isActive ? '#0F172A' : '#F8FAFC',
+                      border: isActive ? '1px solid #0F172A' : '1px solid #F1F5F9',
+                      borderRadius: 14,
+                      padding: '12px 14px',
+                      fontSize: 13.5,
+                      fontWeight: isActive ? 700 : 600,
+                      color: isActive ? 'white' : '#334155',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease',
+                      width: '100%',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <span style={{ fontSize: 17 }}>{item.icon}</span>
+                      <span>{item.label}</span>
+                    </div>
+
+                    {badgeNum > 0 && (
+                      <span
+                        style={{
+                          background: isActive ? '#14B8A6' : '#DCFCE7',
+                          color: isActive ? 'white' : '#15803D',
+                          fontSize: 11,
+                          fontWeight: 700,
+                          padding: '2px 8px',
+                          borderRadius: 100,
+                        }}
+                      >
+                        {badgeNum}
+                      </span>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+
+            {/* Profile & Logout in Drawer */}
+            <div style={{ padding: '14px 16px', borderTop: '1px solid #F1F5F9', background: '#FAFAFA' }}>
+              {profile && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+                  <div
+                    style={{
+                      width: 38,
+                      height: 38,
+                      borderRadius: '50%',
+                      background: profile.avatar_url
+                        ? '#F1F5F9'
+                        : `linear-gradient(135deg, ${profile.theme_color || '#14B8A6'}, #0F172A)`,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: 'white',
+                      fontSize: 14,
+                      fontWeight: 700,
+                      overflow: 'hidden',
+                      flexShrink: 0,
+                      border: '1px solid #E2E8F0',
+                    }}
+                  >
+                    {profile.avatar_url ? (
+                      <img
+                        src={profile.avatar_url}
+                        alt="Avatar"
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                      />
+                    ) : (
+                      profile.display_name?.[0]?.toUpperCase() || profile.username?.[0]?.toUpperCase() || '?'
+                    )}
+                  </div>
+                  <div style={{ minWidth: 0, overflow: 'hidden' }}>
+                    <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#0F172A', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {profile.display_name || profile.username}
+                    </p>
+                    <p style={{ margin: 0, fontSize: 11, color: '#94A3B8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      @{profile.username}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileMenuOpen(false)
+                  logout()
+                }}
+                style={{
+                  width: '100%',
+                  background: '#FFFFFF',
+                  border: '1px solid #E2E8F0',
+                  borderRadius: 10,
+                  padding: '9px 12px',
+                  fontSize: 12.5,
+                  fontWeight: 600,
+                  color: '#EF4444',
+                  cursor: 'pointer',
+                  textAlign: 'center',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
+                }}
+              >
+                <span>🚪</span>
+                <span>Log out</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div
         className="linksocio-grid"
@@ -707,13 +996,10 @@ export default function Dashboard({ user }) {
 
       <style>{`
         @media (max-width: 1024px) {
-          .linksocio-grid { grid-template-columns: minmax(0, 1fr) !important; padding: 16px 12px !important; }
+          .linksocio-grid { grid-template-columns: minmax(0, 1fr) !important; padding: 12px 12px 48px !important; }
           .linksocio-preview-panel { display: none !important; }
           .mobile-header { display: flex !important; }
-          .linksocio-sidebar { display: flex !important; flex-direction: row !important; align-items: center !important; overflow-x: auto !important; margin-bottom: 16px !important; }
-          .linksocio-sidebar > div:first-child { display: none !important; }
-          .linksocio-sidebar > div { flex-direction: row !important; }
-          .linksocio-sidebar > div:last-child { margin-top: 0 !important; padding-top: 0 !important; border-top: none !important; }
+          .linksocio-sidebar { display: none !important; }
         }
       `}</style>
     </div>
