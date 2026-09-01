@@ -244,21 +244,14 @@ export default function Dashboard({ user }) {
           const data = await res.json()
           if (data.bookings && Array.isArray(data.bookings)) {
             const serverBookings = data.bookings
-            const mergedMap = new Map()
-            for (const b of serverBookings) {
-              if (b && b.id) mergedMap.set(b.id, b)
-            }
-            // Include only local items that are not in server
-            for (const b of localBookings) {
-              if (b && b.id && !mergedMap.has(b.id)) {
-                mergedMap.set(b.id, b)
-              }
-            }
-            const allBookings = Array.from(mergedMap.values())
-            const activeBookings = allBookings.filter(
+            const activeBookings = serverBookings.filter(
               (b) => b.status !== 'cancelled' && b.status !== 'completed'
             )
             setBookingCount(activeBookings.length)
+            const jsonStr = JSON.stringify(serverBookings)
+            if (clean) localStorage.setItem(`linksocio_bookings_${clean}`, jsonStr)
+            if (userId) localStorage.setItem(`linksocio_bookings_${userId}`, jsonStr)
+            if (profile?.username) localStorage.setItem(`linksocio_bookings_${profile.username}`, jsonStr)
           }
         }
       }

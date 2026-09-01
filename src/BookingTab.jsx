@@ -284,36 +284,14 @@ export default function BookingTab({ profile, onUpdated }) {
         if (contentType.includes('application/json')) {
           const data = await res.json()
           if (data.bookings && Array.isArray(data.bookings)) {
-            const serverBookings = data.bookings
-            const mergedMap = new Map()
-
-            // Server items first
-            for (const b of serverBookings) {
-              if (b && b.id) mergedMap.set(b.id, b)
-            }
-
-            // Only add local items if they are fresh / newer and not in server
-            for (const b of allLocal) {
-              if (b && b.id) {
-                if (!mergedMap.has(b.id)) {
-                  mergedMap.set(b.id, b)
-                } else {
-                  // Prefer the one with latest status modification or server state
-                  const serverItem = mergedMap.get(b.id)
-                  // If local is cancelled/completed or modified, preserve that
-                  if (b.status === 'cancelled' || b.status === 'completed') {
-                    mergedMap.set(b.id, { ...serverItem, status: b.status })
-                  }
-                }
-              }
-            }
-
-            const combined = Array.from(mergedMap.values()).sort(
+            // Server is the single source of truth for cross-device synchronization.
+            // When a booking is deleted on mobile or another device, server removes it.
+            const serverBookings = data.bookings.sort(
               (a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)
             )
 
-            setBookings(combined)
-            const jsonStr = JSON.stringify(combined)
+            setBookings(serverBookings)
+            const jsonStr = JSON.stringify(serverBookings)
             if (cleanUsername) localStorage.setItem(`linksocio_bookings_${cleanUsername}`, jsonStr)
             if (userId) localStorage.setItem(`linksocio_bookings_${userId}`, jsonStr)
             if (profile?.username) localStorage.setItem(`linksocio_bookings_${profile.username}`, jsonStr)
