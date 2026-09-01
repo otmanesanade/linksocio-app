@@ -31,7 +31,7 @@ function apiPlugin() {
         // Global CORS headers for API routes
         if (req.url && req.url.startsWith('/api/')) {
           res.setHeader('Access-Control-Allow-Origin', '*')
-          res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, OPTIONS')
+          res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS')
           res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
           if (req.method === 'OPTIONS') {
             res.statusCode = 200

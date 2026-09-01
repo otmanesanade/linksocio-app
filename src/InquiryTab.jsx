@@ -239,24 +239,11 @@ export default function InquiryTab({ profile, onUpdated }) {
     )
 
     if (allLocal.length > 0) {
-      setLeads((prev) => (allLocal.length >= prev.length ? allLocal : prev))
+      setLeads(allLocal)
     }
 
     try {
-      // 1. Proactively batch sync any local leads to server
-      if (allLocal.length > 0) {
-        await fetch('/api/inquiry-leads', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            username: cleanUsername,
-            userId,
-            leads: allLocal,
-          }),
-        }).catch(() => {})
-      }
-
-      // 2. Query server for the master list
+      // 1. Query server for the master list
       const query = `username=${encodeURIComponent(cleanUsername)}&userId=${encodeURIComponent(userId)}`
       const res = await fetch(`/api/inquiry-leads?${query}`)
       if (res.ok) {
@@ -266,8 +253,20 @@ export default function InquiryTab({ profile, onUpdated }) {
           if (data.leads && Array.isArray(data.leads)) {
             const serverLeads = data.leads
             const mergedMap = new Map()
-            for (const l of [...allLocal, ...serverLeads]) {
+            for (const l of serverLeads) {
               if (l && l.id) mergedMap.set(l.id, l)
+            }
+            for (const l of allLocal) {
+              if (l && l.id) {
+                if (!mergedMap.has(l.id)) {
+                  mergedMap.set(l.id, l)
+                } else {
+                  const serverItem = mergedMap.get(l.id)
+                  if (l.status === 'replied' || l.status === 'closed' || l.status === 'done' || l.status === 'cancelled') {
+                    mergedMap.set(l.id, { ...serverItem, status: l.status })
+                  }
+                }
+              }
             }
             const combined = Array.from(mergedMap.values()).sort(
               (a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)

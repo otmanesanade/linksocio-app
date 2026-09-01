@@ -205,23 +205,22 @@ export default function Dashboard({ user }) {
     setBookingCount(activeLocalBookings.length)
 
     try {
-      if (localBookings.length > 0) {
-        fetch('/api/bookings', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username: clean, userId, bookings: localBookings }),
-        }).catch(() => {})
-      }
-
       const res = await fetch(`/api/bookings?username=${encodeURIComponent(clean)}&userId=${encodeURIComponent(userId)}`)
       if (res.ok) {
         const contentType = res.headers.get('content-type') || ''
         if (contentType.includes('application/json')) {
           const data = await res.json()
           if (data.bookings && Array.isArray(data.bookings)) {
+            const serverBookings = data.bookings
             const mergedMap = new Map()
-            for (const b of [...localBookings, ...data.bookings]) {
+            for (const b of serverBookings) {
               if (b && b.id) mergedMap.set(b.id, b)
+            }
+            // Include only local items that are not in server
+            for (const b of localBookings) {
+              if (b && b.id && !mergedMap.has(b.id)) {
+                mergedMap.set(b.id, b)
+              }
             }
             const allBookings = Array.from(mergedMap.values())
             const activeBookings = allBookings.filter(
@@ -248,23 +247,21 @@ export default function Dashboard({ user }) {
     setLeadsCount(activeLocalLeads.length)
 
     try {
-      if (localLeads.length > 0) {
-        fetch('/api/inquiry-leads', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username: clean, userId, leads: localLeads }),
-        }).catch(() => {})
-      }
-
       const res = await fetch(`/api/inquiry-leads?username=${encodeURIComponent(clean)}&userId=${encodeURIComponent(userId)}`)
       if (res.ok) {
         const contentType = res.headers.get('content-type') || ''
         if (contentType.includes('application/json')) {
           const data = await res.json()
           if (data.leads && Array.isArray(data.leads)) {
+            const serverLeads = data.leads
             const mergedMap = new Map()
-            for (const l of [...localLeads, ...data.leads]) {
+            for (const l of serverLeads) {
               if (l && l.id) mergedMap.set(l.id, l)
+            }
+            for (const l of localLeads) {
+              if (l && l.id && !mergedMap.has(l.id)) {
+                mergedMap.set(l.id, l)
+              }
             }
             const allLeads = Array.from(mergedMap.values())
             const activeLeads = allLeads.filter(

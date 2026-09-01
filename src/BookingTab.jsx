@@ -272,24 +272,11 @@ export default function BookingTab({ profile, onUpdated }) {
     )
 
     if (allLocal.length > 0) {
-      setBookings((prev) => (allLocal.length >= prev.length ? allLocal : prev))
+      setBookings(allLocal)
     }
 
     try {
-      // 1. Proactively batch sync any local bookings to server so all devices share them
-      if (allLocal.length > 0) {
-        await fetch('/api/bookings', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            username: cleanUsername,
-            userId,
-            bookings: allLocal,
-          }),
-        }).catch(() => {})
-      }
-
-      // 2. Fetch the latest complete aggregation across all devices
+      // 1. Fetch latest state from server first (server holds authoritative deletions/status updates)
       const query = `username=${encodeURIComponent(cleanUsername)}&userId=${encodeURIComponent(userId)}`
       const res = await fetch(`/api/bookings?${query}`)
       if (res.ok) {
@@ -299,9 +286,28 @@ export default function BookingTab({ profile, onUpdated }) {
           if (data.bookings && Array.isArray(data.bookings)) {
             const serverBookings = data.bookings
             const mergedMap = new Map()
-            for (const b of [...allLocal, ...serverBookings]) {
+
+            // Server items first
+            for (const b of serverBookings) {
               if (b && b.id) mergedMap.set(b.id, b)
             }
+
+            // Only add local items if they are fresh / newer and not in server
+            for (const b of allLocal) {
+              if (b && b.id) {
+                if (!mergedMap.has(b.id)) {
+                  mergedMap.set(b.id, b)
+                } else {
+                  // Prefer the one with latest status modification or server state
+                  const serverItem = mergedMap.get(b.id)
+                  // If local is cancelled/completed or modified, preserve that
+                  if (b.status === 'cancelled' || b.status === 'completed') {
+                    mergedMap.set(b.id, { ...serverItem, status: b.status })
+                  }
+                }
+              }
+            }
+
             const combined = Array.from(mergedMap.values()).sort(
               (a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)
             )
