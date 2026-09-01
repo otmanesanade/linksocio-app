@@ -535,6 +535,7 @@ export default function BookingTab({ profile, onUpdated }) {
   const activeCount = bookings.filter((b) => b.status !== 'completed' && b.status !== 'cancelled').length
   const completedCount = bookings.filter((b) => b.status === 'completed').length
   const cancelledCount = bookings.filter((b) => b.status === 'cancelled').length
+  const confirmedCount = activeCount
   const allCount = bookings.length
 
   const filteredBookings = bookings.filter((b) => {
