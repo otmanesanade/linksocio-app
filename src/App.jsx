@@ -45,8 +45,8 @@ export default function App() {
 
   if (path === 'privacy') return <PrivacyPolicy goBack={() => goTo('')} />
   if (path === 'terms') return <TermsOfService goBack={() => goTo('')} />
-  if (path === 'forgot-password') return <ForgotPassword switchToLogin={() => goTo('login')} />
-  if (path === 'reset-password') return <ResetPassword onDone={() => goTo('login')} />
+  if (path === 'forgot-password') return <ForgotPassword goHome={() => goTo('')} switchToLogin={() => goTo('login')} />
+  if (path === 'reset-password') return <ResetPassword goHome={() => goTo('')} onDone={() => goTo('login')} />
 
   if (path && !reservedPaths.includes(path)) {
     return <PublicProfile username={path.toLowerCase()} />
@@ -59,11 +59,24 @@ export default function App() {
   }
 
   if (path === 'login') {
-    return <Login onDone={() => goTo('')} switchToSignUp={() => goTo('signup')} switchToForgot={() => goTo('forgot-password')} />
+    return (
+      <Login
+        onDone={() => goTo('')}
+        goHome={() => goTo('')}
+        switchToSignUp={() => goTo('signup')}
+        switchToForgot={() => goTo('forgot-password')}
+      />
+    )
   }
 
   if (path === 'signup') {
-    return <SignUp onDone={() => goTo('')} switchToLogin={() => goTo('login')} />
+    return (
+      <SignUp
+        onDone={() => goTo('')}
+        goHome={() => goTo('')}
+        switchToLogin={() => goTo('login')}
+      />
+    )
   }
 
   return <LandingPage goToLogin={() => goTo('login')} goToSignUp={() => goTo('signup')} goTo={goTo} />
