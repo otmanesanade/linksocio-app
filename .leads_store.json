@@ -1,45 +1,5 @@
 {
-  "otmank": [
-    {
-      "id": "lead_1788169458250_wjd4",
-      "createdAt": "2026-08-31T09:44:18.250Z",
-      "status": "new",
-      "name": "Karim Mobile",
-      "phone": "+212600112233",
-      "message": "Hello from mobile device!"
-    }
-  ],
-  "user_123": [
-    {
-      "id": "lead_1788169458250_wjd4",
-      "createdAt": "2026-08-31T09:44:18.250Z",
-      "status": "new",
-      "name": "Karim Mobile",
-      "phone": "+212600112233",
-      "message": "Hello from mobile device!"
-    }
-  ],
-  "otmanesanade": [
-    {
-      "id": "lead_3",
-      "createdAt": "2026-08-31T10:00:00Z",
-      "status": "new",
-      "full_name": "Customer 3",
-      "phone": "0612345680"
-    },
-    {
-      "id": "lead_2",
-      "createdAt": "2026-08-31T09:30:00Z",
-      "status": "new",
-      "full_name": "Customer 2",
-      "phone": "0612345679"
-    },
-    {
-      "id": "lead_1",
-      "createdAt": "2026-08-31T09:00:00Z",
-      "status": "new",
-      "full_name": "Customer 1",
-      "phone": "0612345678"
-    }
-  ]
+  "otmanesanade": [],
+  "otmank": [],
+  "33373cca-beb6-43c8-ac2f-8ad4e8f54b85": []
 }

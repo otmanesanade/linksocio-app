@@ -254,17 +254,7 @@ export default function Dashboard({ user }) {
           const data = await res.json()
           if (data.leads && Array.isArray(data.leads)) {
             const serverLeads = data.leads
-            const mergedMap = new Map()
-            for (const l of serverLeads) {
-              if (l && l.id) mergedMap.set(l.id, l)
-            }
-            for (const l of localLeads) {
-              if (l && l.id && !mergedMap.has(l.id)) {
-                mergedMap.set(l.id, l)
-              }
-            }
-            const allLeads = Array.from(mergedMap.values())
-            const activeLeads = allLeads.filter(
+            const activeLeads = serverLeads.filter(
               (l) => l.status !== 'closed' && l.status !== 'cancelled' && l.status !== 'replied' && l.status !== 'completed' && l.status !== 'done'
             )
             setLeadsCount(activeLeads.length)

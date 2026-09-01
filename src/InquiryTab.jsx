@@ -252,28 +252,8 @@ export default function InquiryTab({ profile, onUpdated }) {
           const data = await res.json()
           if (data.leads && Array.isArray(data.leads)) {
             const serverLeads = data.leads
-            const mergedMap = new Map()
-            for (const l of serverLeads) {
-              if (l && l.id) mergedMap.set(l.id, l)
-            }
-            for (const l of allLocal) {
-              if (l && l.id) {
-                if (!mergedMap.has(l.id)) {
-                  mergedMap.set(l.id, l)
-                } else {
-                  const serverItem = mergedMap.get(l.id)
-                  if (l.status === 'replied' || l.status === 'closed' || l.status === 'done' || l.status === 'cancelled') {
-                    mergedMap.set(l.id, { ...serverItem, status: l.status })
-                  }
-                }
-              }
-            }
-            const combined = Array.from(mergedMap.values()).sort(
-              (a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)
-            )
-
-            setLeads(combined)
-            const jsonStr = JSON.stringify(combined)
+            setLeads(serverLeads)
+            const jsonStr = JSON.stringify(serverLeads)
             if (cleanUsername) localStorage.setItem(`linksocio_leads_${cleanUsername}`, jsonStr)
             if (userId) localStorage.setItem(`linksocio_leads_${userId}`, jsonStr)
             if (profile?.username) localStorage.setItem(`linksocio_leads_${profile.username}`, jsonStr)

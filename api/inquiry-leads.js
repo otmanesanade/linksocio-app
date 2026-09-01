@@ -193,7 +193,7 @@ export default async function handler(req, res) {
         const store = readLeadsStore()
         for (const [k, list] of Object.entries(store)) {
           if (Array.isArray(list)) {
-            store[k] = list.map((l) => (l.id === leadId ? { ...l, status: newStatus || l.status } : b))
+            store[k] = list.map((l) => (l.id === leadId ? { ...l, status: newStatus || l.status } : l))
           }
         }
 
