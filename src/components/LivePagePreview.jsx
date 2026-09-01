@@ -5,6 +5,7 @@ import confetti from 'canvas-confetti'
 import QRCode from 'qrcode'
 import InquiryCard from './InquiryCard'
 import BookingCard from './BookingCard'
+import { RestaurantMenuCard } from './RestaurantMenuCard'
 import MediaEmbedCard from './MediaEmbedCard'
 import { getMediaEmbedInfo } from '../utils/mediaEmbed'
 
@@ -647,6 +648,9 @@ export function LivePagePreview({ profile, links = [], products = [], isEmbedded
               )}
             </div>
           )}
+
+          {/* Restaurant & Cafe Digital Menu Card */}
+          <RestaurantMenuCard profile={profile} theme={theme} isEmbedded={isEmbedded} />
 
           {/* Booking & Consultation Calendar Box */}
           <BookingCard profile={profile} links={links} theme={theme} isEmbedded={isEmbedded} />

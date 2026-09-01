@@ -3,6 +3,7 @@ import { supabase } from './supabaseClient'
 import { LivePagePreview } from './components/LivePagePreview'
 import { fetchServerInquirySettings } from './InquiryTab'
 import { fetchServerBookingSettings } from './BookingTab'
+import { fetchServerRestaurantMenu } from './RestaurantTab'
 
 export default function PublicProfile({ username }) {
   const [profile, setProfile] = useState(null)
@@ -29,10 +30,11 @@ export default function PublicProfile({ username }) {
       return
     }
 
-    // Fetch server inquiry & booking settings in parallel
-    const [inquirySettings, bookingSettings] = await Promise.all([
+    // Fetch server inquiry, booking & restaurant menu settings in parallel
+    const [inquirySettings, bookingSettings, restaurantMenu] = await Promise.all([
       fetchServerInquirySettings(username, profileData.id),
       fetchServerBookingSettings(username, profileData.id),
+      fetchServerRestaurantMenu(username, profileData.id),
     ])
 
     if (inquirySettings) {
@@ -47,6 +49,10 @@ export default function PublicProfile({ username }) {
       if (bookingSettings.enabled !== undefined) {
         profileData.booking_enabled = bookingSettings.enabled
       }
+    }
+
+    if (restaurantMenu) {
+      profileData._restaurantMenu = restaurantMenu
     }
 
     if (!profileData.location && profileData.username) {

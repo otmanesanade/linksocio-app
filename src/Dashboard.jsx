@@ -9,6 +9,7 @@ import QrTab from './components/QrTab'
 import AvatarUpload from './components/AvatarUpload'
 import InquiryTab, { fetchServerInquirySettings, getStoredLeads } from './InquiryTab'
 import BookingTab, { fetchServerBookingSettings, getStoredBookings } from './BookingTab'
+import RestaurantTab, { fetchServerRestaurantMenu } from './RestaurantTab'
 import { LivePagePreview } from './components/LivePagePreview'
 import confetti from 'canvas-confetti'
 
@@ -387,6 +388,7 @@ export default function Dashboard({ user }) {
 
   const navItems = [
     { key: 'links', label: 'Links & Socials', icon: '🔗' },
+    { key: 'restaurant', label: 'Restaurant & Menu', icon: '🍽️' },
     { key: 'bookings', label: 'Appointments & Calendar', icon: '🗓️' },
     { key: 'inquiries', label: 'Messages & Leads', icon: '💬' },
     { key: 'shop', label: 'Store & Products', icon: '🛍️' },
@@ -574,6 +576,9 @@ export default function Dashboard({ user }) {
                 downloadQr={downloadQr}
               />
             </div>
+          )}
+          {tab === 'restaurant' && (
+            <RestaurantTab profile={profile} onUpdated={loadProfile} />
           )}
           {tab === 'inquiries' && (
             <InquiryTab profile={profile} onUpdated={loadProfile} />

@@ -8,6 +8,7 @@ function apiPlugin() {
   const LEADS_PATH = path.join(process.cwd(), '.leads_store.json')
   const BOOKING_SETTINGS_PATH = path.join(process.cwd(), '.booking_settings.json')
   const BOOKINGS_PATH = path.join(process.cwd(), '.bookings_store.json')
+  const RESTAURANT_MENU_PATH = path.join(process.cwd(), '.restaurant_menu_store.json')
 
   function readJson(filePath) {
     try {
@@ -545,6 +546,66 @@ function apiPlugin() {
                 res.statusCode = 200
                 res.setHeader('Content-Type', 'application/json')
                 res.end(JSON.stringify({ success: true }))
+              } catch (e) {
+                res.statusCode = 400
+                res.setHeader('Content-Type', 'application/json')
+                res.end(JSON.stringify({ error: 'Invalid JSON' }))
+              }
+            })
+            return
+          }
+        }
+
+        // 6. Restaurant Menu API
+        if (urlObj.pathname === '/api/restaurant-menu') {
+          const menuStore = readJson(RESTAURANT_MENU_PATH)
+
+          if (req.method === 'GET') {
+            const username = (urlObj.searchParams.get('username') || '').toLowerCase().trim().replace(/^@/, '')
+            const userId = (urlObj.searchParams.get('userId') || '').trim()
+
+            let menuData = (username && menuStore[username]) || (userId && menuStore[userId]) || null
+
+            if (!menuData && Object.keys(menuStore).length > 0) {
+              for (const [k, v] of Object.entries(menuStore)) {
+                if (username && k.toLowerCase().replace(/^@/, '') === username) {
+                  menuData = v
+                  break
+                }
+              }
+            }
+
+            res.statusCode = 200
+            res.setHeader('Content-Type', 'application/json')
+            res.end(JSON.stringify({ menu: menuData }))
+            return
+          }
+
+          if (req.method === 'POST') {
+            let body = ''
+            req.on('data', (chunk) => { body += chunk })
+            req.on('end', () => {
+              try {
+                const payload = JSON.parse(body || '{}')
+                const username = (payload.username || '').toLowerCase().trim().replace(/^@/, '')
+                const userId = (payload.userId || '').trim()
+                const menu = payload.menu || {}
+
+                if (!username && !userId) {
+                  res.statusCode = 400
+                  res.setHeader('Content-Type', 'application/json')
+                  res.end(JSON.stringify({ error: 'Missing username or userId' }))
+                  return
+                }
+
+                if (username) menuStore[username] = menu
+                if (userId) menuStore[userId] = menu
+
+                writeJson(RESTAURANT_MENU_PATH, menuStore)
+
+                res.statusCode = 200
+                res.setHeader('Content-Type', 'application/json')
+                res.end(JSON.stringify({ success: true, menu }))
               } catch (e) {
                 res.statusCode = 400
                 res.setHeader('Content-Type', 'application/json')
