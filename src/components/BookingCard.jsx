@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react'
 import { getBookingSettings, recordNewBooking } from '../BookingTab'
+import { dispatchServerAlert } from '../notificationService'
 import confetti from 'canvas-confetti'
 
 export default function BookingCard({ profile, links = [], theme, isEmbedded = false }) {
@@ -138,6 +139,7 @@ export default function BookingCard({ profile, links = [], theme, isEmbedded = f
 
     if (targetProfile) {
       recordNewBooking(targetProfile, bookingData).catch(() => {})
+      dispatchServerAlert('booking', bookingData, targetProfile.username, targetProfile.id).catch(() => {})
     }
 
     setConfirmedBookingData(bookingData)

@@ -1,6 +1,6 @@
 {
   "name": "LinkSocio",
-  "description": "Customizable bio link and digital storefront platform to showcase links, products, themes, and analytics.",
+  "description": "Customizable bio link, appointments calendar, store and digital storefront platform with instant WhatsApp and Email alert notifications.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

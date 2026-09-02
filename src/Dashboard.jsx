@@ -10,6 +10,8 @@ import AvatarUpload from './components/AvatarUpload'
 import InquiryTab, { fetchServerInquirySettings, getStoredLeads } from './InquiryTab'
 import BookingTab, { fetchServerBookingSettings, getStoredBookings } from './BookingTab'
 import RestaurantTab, { fetchServerRestaurantMenu } from './RestaurantTab'
+import NotificationTab from './NotificationTab'
+import { getNotificationSettings, playNotificationSound } from './notificationService'
 import { LivePagePreview } from './components/LivePagePreview'
 import confetti from 'canvas-confetti'
 
@@ -183,6 +185,7 @@ export default function Dashboard({ user }) {
   const [showMobilePreviewModal, setShowMobilePreviewModal] = useState(false)
   const [bookingCount, setBookingCount] = useState(0)
   const [leadsCount, setLeadsCount] = useState(0)
+  const [floatingToast, setFloatingToast] = useState(null)
 
   useEffect(() => {
     loadProfile()
@@ -199,8 +202,33 @@ export default function Dashboard({ user }) {
         syncCounts()
       }, 3000)
 
-      function onNewBookingOrLead() {
+      function onNewBookingOrLead(e) {
         syncCounts()
+
+        // Check notif settings
+        const notifSettings = getNotificationSettings(profile)
+        if (notifSettings.sound_enabled) {
+          playNotificationSound()
+        }
+
+        const detail = e?.detail || {}
+        if (detail.service_title || detail.client_name) {
+          setFloatingToast({
+            type: 'booking',
+            title: '🗓️ New Appointment Booked!',
+            message: `${detail.client_name || 'Client'} scheduled "${detail.service_title || 'Consultation'}" for ${detail.date || ''} at ${detail.time_slot || ''}`,
+            phone: detail.client_phone || '',
+          })
+          setTimeout(() => setFloatingToast(null), 7000)
+        } else if (detail.message || detail.name) {
+          setFloatingToast({
+            type: 'inquiry',
+            title: '💬 New Inquiry Received!',
+            message: `Message from ${detail.name || 'Visitor'}: "${(detail.message || '').slice(0, 50)}"`,
+            phone: detail.phone || '',
+          })
+          setTimeout(() => setFloatingToast(null), 7000)
+        }
       }
       window.addEventListener('linksocio_new_booking', onNewBookingOrLead)
       window.addEventListener('linksocio_booking_updated', onNewBookingOrLead)
@@ -385,6 +413,7 @@ export default function Dashboard({ user }) {
     { key: 'restaurant', label: 'Restaurant & Menu', icon: '🍽️' },
     { key: 'bookings', label: 'Appointments & Calendar', icon: '🗓️' },
     { key: 'inquiries', label: 'Messages & Leads', icon: '💬' },
+    { key: 'notifications', label: 'WhatsApp & Email Alerts', icon: '🔔' },
     { key: 'shop', label: 'Store & Products', icon: '🛍️' },
     { key: 'theme', label: 'Appearance & Themes', icon: '🎨' },
     { key: 'qr', label: 'QR Code', icon: '🔲' },
@@ -395,6 +424,71 @@ export default function Dashboard({ user }) {
 
   return (
     <div style={{ minHeight: '100vh', width: '100%', background: '#F8FAFA', fontFamily: "'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif" }}>
+      {/* Floating Instant Alert Banner */}
+      {floatingToast && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 20,
+            right: 20,
+            zIndex: 999999,
+            background: '#0F172A',
+            color: 'white',
+            borderRadius: 16,
+            padding: '14px 18px',
+            boxShadow: '0 10px 30px rgba(0,0,0,0.3)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 14,
+            maxWidth: 380,
+            animation: 'slideIn 0.3s ease-out',
+            border: '1px solid #334155',
+          }}
+        >
+          <div style={{ fontSize: 24 }}>{floatingToast.type === 'booking' ? '🗓️' : '💬'}</div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 13.5, fontWeight: 800, color: '#22C55E' }}>{floatingToast.title}</div>
+            <div style={{ fontSize: 12, color: '#E2E8F0', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {floatingToast.message}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setTab(floatingToast.type === 'booking' ? 'bookings' : 'inquiries')
+              setFloatingToast(null)
+            }}
+            style={{
+              background: '#22C55E',
+              color: '#0F172A',
+              border: 'none',
+              borderRadius: 8,
+              padding: '6px 10px',
+              fontSize: 11.5,
+              fontWeight: 800,
+              cursor: 'pointer',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            View
+          </button>
+          <button
+            type="button"
+            onClick={() => setFloatingToast(null)}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: '#94A3B8',
+              fontSize: 14,
+              cursor: 'pointer',
+              padding: 0,
+            }}
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       {/* Top Mobile Bar with 3-Lines Hamburger Menu Button (3 Chartat) */}
       <div
         className="mobile-header"
@@ -867,6 +961,9 @@ export default function Dashboard({ user }) {
           )}
           {tab === 'bookings' && (
             <BookingTab profile={profile} onUpdated={loadProfile} />
+          )}
+          {tab === 'notifications' && (
+            <NotificationTab profile={profile} onUpdated={loadProfile} onNavigateToTab={(t) => setTab(t)} />
           )}
           {tab === 'shop' && (
             <ShopTab user={user} products={products} reloadProducts={loadProducts} />

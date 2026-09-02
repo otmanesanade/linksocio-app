@@ -9,6 +9,8 @@ function apiPlugin() {
   const BOOKING_SETTINGS_PATH = path.join(process.cwd(), '.booking_settings.json')
   const BOOKINGS_PATH = path.join(process.cwd(), '.bookings_store.json')
   const RESTAURANT_MENU_PATH = path.join(process.cwd(), '.restaurant_menu_store.json')
+  const NOTIF_SETTINGS_PATH = path.join(process.cwd(), '.notification_settings.json')
+  const NOTIF_LOGS_PATH = path.join(process.cwd(), '.notification_logs.json')
 
   function readJson(filePath) {
     try {
@@ -22,6 +24,25 @@ function apiPlugin() {
   function writeJson(filePath, data) {
     try {
       fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8')
+    } catch (e) {}
+  }
+
+  function appendNotifLog(username, userId, logItem) {
+    try {
+      const logsStore = readJson(NOTIF_LOGS_PATH)
+      const primaryKey = (username || userId || 'default').toLowerCase().trim().replace(/^@/, '')
+      const list = Array.isArray(logsStore[primaryKey]) ? logsStore[primaryKey] : []
+      const entry = {
+        id: 'notif_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+        createdAt: new Date().toISOString(),
+        ...logItem,
+      }
+      list.unshift(entry)
+      logsStore[primaryKey] = list.slice(0, 50) // keep latest 50 logs
+      if (userId && userId !== primaryKey) {
+        logsStore[userId] = list.slice(0, 50)
+      }
+      writeJson(NOTIF_LOGS_PATH, logsStore)
     } catch (e) {}
   }
 
@@ -223,6 +244,12 @@ function apiPlugin() {
                     existingList[idx] = { ...existingList[idx], ...newLead }
                   } else {
                     existingList.unshift(newLead)
+                    appendNotifLog(username, userId, {
+                      type: 'inquiry',
+                      title: `New Message from ${newLead.name || 'Visitor'}`,
+                      details: `Contact: ${newLead.phone || 'N/A'} | Message: "${(newLead.message || '').slice(0, 70)}"`,
+                      data: newLead,
+                    })
                   }
                 }
 
@@ -458,6 +485,12 @@ function apiPlugin() {
                     existingList[idx] = { ...existingList[idx], ...newBooking }
                   } else {
                     existingList.unshift(newBooking)
+                    appendNotifLog(username, userId, {
+                      type: 'booking',
+                      title: `New Booking: ${newBooking.service_title || 'Consultation'}`,
+                      details: `Client: ${newBooking.client_name || 'Anonymous'} | ${newBooking.date} at ${newBooking.time_slot}`,
+                      data: newBooking,
+                    })
                   }
                 }
 
@@ -610,6 +643,117 @@ function apiPlugin() {
                 res.statusCode = 400
                 res.setHeader('Content-Type', 'application/json')
                 res.end(JSON.stringify({ error: 'Invalid JSON' }))
+              }
+            })
+            return
+          }
+        }
+
+        // 7. Notification Settings API
+        if (urlObj.pathname === '/api/notification-settings') {
+          const nStore = readJson(NOTIF_SETTINGS_PATH)
+
+          if (req.method === 'GET') {
+            const username = (urlObj.searchParams.get('username') || '').toLowerCase().trim().replace(/^@/, '')
+            const userId = urlObj.searchParams.get('userId') || ''
+            const userSettings = (username && nStore[username]) || (userId && nStore[userId]) || null
+
+            res.statusCode = 200
+            res.setHeader('Content-Type', 'application/json')
+            res.end(JSON.stringify({ settings: userSettings }))
+            return
+          }
+
+          if (req.method === 'POST') {
+            let body = ''
+            req.on('data', (chunk) => { body += chunk })
+            req.on('end', () => {
+              try {
+                const payload = JSON.parse(body || '{}')
+                const username = (payload.username || '').toLowerCase().trim().replace(/^@/, '')
+                const userId = payload.userId || ''
+                const settings = payload.settings || {}
+
+                if (username) nStore[username] = settings
+                if (userId) nStore[userId] = settings
+
+                writeJson(NOTIF_SETTINGS_PATH, nStore)
+
+                res.statusCode = 200
+                res.setHeader('Content-Type', 'application/json')
+                res.end(JSON.stringify({ success: true, settings }))
+              } catch (e) {
+                res.statusCode = 400
+                res.setHeader('Content-Type', 'application/json')
+                res.end(JSON.stringify({ error: 'Invalid JSON' }))
+              }
+            })
+            return
+          }
+        }
+
+        // 8. Notification Logs API
+        if (urlObj.pathname === '/api/notification-logs') {
+          const logsStore = readJson(NOTIF_LOGS_PATH)
+          const username = (urlObj.searchParams.get('username') || '').toLowerCase().trim().replace(/^@/, '')
+          const userId = (urlObj.searchParams.get('userId') || '').trim()
+
+          const userLogs = (username && logsStore[username]) || (userId && logsStore[userId]) || []
+
+          res.statusCode = 200
+          res.setHeader('Content-Type', 'application/json')
+          res.end(JSON.stringify({ logs: Array.isArray(userLogs) ? userLogs : [] }))
+          return
+        }
+
+        // 9. Send Alert / Trigger Notification API
+        if (urlObj.pathname === '/api/send-alert') {
+          if (req.method === 'POST') {
+            let body = ''
+            req.on('data', (chunk) => { body += chunk })
+            req.on('end', () => {
+              try {
+                const payload = JSON.parse(body || '{}')
+                const username = (payload.username || '').toLowerCase().trim().replace(/^@/, '')
+                const userId = (payload.userId || '').trim()
+                const type = payload.type || 'alert'
+                const data = payload.data || {}
+
+                const logTitle =
+                  type === 'booking'
+                    ? `Booking Alert: ${data.service_title || 'Consultation'}`
+                    : type === 'inquiry'
+                    ? `Inquiry Message from ${data.name || 'Visitor'}`
+                    : data.title || 'System Notification'
+
+                const logDetails =
+                  type === 'booking'
+                    ? `Client: ${data.client_name || 'N/A'} | ${data.date || ''} ${data.time_slot || ''}`
+                    : type === 'inquiry'
+                    ? `Contact: ${data.phone || 'N/A'} | "${(data.message || '').slice(0, 60)}"`
+                    : data.message || `Dispatched to ${data.recipient || 'recipient'}`
+
+                appendNotifLog(username, userId, {
+                  type,
+                  title: logTitle,
+                  details: logDetails,
+                  data,
+                })
+
+                res.statusCode = 200
+                res.setHeader('Content-Type', 'application/json')
+                res.end(
+                  JSON.stringify({
+                    success: true,
+                    message: 'Alert logged and notification dispatched successfully',
+                    type,
+                    timestamp: new Date().toISOString(),
+                  })
+                )
+              } catch (e) {
+                res.statusCode = 400
+                res.setHeader('Content-Type', 'application/json')
+                res.end(JSON.stringify({ error: 'Invalid payload' }))
               }
             })
             return

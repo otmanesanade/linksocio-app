@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { getInquirySettings, recordLeadLocally } from '../InquiryTab'
+import { dispatchServerAlert } from '../notificationService'
 import confetti from 'canvas-confetti'
 
 export default function InquiryCard({ profile, links = [], theme, isEmbedded = false }) {
@@ -48,11 +49,13 @@ export default function InquiryCard({ profile, links = [], theme, isEmbedded = f
       (typeof window !== 'undefined' ? { username: window.location.pathname.replace(/^\//, '').split('/')[0] } : null)
 
     if (targetProfile) {
-      recordLeadLocally(targetProfile, {
+      const leadPayload = {
         name: name.trim(),
         phone: phone.trim(),
         message: message.trim(),
-      })
+      }
+      recordLeadLocally(targetProfile, leadPayload)
+      dispatchServerAlert('inquiry', leadPayload, targetProfile.username, targetProfile.id).catch(() => {})
     }
 
     // 2. Open WhatsApp if phone configured

@@ -1,5 +1,11 @@
 import { useState, useEffect } from 'react'
 import { supabase } from './supabaseClient'
+import {
+  getNotificationSettings,
+  formatTemplate,
+  generateWhatsAppUrl,
+  generateMailtoUrl,
+} from './notificationService'
 import confetti from 'canvas-confetti'
 
 export const CURRENCIES = [
@@ -1175,26 +1181,102 @@ export default function BookingTab({ profile, onUpdated }) {
                       {b.notes && <span>💬 <em>"{b.notes}"</em></span>}
                     </div>
 
-                    <div style={{ display: 'flex', gap: 8 }}>
-                      {waLink && (
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                      {b.client_phone && (
                         <a
-                          href={waLink}
+                          href={generateWhatsAppUrl(
+                            formatTemplate(
+                              getNotificationSettings(profile).whatsapp_templates.booking_confirmation_client,
+                              {
+                                client_name: b.client_name || 'Client',
+                                service_title: b.service_title || 'Consultation',
+                                date: b.date || '',
+                                time_slot: b.time_slot || '',
+                                service_platform: b.service_platform || 'Google Meet',
+                                host_name: profile?.display_name || profile?.username || 'Host',
+                              }
+                            ),
+                            b.client_phone
+                          )}
                           target="_blank"
                           rel="noreferrer"
+                          title="Send instant WhatsApp confirmation message to client"
                           style={{
                             background: '#22C55E',
                             color: 'white',
                             textDecoration: 'none',
                             borderRadius: 8,
-                            padding: '4px 10px',
-                            fontSize: 11.5,
+                            padding: '4px 9px',
+                            fontSize: 11,
                             fontWeight: 700,
                             display: 'inline-flex',
                             alignItems: 'center',
                             gap: 4,
                           }}
                         >
-                          <span>💬 WhatsApp</span>
+                          <span>💬 Confirm WA</span>
+                        </a>
+                      )}
+
+                      {b.client_phone && (
+                        <a
+                          href={generateWhatsAppUrl(
+                            formatTemplate(
+                              getNotificationSettings(profile).whatsapp_templates.booking_reminder_client,
+                              {
+                                client_name: b.client_name || 'Client',
+                                service_title: b.service_title || 'Consultation',
+                                date: b.date || '',
+                                time_slot: b.time_slot || '',
+                                host_name: profile?.display_name || profile?.username || 'Host',
+                              }
+                            ),
+                            b.client_phone
+                          )}
+                          target="_blank"
+                          rel="noreferrer"
+                          title="Send meeting reminder on WhatsApp"
+                          style={{
+                            background: '#F0FDF4',
+                            border: '1px solid #86EFAC',
+                            color: '#15803D',
+                            textDecoration: 'none',
+                            borderRadius: 8,
+                            padding: '4px 9px',
+                            fontSize: 11,
+                            fontWeight: 700,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 4,
+                          }}
+                        >
+                          <span>⏰ Remind</span>
+                        </a>
+                      )}
+
+                      {b.client_email && (
+                        <a
+                          href={generateMailtoUrl(
+                            b.client_email,
+                            `Appointment Confirmation: ${b.service_title || 'Consultation'} with ${profile?.display_name || profile?.username || 'Host'}`,
+                            `Hello ${b.client_name || 'Client'},\n\nYour consultation for "${b.service_title || 'Consultation'}" is scheduled for ${b.date} at ${b.time_slot}.\nPlatform: ${b.service_platform || 'Google Meet'}\n\nHost: ${profile?.display_name || profile?.username || 'Host'}\nLooking forward to meeting with you!`
+                          )}
+                          title="Send email confirmation to client"
+                          style={{
+                            background: '#EFF6FF',
+                            border: '1px solid #BFDBFE',
+                            color: '#1D4ED8',
+                            textDecoration: 'none',
+                            borderRadius: 8,
+                            padding: '4px 9px',
+                            fontSize: 11,
+                            fontWeight: 700,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 4,
+                          }}
+                        >
+                          <span>✉️ Email</span>
                         </a>
                       )}
 
@@ -1203,19 +1285,20 @@ export default function BookingTab({ profile, onUpdated }) {
                         target="_blank"
                         rel="noreferrer"
                         style={{
-                          background: '#EFF6FF',
-                          color: '#2563EB',
+                          background: '#F8FAFC',
+                          border: '1px solid #CBD5E1',
+                          color: '#475569',
                           textDecoration: 'none',
                           borderRadius: 8,
-                          padding: '4px 10px',
-                          fontSize: 11.5,
+                          padding: '4px 9px',
+                          fontSize: 11,
                           fontWeight: 700,
                           display: 'inline-flex',
                           alignItems: 'center',
                           gap: 4,
                         }}
                       >
-                        <span>📅 Add to Cal</span>
+                        <span>📅 Cal</span>
                       </a>
                     </div>
                   </div>

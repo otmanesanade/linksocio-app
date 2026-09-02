@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from './supabaseClient'
+import { getNotificationSettings, formatTemplate, generateWhatsAppUrl } from './notificationService'
 import confetti from 'canvas-confetti'
 
 export const DEFAULT_SETTINGS = {
@@ -770,7 +771,17 @@ export default function InquiryTab({ profile, onUpdated }) {
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   {phoneClean && (
                     <a
-                      href={`https://wa.me/${phoneClean}?text=${encodeURIComponent(`Salam ${lead.name || ''}! Thank you for reaching out through my LinkSocio page.`)}`}
+                      href={generateWhatsAppUrl(
+                        formatTemplate(
+                          getNotificationSettings(profile).whatsapp_templates.inquiry_reply_client,
+                          {
+                            client_name: lead.name || '',
+                            message: lead.message || '',
+                            host_name: profile?.display_name || profile?.username || 'Host',
+                          }
+                        ),
+                        phoneClean
+                      )}
                       target="_blank"
                       rel="noreferrer"
                       onClick={() => handleUpdateLeadStatus(lead.id, 'replied')}
