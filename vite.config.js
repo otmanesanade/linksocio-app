@@ -9,6 +9,7 @@ function apiPlugin() {
   const BOOKING_SETTINGS_PATH = path.join(process.cwd(), '.booking_settings.json')
   const BOOKINGS_PATH = path.join(process.cwd(), '.bookings_store.json')
   const RESTAURANT_MENU_PATH = path.join(process.cwd(), '.restaurant_menu_store.json')
+  const PRODUCTS_STORE_PATH = path.join(process.cwd(), '.products_store.json')
   const NOTIF_SETTINGS_PATH = path.join(process.cwd(), '.notification_settings.json')
   const NOTIF_LOGS_PATH = path.join(process.cwd(), '.notification_logs.json')
 
@@ -639,6 +640,115 @@ function apiPlugin() {
                 res.statusCode = 200
                 res.setHeader('Content-Type', 'application/json')
                 res.end(JSON.stringify({ success: true, menu }))
+              } catch (e) {
+                res.statusCode = 400
+                res.setHeader('Content-Type', 'application/json')
+                res.end(JSON.stringify({ error: 'Invalid JSON' }))
+              }
+            })
+            return
+          }
+        }
+
+        // 6.5. Products & Digital Store API
+        if (urlObj.pathname === '/api/products') {
+          const productsStore = readJson(PRODUCTS_STORE_PATH)
+
+          if (req.method === 'GET') {
+            const username = (urlObj.searchParams.get('username') || '').toLowerCase().trim().replace(/^@/, '')
+            const userId = (urlObj.searchParams.get('userId') || '').trim()
+
+            let productsList = (username && productsStore[username]) || (userId && productsStore[userId]) || []
+            if (!Array.isArray(productsList)) productsList = []
+
+            res.statusCode = 200
+            res.setHeader('Content-Type', 'application/json')
+            res.end(JSON.stringify({ products: productsList }))
+            return
+          }
+
+          if (req.method === 'POST') {
+            let body = ''
+            req.on('data', (chunk) => { body += chunk })
+            req.on('end', () => {
+              try {
+                const payload = JSON.parse(body || '{}')
+                const username = (payload.username || '').toLowerCase().trim().replace(/^@/, '')
+                const userId = (payload.userId || '').trim()
+                const product = payload.product
+                const productsList = payload.products
+
+                if (!username && !userId) {
+                  res.statusCode = 400
+                  res.setHeader('Content-Type', 'application/json')
+                  res.end(JSON.stringify({ error: 'Missing username or userId' }))
+                  return
+                }
+
+                const key = username || userId
+                let current = Array.isArray(productsStore[key]) ? [...productsStore[key]] : []
+
+                if (Array.isArray(productsList)) {
+                  current = productsList
+                } else if (product) {
+                  const newProd = {
+                    id: product.id || 'prod_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+                    createdAt: product.createdAt || new Date().toISOString(),
+                    ...product,
+                  }
+                  const idx = current.findIndex((p) => p.id === newProd.id)
+                  if (idx >= 0) {
+                    current[idx] = { ...current[idx], ...newProd }
+                  } else {
+                    current.push(newProd)
+                  }
+                }
+
+                if (username) productsStore[username] = current
+                if (userId) productsStore[userId] = current
+
+                writeJson(PRODUCTS_STORE_PATH, productsStore)
+
+                res.statusCode = 200
+                res.setHeader('Content-Type', 'application/json')
+                res.end(JSON.stringify({ success: true, products: current }))
+              } catch (e) {
+                res.statusCode = 400
+                res.setHeader('Content-Type', 'application/json')
+                res.end(JSON.stringify({ error: 'Invalid JSON' }))
+              }
+            })
+            return
+          }
+
+          if (req.method === 'DELETE') {
+            let body = ''
+            req.on('data', (chunk) => { body += chunk })
+            req.on('end', () => {
+              try {
+                const payload = JSON.parse(body || '{}')
+                const username = (payload.username || '').toLowerCase().trim().replace(/^@/, '')
+                const userId = (payload.userId || '').trim()
+                const productId = payload.productId
+
+                if (!productId) {
+                  res.statusCode = 400
+                  res.setHeader('Content-Type', 'application/json')
+                  res.end(JSON.stringify({ error: 'Missing productId' }))
+                  return
+                }
+
+                for (const [k, list] of Object.entries(productsStore)) {
+                  if (Array.isArray(list)) {
+                    productsStore[k] = list.filter((p) => p.id !== productId)
+                  }
+                }
+
+                writeJson(PRODUCTS_STORE_PATH, productsStore)
+
+                res.statusCode = 200
+                res.setHeader('Content-Type', 'application/json')
+                res.end(JSON.stringify({ success: true }))
               } catch (e) {
                 res.statusCode = 400
                 res.setHeader('Content-Type', 'application/json')

@@ -76,8 +76,26 @@ export default function PublicProfile({ username }) {
         .order('position', { ascending: true }),
     ])
 
+    let finalProducts = productsData ? [...productsData] : []
+    try {
+      const pRes = await fetch(`/api/products?username=${encodeURIComponent(profileData.username)}&userId=${encodeURIComponent(profileData.id)}`)
+      if (pRes.ok) {
+        const pJson = await pRes.json()
+        if (pJson.products && Array.isArray(pJson.products)) {
+          for (const sp of pJson.products) {
+            const idx = finalProducts.findIndex((p) => p.id === sp.id || (p.name && sp.name && p.name.trim() === sp.name.trim()))
+            if (idx >= 0) {
+              finalProducts[idx] = { ...finalProducts[idx], ...sp }
+            } else {
+              finalProducts.push(sp)
+            }
+          }
+        }
+      }
+    } catch (e) {}
+
     setLinks(linksData || [])
-    setProducts(productsData || [])
+    setProducts(finalProducts)
     setLoading(false)
   }
 

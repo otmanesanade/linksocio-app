@@ -8,6 +8,8 @@ import BookingCard from './BookingCard'
 import { RestaurantMenuCard } from './RestaurantMenuCard'
 import MediaEmbedCard from './MediaEmbedCard'
 import { getMediaEmbedInfo } from '../utils/mediaEmbed'
+import DigitalProductModal from './DigitalProductModal'
+import { DIGITAL_CATEGORIES } from '../ShopTab'
 
 // SVG Social Icons
 const IconInstagram = ({ color = 'currentColor', size = 18 }) => (
@@ -108,6 +110,7 @@ export function LivePagePreview({ profile, links = [], products = [], isEmbedded
   const [copiedContact, setCopiedContact] = useState(false)
   const [showQrModal, setShowQrModal] = useState(false)
   const [publicQrUrl, setPublicQrUrl] = useState(null)
+  const [selectedProductModal, setSelectedProductModal] = useState(null)
 
   useEffect(() => {
     if (activeTabOverride) setTab(activeTabOverride)
@@ -582,65 +585,140 @@ export function LivePagePreview({ profile, links = [], products = [], isEmbedded
           {/* Tab 2: Shop & Storefront */}
           {tab === 'shop' && (
             <div style={{ marginTop: isEmbedded ? 14 : 22, display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: isEmbedded ? 8 : 12 }}>
-              {products.map((p) => (
-                <a
-                  key={p.id}
-                  href={p.external_url}
-                  target="_blank"
-                  rel="noreferrer"
-                  style={{
-                    display: 'block',
-                    borderRadius: btnStyle.borderRadius > 20 ? 18 : btnStyle.borderRadius,
-                    border: btnStyle.border,
-                    background: theme.buttonBg || 'rgba(0,0,0,0.02)',
-                    overflow: 'hidden',
-                    textDecoration: 'none',
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
-                    transition: 'transform 0.15s ease',
-                  }}
-                >
+              {products.map((p) => {
+                const categoryObj = DIGITAL_CATEGORIES.find((c) => c.id === p.category)
+                const isDigital = p.is_digital || p.category || p.delivery_type === 'whatsapp' || p.file_url || (p.highlights && p.highlights.length > 0)
+
+                return (
                   <div
+                    key={p.id}
+                    onClick={() => {
+                      setSelectedProductModal(p)
+                    }}
                     style={{
-                      width: '100%',
-                      aspectRatio: '1',
-                      background: tint,
                       display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
+                      flexDirection: 'column',
+                      borderRadius: btnStyle.borderRadius > 20 ? 18 : btnStyle.borderRadius,
+                      border: btnStyle.border,
+                      background: theme.buttonBg || 'rgba(0,0,0,0.02)',
                       overflow: 'hidden',
+                      textDecoration: 'none',
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+                      transition: 'transform 0.15s ease, box-shadow 0.15s ease',
+                      cursor: 'pointer',
+                      position: 'relative',
                     }}
                   >
-                    {p.image_url ? (
-                      <img src={p.image_url} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    ) : (
-                      <span style={{ fontSize: isEmbedded ? 20 : 28 }}>🛍️</span>
-                    )}
-                  </div>
-                  <div style={{ padding: isEmbedded ? '7px 8px' : '10px 12px' }}>
-                    <p
+                    {/* Badge Pill for Digital Category & Discount */}
+                    <div style={{ position: 'absolute', top: 6, left: 6, zIndex: 2, display: 'flex', gap: 3, flexWrap: 'wrap' }}>
+                      {categoryObj && (
+                        <span
+                          style={{
+                            background: categoryObj.color,
+                            color: '#FFFFFF',
+                            fontSize: 8.5,
+                            fontWeight: 800,
+                            padding: '2px 5px',
+                            borderRadius: 5,
+                            textTransform: 'uppercase',
+                          }}
+                        >
+                          {categoryObj.icon} {categoryObj.label.split(' / ')[0]}
+                        </span>
+                      )}
+                      {p.original_price && (
+                        <span
+                          style={{
+                            background: '#EF4444',
+                            color: '#FFFFFF',
+                            fontSize: 8.5,
+                            fontWeight: 800,
+                            padding: '2px 4px',
+                            borderRadius: 5,
+                          }}
+                        >
+                          SALE
+                        </span>
+                      )}
+                    </div>
+
+                    <div
                       style={{
-                        margin: 0,
-                        fontSize: isEmbedded ? 11 : 13,
-                        fontWeight: 600,
-                        color: theme.textColor,
-                        whiteSpace: 'nowrap',
+                        width: '100%',
+                        aspectRatio: '1.05',
+                        background: tint,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
                         overflow: 'hidden',
-                        textOverflow: 'ellipsis',
                       }}
                     >
-                      {p.name}
-                    </p>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
-                      <span style={{ fontSize: isEmbedded ? 11 : 13, color: color, fontWeight: 700 }}>
-                        {p.price || 'Free'}
-                      </span>
-                      <span style={{ fontSize: 10, color: '#fff', background: color, borderRadius: 100, padding: '2px 6px', fontWeight: 600 }}>
-                        Buy
-                      </span>
+                      {p.image_url ? (
+                        <img src={p.image_url} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      ) : (
+                        <span style={{ fontSize: isEmbedded ? 24 : 32 }}>{categoryObj?.icon || '🛍️'}</span>
+                      )}
+                    </div>
+                    <div style={{ padding: isEmbedded ? '7px 8px' : '10px 12px', flex: 1, display: 'flex', flexDirection: 'column' }}>
+                      <p
+                        style={{
+                          margin: 0,
+                          fontSize: isEmbedded ? 11 : 13,
+                          fontWeight: 700,
+                          color: theme.textColor,
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                        }}
+                        title={p.name}
+                      >
+                        {p.name}
+                      </p>
+
+                      {p.description && (
+                        <p
+                          style={{
+                            margin: '2px 0 6px',
+                            fontSize: 10.5,
+                            color: theme.subTextColor || '#64748B',
+                            display: '-webkit-box',
+                            WebkitLineClamp: 1,
+                            WebkitBoxOrient: 'vertical',
+                            overflow: 'hidden',
+                          }}
+                        >
+                          {p.description}
+                        </p>
+                      )}
+
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto', paddingTop: 4 }}>
+                        <div>
+                          <span style={{ fontSize: isEmbedded ? 11 : 13, color: color, fontWeight: 800 }}>
+                            {p.price || 'Free'}
+                          </span>
+                          {p.original_price && (
+                            <span style={{ fontSize: 9.5, color: '#94A3B8', textDecoration: 'line-through', marginLeft: 4 }}>
+                              {p.original_price}
+                            </span>
+                          )}
+                        </div>
+                        <span
+                          style={{
+                            fontSize: 10,
+                            color: '#FFFFFF',
+                            background: color,
+                            borderRadius: 100,
+                            padding: '2px 8px',
+                            fontWeight: 700,
+                          }}
+                        >
+                          {isDigital ? 'Get' : 'Buy'}
+                        </span>
+                      </div>
                     </div>
                   </div>
-                </a>
-              ))}
+                )
+              })}
               {products.length === 0 && (
                 <p style={{ gridColumn: '1 / -1', textAlign: 'center', color: theme.subTextColor, fontSize: 13, padding: '20px 0' }}>
                   No products in store yet.
@@ -833,6 +911,17 @@ export function LivePagePreview({ profile, links = [], products = [], isEmbedded
             </div>
           </div>
         </div>
+      )}
+
+      {/* Digital Product Details & Instant Order Modal */}
+      {selectedProductModal && (
+        <DigitalProductModal
+          product={selectedProductModal}
+          profile={profile}
+          theme={theme}
+          isEmbedded={isEmbedded}
+          onClose={() => setSelectedProductModal(null)}
+        />
       )}
 
       <style>{`

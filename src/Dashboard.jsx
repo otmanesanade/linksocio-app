@@ -361,12 +361,36 @@ export default function Dashboard({ user }) {
   }
 
   async function loadProducts() {
-    const { data } = await supabase
-      .from('products')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('position', { ascending: true })
-    setProducts(data || [])
+    let combined = []
+    try {
+      const { data } = await supabase
+        .from('products')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('position', { ascending: true })
+      if (data && Array.isArray(data)) combined = [...data]
+    } catch (e) {}
+
+    try {
+      const username = profile?.username || user?.user_metadata?.username || ''
+      const res = await fetch(`/api/products?username=${encodeURIComponent(username)}&userId=${encodeURIComponent(user.id)}`)
+      if (res.ok) {
+        const json = await res.json()
+        if (json.products && Array.isArray(json.products)) {
+          // Merge rich digital products info by id or name
+          for (const sp of json.products) {
+            const idx = combined.findIndex((p) => p.id === sp.id || (p.name && sp.name && p.name.trim() === sp.name.trim()))
+            if (idx >= 0) {
+              combined[idx] = { ...combined[idx], ...sp }
+            } else {
+              combined.push(sp)
+            }
+          }
+        }
+      }
+    } catch (e) {}
+
+    setProducts(combined)
   }
 
   async function generateQr() {
@@ -966,7 +990,7 @@ export default function Dashboard({ user }) {
             <NotificationTab profile={profile} onUpdated={loadProfile} onNavigateToTab={(t) => setTab(t)} />
           )}
           {tab === 'shop' && (
-            <ShopTab user={user} products={products} reloadProducts={loadProducts} />
+            <ShopTab user={user} profile={profile} products={products} reloadProducts={loadProducts} />
           )}
           {tab === 'theme' && (
             <ThemeTab user={user} profile={profile} onUpdated={loadProfile} />
