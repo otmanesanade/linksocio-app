@@ -138,6 +138,11 @@ export function LivePagePreview({ profile, links = [], products = [], isEmbedded
   const font = getFont(fontKey)
   const btnStyle = getButtonStyle(buttonKey)
 
+  const hideBranding =
+    profile?.hide_branding === true ||
+    (profile?.username && typeof window !== 'undefined' && localStorage.getItem(`linksocio_hide_branding_${profile.username}`) === 'true') ||
+    (profile?.id && typeof window !== 'undefined' && localStorage.getItem(`linksocio_hide_branding_${profile.id}`) === 'true')
+
   const color = theme.accent || '#14B8A6'
   const tint = theme.buttonBg || `${color}1A`
 
@@ -235,6 +240,55 @@ export function LivePagePreview({ profile, links = [], products = [], isEmbedded
             boxSizing: 'border-box',
           }}
         >
+          {/* Top-Left LinkSocio Badge (Removable via Pro / Watermark Settings) */}
+          {!hideBranding && (
+            <a
+              href="/"
+              target="_blank"
+              rel="noreferrer"
+              title="Powered by LinkSocio"
+              style={{
+                position: 'absolute',
+                top: isEmbedded ? 12 : 16,
+                left: isEmbedded ? 12 : 16,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 5,
+                background: tint,
+                padding: isEmbedded ? '3px 8px' : '4px 10px',
+                borderRadius: 100,
+                textDecoration: 'none',
+                border: '1px solid rgba(0,0,0,0.05)',
+                fontSize: isEmbedded ? 9.5 : 11,
+                fontWeight: 700,
+                color: theme.textColor,
+                zIndex: 10,
+                backdropFilter: 'blur(8px)',
+                transition: 'transform 0.15s ease, opacity 0.15s ease',
+              }}
+            >
+              <div
+                style={{
+                  width: isEmbedded ? 14 : 16,
+                  height: isEmbedded ? 14 : 16,
+                  borderRadius: 4,
+                  background: '#0F172A',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <svg width={isEmbedded ? 10 : 12} height={isEmbedded ? 10 : 12} viewBox="0 0 46 46">
+                  <rect x="4" y="4" width="22" height="22" rx="11" fill="none" stroke="#14B8A6" strokeWidth="7" />
+                  <rect x="20" y="20" width="22" height="22" rx="11" fill="none" stroke="#FFFFFF" strokeWidth="7" />
+                </svg>
+              </div>
+              <span>
+                <span style={{ color: theme.textColor }}>Link</span>
+                <span style={{ color }}>Socio</span>
+              </span>
+            </a>
+          )}
           {/* Header info */}
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
             <div
@@ -765,25 +819,27 @@ export function LivePagePreview({ profile, links = [], products = [], isEmbedded
           )}
         </div>
 
-        {/* Branding Footer */}
-        <div
-          style={{
-            marginTop: isEmbedded ? 12 : 20,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 6,
-            fontSize: isEmbedded ? 10.5 : 12,
-            color: theme.subTextColor,
-          }}
-        >
-          <span style={{ fontWeight: 600 }}>
-            <span style={{ color: theme.textColor }}>Link</span>
-            <span style={{ color }}>Socio</span>
-          </span>
-          <span>·</span>
-          <span>Build your audience</span>
-        </div>
+        {/* Branding Footer (Removable via Pro / Settings) */}
+        {!hideBranding && (
+          <div
+            style={{
+              marginTop: isEmbedded ? 12 : 20,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 6,
+              fontSize: isEmbedded ? 10.5 : 12,
+              color: theme.subTextColor,
+            }}
+          >
+            <span style={{ fontWeight: 600 }}>
+              <span style={{ color: theme.textColor }}>Link</span>
+              <span style={{ color }}>Socio</span>
+            </span>
+            <span>·</span>
+            <span>Build your audience</span>
+          </div>
+        )}
       </div>
 
       {/* QR Code Modal for Visitors & Live Preview */}

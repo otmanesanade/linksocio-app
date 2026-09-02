@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from './supabaseClient'
 import { THEMES, FONTS, BUTTON_STYLES } from './themes'
 import AvatarUpload from './components/AvatarUpload'
@@ -7,15 +7,40 @@ export default function ThemeTab({ user, profile, onUpdated }) {
   const [selectedTheme, setSelectedTheme] = useState(profile?.theme_preset || 'default')
   const [selectedFont, setSelectedFont] = useState(profile?.font_family || 'default')
   const [selectedButtonStyle, setSelectedButtonStyle] = useState(profile?.button_style || 'rounded')
+  const [hideBranding, setHideBranding] = useState(() => {
+    if (profile?.hide_branding !== undefined) return Boolean(profile.hide_branding)
+    if (profile?.username && typeof window !== 'undefined') {
+      return localStorage.getItem(`linksocio_hide_branding_${profile.username}`) === 'true'
+    }
+    return false
+  })
   const [activeSubTab, setActiveSubTab] = useState('themes')
   const [saved, setSaved] = useState(false)
+
+  useEffect(() => {
+    if (profile?.hide_branding !== undefined) {
+      setHideBranding(Boolean(profile.hide_branding))
+    }
+  }, [profile?.hide_branding])
 
   async function updateSetting(field, value) {
     if (field === 'theme_preset') setSelectedTheme(value)
     if (field === 'font_family') setSelectedFont(value)
     if (field === 'button_style') setSelectedButtonStyle(value)
+    if (field === 'hide_branding') {
+      setHideBranding(value)
+      if (profile?.username) {
+        localStorage.setItem(`linksocio_hide_branding_${profile.username}`, String(value))
+      }
+      if (user?.id) {
+        localStorage.setItem(`linksocio_hide_branding_${user.id}`, String(value))
+      }
+    }
 
-    await supabase.from('profiles').update({ [field]: value }).eq('id', user.id)
+    try {
+      await supabase.from('profiles').update({ [field]: value }).eq('id', user.id)
+    } catch (e) {}
+
     onUpdated()
     setSaved(true)
     setTimeout(() => setSaved(false), 1400)
@@ -32,6 +57,7 @@ export default function ThemeTab({ user, profile, onUpdated }) {
           { key: 'themes', label: '🎨 Color Themes' },
           { key: 'fonts', label: '🔤 Typography & Fonts' },
           { key: 'buttons', label: '✨ Button & Card Effects' },
+          { key: 'branding', label: '🛡️ Watermark & Badge' },
         ].map((tab) => (
           <button
             key={tab.key}
@@ -254,6 +280,138 @@ export default function ThemeTab({ user, profile, onUpdated }) {
                   </button>
                 )
               })}
+            </div>
+          </div>
+        )}
+
+        {activeSubTab === 'branding' && (
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
+              <div>
+                <p style={{ margin: '0 0 3px', fontSize: 15, fontWeight: 600, color: '#0F172A' }}>LinkSocio Branding & Watermark</p>
+                <p style={{ margin: 0, fontSize: 13, color: '#8A97A3' }}>
+                  Control whether the "LinkSocio · Build your audience" badge appears at the bottom of your public page.
+                </p>
+              </div>
+              <span
+                style={{
+                  background: '#ECFDF5',
+                  color: '#059669',
+                  border: '1px solid #A7F3D0',
+                  fontSize: 11,
+                  fontWeight: 700,
+                  padding: '4px 10px',
+                  borderRadius: 100,
+                }}
+              >
+                PRO FEATURE ⚡
+              </span>
+            </div>
+
+            {/* Toggle Card */}
+            <div
+              style={{
+                background: '#F8FAFA',
+                border: '1px solid #E2E8F0',
+                borderRadius: 16,
+                padding: '20px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 16,
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                <div
+                  style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: 12,
+                    background: hideBranding ? '#0F172A' : '#E2E8F0',
+                    color: hideBranding ? '#2DD4BF' : '#64748B',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: 20,
+                  }}
+                >
+                  {hideBranding ? '🛡️' : '🏷️'}
+                </div>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: '#0F172A' }}>
+                    Remove LinkSocio Watermarks & Badges
+                  </div>
+                  <p style={{ margin: '2px 0 0', fontSize: 12.5, color: '#64748B' }}>
+                    {hideBranding
+                      ? 'All LinkSocio badges (top-left badge and footer watermark) are hidden for a 100% white-label page.'
+                      : 'Show the LinkSocio brand badge at the top-left and footer credit watermark.'}
+                  </p>
+                </div>
+              </div>
+
+              <label style={{ position: 'relative', display: 'inline-block', width: 48, height: 26, cursor: 'pointer', flexShrink: 0 }}>
+                <input
+                  type="checkbox"
+                  checked={hideBranding}
+                  onChange={(e) => updateSetting('hide_branding', e.target.checked)}
+                  style={{ opacity: 0, width: 0, height: 0 }}
+                />
+                <span
+                  style={{
+                    position: 'absolute',
+                    cursor: 'pointer',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    backgroundColor: hideBranding ? '#14B8A6' : '#CBD5E1',
+                    transition: '.3s',
+                    borderRadius: 26,
+                  }}
+                >
+                  <span
+                    style={{
+                      position: 'absolute',
+                      content: '""',
+                      height: 20,
+                      width: 20,
+                      left: hideBranding ? 24 : 4,
+                      bottom: 3,
+                      backgroundColor: 'white',
+                      transition: '.3s',
+                      borderRadius: '50%',
+                      boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                    }}
+                  />
+                </span>
+              </label>
+            </div>
+
+            {/* Preview comparison note */}
+            <div
+              style={{
+                marginTop: 16,
+                padding: '14px 18px',
+                borderRadius: 14,
+                background: hideBranding ? '#F0FDFA' : '#FAFAFA',
+                border: hideBranding ? '1px solid #99F6E4' : '1px solid #E2E8F0',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 12,
+              }}
+            >
+              <span style={{ fontSize: 20 }}>{hideBranding ? '✨' : '👀'}</span>
+              <div style={{ fontSize: 12.5, color: '#475569', lineHeight: 1.5 }}>
+                {hideBranding ? (
+                  <span>
+                    <strong>White-label Mode Active:</strong> Your visitors will only see your brand, products, and links without any platform footer.
+                  </span>
+                ) : (
+                  <span>
+                    <strong>Standard Badge:</strong> Displays "LinkSocio · Build your audience" at the footer. Toggle the switch above to remove it anytime.
+                  </span>
+                )}
+              </div>
             </div>
           </div>
         )}
