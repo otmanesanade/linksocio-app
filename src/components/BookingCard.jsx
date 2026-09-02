@@ -1,6 +1,7 @@
-import { useState, useMemo } from 'react'
-import { getBookingSettings, recordNewBooking } from '../BookingTab'
+import { useState, useMemo, useEffect } from 'react'
+import { getBookingSettings, getStoredBookings, recordNewBooking } from '../BookingTab'
 import { dispatchServerAlert } from '../notificationService'
+import CountryPhoneInput from './CountryPhoneInput'
 import confetti from 'canvas-confetti'
 
 export default function BookingCard({ profile, links = [], theme, isEmbedded = false }) {
@@ -18,6 +19,9 @@ export default function BookingCard({ profile, links = [], theme, isEmbedded = f
   const [confirmedBookingData, setConfirmedBookingData] = useState(null)
   const [error, setError] = useState('')
 
+  // Bookings state to lock already-reserved dates and time slots
+  const [existingBookings, setExistingBookings] = useState([])
+
   const color = theme.accent || '#14B8A6'
   const tint = theme.buttonBg || `${color}1A`
 
@@ -28,6 +32,66 @@ export default function BookingCard({ profile, links = [], theme, isEmbedded = f
     duration: 30,
     price: 'Free',
     platform: 'Google Meet',
+  }
+
+  // Load and continuously sync host bookings to detect occupied slots
+  const loadHostBookings = () => {
+    const targetUsername =
+      profile?.username ||
+      (typeof window !== 'undefined' ? window.location.pathname.replace(/^\//, '').split('/')[0] : '')
+    const targetUserId = profile?.id || ''
+
+    const clean = String(targetUsername || targetUserId).toLowerCase().trim().replace(/^@/, '')
+
+    // 1. Local storage cache
+    const local = getStoredBookings(clean)
+    if (local && local.length > 0) {
+      setExistingBookings(local)
+    }
+
+    // 2. Fetch authoritative bookings from server API
+    if (clean || targetUserId) {
+      const query = clean ? `username=${encodeURIComponent(clean)}` : `userId=${encodeURIComponent(targetUserId)}`
+      fetch(`/api/bookings?${query}`)
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (data && Array.isArray(data.bookings)) {
+            setExistingBookings(data.bookings)
+          }
+        })
+        .catch(() => {})
+    }
+  }
+
+  useEffect(() => {
+    loadHostBookings()
+
+    // Realtime listeners for booking creation, status changes & host cancellations
+    const handleUpdate = () => loadHostBookings()
+    window.addEventListener('linksocio_new_booking', handleUpdate)
+    window.addEventListener('linksocio_booking_updated', handleUpdate)
+    window.addEventListener('storage', handleUpdate)
+
+    const interval = setInterval(loadHostBookings, 3000)
+
+    return () => {
+      window.removeEventListener('linksocio_new_booking', handleUpdate)
+      window.removeEventListener('linksocio_booking_updated', handleUpdate)
+      window.removeEventListener('storage', handleUpdate)
+      clearInterval(interval)
+    }
+  }, [profile?.username, profile?.id])
+
+  // Helper: check if a specific time slot on a specific date is occupied (and not cancelled)
+  const isSlotBooked = (dateStr, timeSlot) => {
+    if (!dateStr || !timeSlot) return false
+    return existingBookings.some((b) => {
+      return (
+        b.date === dateStr &&
+        b.time_slot === timeSlot &&
+        b.status !== 'cancelled'
+      )
+    })
   }
 
   // Generate next 14 available dates based on working_days
@@ -84,6 +148,19 @@ export default function BookingCard({ profile, links = [], theme, isEmbedded = f
     return slots
   }, [settings.start_time, settings.end_time, settings.buffer_time, activeService.duration])
 
+  // Count booked slots on any given date
+  const getBookedCountForDate = (dateStr) => {
+    if (!dateStr) return 0
+    return availableSlots.filter((slot) => isSlotBooked(dateStr, slot)).length
+  }
+
+  // Clear selected time if it becomes booked
+  useEffect(() => {
+    if (selectedDate && selectedTime && isSlotBooked(selectedDate, selectedTime)) {
+      setSelectedTime('')
+    }
+  }, [selectedDate, selectedTime, existingBookings])
+
   // WhatsApp target phone
   let targetPhone = settings.whatsapp_number
   if (!targetPhone) {
@@ -111,6 +188,14 @@ export default function BookingCard({ profile, links = [], theme, isEmbedded = f
       setError('Please select a time slot.')
       return
     }
+
+    // Double check if slot has already been taken by another client
+    if (isSlotBooked(selectedDate, selectedTime)) {
+      setError('⚠️ This appointment slot is already booked. Please choose another available time slot or date.')
+      loadHostBookings()
+      return
+    }
+
     if (!clientName.trim()) {
       setError('Please enter your full name.')
       return
@@ -141,6 +226,18 @@ export default function BookingCard({ profile, links = [], theme, isEmbedded = f
       recordNewBooking(targetProfile, bookingData).catch(() => {})
       dispatchServerAlert('booking', bookingData, targetProfile.username, targetProfile.id).catch(() => {})
     }
+
+    // Immediately update local state so this slot is locked instantly in UI
+    setExistingBookings((prev) => [
+      {
+        id: 'temp_' + Date.now(),
+        date: selectedDate,
+        time_slot: selectedTime,
+        status: 'confirmed',
+        ...bookingData,
+      },
+      ...prev,
+    ])
 
     setConfirmedBookingData(bookingData)
     setBookingConfirmed(true)
@@ -465,6 +562,10 @@ export default function BookingCard({ profile, links = [], theme, isEmbedded = f
                 >
                   {availableDates.map((item) => {
                     const isSelected = selectedDate === item.dateStr
+                    const bookedCount = getBookedCountForDate(item.dateStr)
+                    const totalSlots = availableSlots.length
+                    const isFull = totalSlots > 0 && bookedCount >= totalSlots
+
                     return (
                       <button
                         key={item.dateStr}
@@ -472,22 +573,70 @@ export default function BookingCard({ profile, links = [], theme, isEmbedded = f
                         onClick={() => setSelectedDate(item.dateStr)}
                         style={{
                           flexShrink: 0,
-                          border: isSelected ? `2px solid ${color}` : `1px solid ${color}35`,
-                          background: isSelected ? color : 'rgba(255,255,255,0.1)',
+                          border: isSelected
+                            ? `2px solid ${color}`
+                            : isFull
+                            ? '1px dashed #EF444460'
+                            : `1px solid ${color}35`,
+                          background: isSelected
+                            ? color
+                            : isFull
+                            ? 'rgba(239, 68, 68, 0.06)'
+                            : 'rgba(255,255,255,0.1)',
                           color: isSelected ? '#FFFFFF' : theme.textColor,
                           borderRadius: 14,
-                          padding: '10px 14px',
+                          padding: '8px 12px',
                           display: 'flex',
                           flexDirection: 'column',
                           alignItems: 'center',
                           cursor: 'pointer',
-                          minWidth: 58,
+                          minWidth: 62,
                           transition: 'all 0.15s ease',
                           WebkitTapHighlightColor: 'transparent',
                         }}
                       >
-                        <span style={{ fontSize: 10.5, textTransform: 'uppercase', opacity: 0.85, fontWeight: 600 }}>{item.dayLabel}</span>
-                        <span style={{ fontSize: 13.5, fontWeight: 800, marginTop: 3 }}>{item.monthLabel}</span>
+                        <span style={{ fontSize: 10.5, textTransform: 'uppercase', opacity: 0.85, fontWeight: 600 }}>
+                          {item.dayLabel}
+                        </span>
+                        <span style={{ fontSize: 13.5, fontWeight: 800, marginTop: 2 }}>{item.monthLabel}</span>
+                        {isFull ? (
+                          <span
+                            style={{
+                              fontSize: 9,
+                              fontWeight: 800,
+                              color: isSelected ? '#FFFFFF' : '#EF4444',
+                              background: isSelected ? 'rgba(0,0,0,0.2)' : 'rgba(239,68,68,0.15)',
+                              padding: '1px 5px',
+                              borderRadius: 6,
+                              marginTop: 3,
+                              textTransform: 'uppercase',
+                            }}
+                          >
+                            Full
+                          </span>
+                        ) : bookedCount > 0 ? (
+                          <span
+                            style={{
+                              fontSize: 9,
+                              fontWeight: 700,
+                              opacity: 0.85,
+                              marginTop: 3,
+                            }}
+                          >
+                            {totalSlots - bookedCount} left
+                          </span>
+                        ) : (
+                          <span
+                            style={{
+                              fontSize: 8.5,
+                              fontWeight: 700,
+                              opacity: 0.7,
+                              marginTop: 3,
+                            }}
+                          >
+                            Open
+                          </span>
+                        )}
                       </button>
                     )
                   })}
@@ -500,49 +649,125 @@ export default function BookingCard({ profile, links = [], theme, isEmbedded = f
                   <label style={{ fontSize: 12.5, fontWeight: 700, color: theme.textColor }}>
                     Select Time Slot:
                   </label>
-                  {selectedTime && (
-                    <span style={{ fontSize: 11.5, color: color, fontWeight: 700 }}>
-                      Selected: {selectedTime}
+                  {selectedDate && (
+                    <span style={{ fontSize: 11, color: theme.subTextColor || '#64748B' }}>
+                      {availableSlots.length - getBookedCountForDate(selectedDate)} / {availableSlots.length} available
                     </span>
                   )}
                 </div>
-                <div
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: isEmbedded ? 'repeat(3, 1fr)' : 'repeat(4, 1fr)',
-                    gap: 6,
-                    maxHeight: 150,
-                    overflowY: 'auto',
-                    paddingRight: 4,
-                    WebkitOverflowScrolling: 'touch',
-                  }}
-                >
-                  {availableSlots.map((slot) => {
-                    const isSelected = selectedTime === slot
-                    return (
-                      <button
-                        key={slot}
-                        type="button"
-                        onClick={() => setSelectedTime(slot)}
-                        style={{
-                          border: isSelected ? `2px solid ${color}` : `1px solid ${color}35`,
-                          background: isSelected ? color : 'rgba(255,255,255,0.1)',
-                          color: isSelected ? '#FFFFFF' : theme.textColor,
-                          borderRadius: 10,
-                          padding: '8px 4px',
-                          fontSize: 12,
-                          fontWeight: 700,
-                          cursor: 'pointer',
-                          textAlign: 'center',
-                          transition: 'all 0.15s ease',
-                          WebkitTapHighlightColor: 'transparent',
-                        }}
-                      >
-                        {slot}
-                      </button>
-                    )
-                  })}
-                </div>
+
+                {!selectedDate ? (
+                  <div
+                    style={{
+                      padding: '16px',
+                      textAlign: 'center',
+                      borderRadius: 12,
+                      background: 'rgba(255,255,255,0.04)',
+                      border: '1px dashed rgba(255,255,255,0.15)',
+                      fontSize: 12,
+                      color: theme.subTextColor || '#64748B',
+                    }}
+                  >
+                    👆 Please select a date above to view available time slots
+                  </div>
+                ) : (
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: isEmbedded ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)',
+                      gap: 6,
+                      maxHeight: 170,
+                      overflowY: 'auto',
+                      paddingRight: 4,
+                      WebkitOverflowScrolling: 'touch',
+                    }}
+                  >
+                    {availableSlots.map((slot) => {
+                      const isBooked = isSlotBooked(selectedDate, slot)
+                      const isSelected = selectedTime === slot
+
+                      if (isBooked) {
+                        return (
+                          <button
+                            key={slot}
+                            type="button"
+                            disabled={true}
+                            title="This time slot has already been booked and is currently unavailable"
+                            style={{
+                              border: '1px dashed rgba(203, 213, 225, 0.6)',
+                              background: 'rgba(241, 245, 249, 0.08)',
+                              color: 'rgba(148, 163, 184, 0.7)',
+                              borderRadius: 10,
+                              padding: '7px 4px',
+                              fontSize: 11.5,
+                              fontWeight: 600,
+                              cursor: 'not-allowed',
+                              textAlign: 'center',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: 1,
+                              opacity: 0.6,
+                              userSelect: 'none',
+                              WebkitTapHighlightColor: 'transparent',
+                            }}
+                          >
+                            <span style={{ textDecoration: 'line-through' }}>{slot}</span>
+                            <span
+                              style={{
+                                fontSize: 8.5,
+                                fontWeight: 800,
+                                color: '#EF4444',
+                                letterSpacing: '0.02em',
+                                textTransform: 'uppercase',
+                              }}
+                            >
+                              🔒 Booked
+                            </span>
+                          </button>
+                        )
+                      }
+
+                      return (
+                        <button
+                          key={slot}
+                          type="button"
+                          onClick={() => setSelectedTime(slot)}
+                          style={{
+                            border: isSelected ? `2px solid ${color}` : `1px solid ${color}35`,
+                            background: isSelected ? color : 'rgba(255,255,255,0.1)',
+                            color: isSelected ? '#FFFFFF' : theme.textColor,
+                            borderRadius: 10,
+                            padding: '8px 4px',
+                            fontSize: 12,
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            textAlign: 'center',
+                            transition: 'all 0.15s ease',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            WebkitTapHighlightColor: 'transparent',
+                          }}
+                        >
+                          <span>{slot}</span>
+                          <span
+                            style={{
+                              fontSize: 8.5,
+                              opacity: 0.8,
+                              fontWeight: 600,
+                              marginTop: 1,
+                            }}
+                          >
+                            {isSelected ? '✓ Selected' : '🟢 Open'}
+                          </span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
               </div>
 
               {/* 4. Client Contact Form */}
@@ -566,30 +791,22 @@ export default function BookingCard({ profile, links = [], theme, isEmbedded = f
                   }}
                 />
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                <div>
+                  <CountryPhoneInput
+                    value={clientPhone}
+                    onChange={(val) => setClientPhone(val)}
+                    placeholder="WhatsApp Phone Number"
+                    theme={theme}
+                    isEmbedded={isEmbedded}
+                  />
+                </div>
+
+                <div>
                   <input
                     type="email"
-                    placeholder="Email Address"
+                    placeholder="Email Address (for calendar invite)"
                     value={clientEmail}
                     onChange={(e) => setClientEmail(e.target.value)}
-                    style={{
-                      width: '100%',
-                      padding: '10px 14px',
-                      borderRadius: 12,
-                      border: `1px solid ${color}40`,
-                      background: 'rgba(255, 255, 255, 0.9)',
-                      color: '#0F172A',
-                      fontSize: 14,
-                      boxSizing: 'border-box',
-                      outline: 'none',
-                    }}
-                  />
-
-                  <input
-                    type="tel"
-                    placeholder="WhatsApp Number"
-                    value={clientPhone}
-                    onChange={(e) => setClientPhone(e.target.value)}
                     style={{
                       width: '100%',
                       padding: '10px 14px',

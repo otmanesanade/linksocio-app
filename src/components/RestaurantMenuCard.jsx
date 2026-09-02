@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { fetchServerRestaurantMenu } from '../RestaurantTab'
+import CountryPhoneInput from './CountryPhoneInput'
 
 export function RestaurantMenuCard({ profile, theme, isEmbedded }) {
   const [menu, setMenu] = useState(null)
@@ -10,6 +11,7 @@ export function RestaurantMenuCard({ profile, theme, isEmbedded }) {
   const [orderType, setOrderType] = useState('table') // 'table' | 'takeaway' | 'delivery'
   const [tableNumber, setTableNumber] = useState('')
   const [customerName, setCustomerName] = useState('')
+  const [customerPhone, setCustomerPhone] = useState('')
   const [customerAddress, setCustomerAddress] = useState('')
   const [orderNotes, setOrderNotes] = useState('')
   const [wifiCopied, setWifiCopied] = useState(false)
@@ -118,6 +120,7 @@ export function RestaurantMenuCard({ profile, theme, isEmbedded }) {
       `🍽️ *NOUVELLE COMMANDE - Menu Digital*`,
       `━━━━━━━━━━━━━━━━━━━`,
       customerName ? `👤 *Client:* ${customerName}` : '',
+      customerPhone ? `📞 *Téléphone:* ${customerPhone}` : '',
       `📍 *Type:* ${orderTypeLabel}`,
       ``,
       `📋 *Détails des articles:*`,
@@ -668,6 +671,18 @@ export function RestaurantMenuCard({ profile, theme, isEmbedded }) {
                 onChange={(e) => setCustomerName(e.target.value)}
                 placeholder="e.g. Otman"
                 style={{ width: '100%', padding: '7px 10px', border: '1px solid #E2E8F0', borderRadius: 8, fontSize: 12.5 }}
+              />
+            </div>
+
+            {/* Customer Phone with Country Code */}
+            <div style={{ marginBottom: 10 }}>
+              <CountryPhoneInput
+                value={customerPhone}
+                onChange={(val) => setCustomerPhone(val)}
+                label="Numéro WhatsApp / Téléphone (Optional)"
+                placeholder="Numéro de téléphone"
+                isEmbedded={true}
+                theme={{ accent: '#22C55E' }}
               />
             </div>
 

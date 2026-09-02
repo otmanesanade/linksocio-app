@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { getInquirySettings, recordLeadLocally } from '../InquiryTab'
 import { dispatchServerAlert } from '../notificationService'
+import CountryPhoneInput from './CountryPhoneInput'
 import confetti from 'canvas-confetti'
 
 export default function InquiryCard({ profile, links = [], theme, isEmbedded = false }) {
@@ -204,22 +205,12 @@ export default function InquiryCard({ profile, links = [], theme, isEmbedded = f
               </div>
 
               <div>
-                <input
-                  type="tel"
-                  placeholder="WhatsApp or Phone Number (Optional)"
+                <CountryPhoneInput
                   value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  style={{
-                    width: '100%',
-                    boxSizing: 'border-box',
-                    padding: isEmbedded ? '7px 10px' : '9px 12px',
-                    borderRadius: 10,
-                    border: '1px solid #CBD5E1',
-                    fontSize: isEmbedded ? 11.5 : 12.5,
-                    fontFamily: 'inherit',
-                    background: 'rgba(255,255,255,0.9)',
-                    color: '#0F172A',
-                  }}
+                  onChange={(val) => setPhone(val)}
+                  placeholder="WhatsApp or Phone Number (Optional)"
+                  theme={theme}
+                  isEmbedded={isEmbedded}
                 />
               </div>
 

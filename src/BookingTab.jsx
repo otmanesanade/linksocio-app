@@ -1083,6 +1083,21 @@ export default function BookingTab({ profile, onUpdated }) {
                         >
                           {b.status}
                         </span>
+                        {b.status === 'cancelled' && (
+                          <span
+                            style={{
+                              fontSize: 11,
+                              fontWeight: 600,
+                              color: '#16A34A',
+                              background: '#F0FDF4',
+                              padding: '2px 8px',
+                              borderRadius: 100,
+                              border: '1px solid #BBF7D0',
+                            }}
+                          >
+                            🔓 Slot freed & available for booking
+                          </span>
+                        )}
                       </div>
 
                       <div style={{ display: 'flex', gap: 14, marginTop: 6, fontSize: 12.5, color: '#64748B', flexWrap: 'wrap' }}>
