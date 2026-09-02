@@ -229,7 +229,7 @@ export default function SignUp({ onDone, goHome, switchToLogin, initialUsername 
               }}
             >
               <Sparkles size={13} color="#16A34A" />
-              <span>100% Free · No credit card required</span>
+              <span>🎁 14-Days Free Trial · No credit card required</span>
             </div>
 
             <h1
