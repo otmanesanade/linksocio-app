@@ -1,13 +1,15 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { DIGITAL_CATEGORIES } from '../ShopTab'
-import CountryPhoneInput from './CountryPhoneInput'
 import confetti from 'canvas-confetti'
 
 export default function DigitalProductModal({ product, profile, theme, onClose, isEmbedded = false }) {
+  const [payTab, setPayTab] = useState('card') // 'card' | 'direct' | 'whatsapp'
   const [buyerName, setBuyerName] = useState('')
   const [buyerPhone, setBuyerPhone] = useState('')
   const [buyerEmail, setBuyerEmail] = useState('')
-  const [ordered, setOrdered] = useState(false)
+  const [processing, setProcessing] = useState(false)
+  const [orderSuccess, setOrderSuccess] = useState(null)
+  const [sellerPayoutSettings, setSellerPayoutSettings] = useState(null)
 
   if (!product) return null
 
@@ -22,65 +24,164 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
 
   const isFree = (product.price || '').toLowerCase().includes('free') || (product.price || '').toLowerCase().includes('gratuit') || product.price === '0'
 
+  const username = profile?.username || ''
+  const userId = profile?.id || ''
+
+  useEffect(() => {
+    if (username || userId) {
+      fetch(`/api/payouts/settings?username=${encodeURIComponent(username)}&userId=${encodeURIComponent(userId)}`)
+        .then((r) => r.json())
+        .then((data) => {
+          if (data.settings) setSellerPayoutSettings(data.settings)
+        })
+        .catch(() => {})
+    }
+  }, [username, userId])
+
   // Extract seller WhatsApp phone from links or profile
   const rawWa = profile?.whatsapp || ''
-  const sellerPhone = rawWa.replace(/[^\d]/g, '') || '212600000000'
+  const sellerPhone = rawWa.replace(/[^\d]/g, '') || ''
 
-  const handleWhatsAppOrder = (e) => {
+  const handleCardPayment = async (e) => {
+    if (e) e.preventDefault()
+    setProcessing(true)
+
+    try {
+      const res = await fetch('/api/payouts/order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username,
+          userId,
+          product,
+          buyer: {
+            name: buyerName || 'Card Customer',
+            email: buyerEmail,
+            phone: buyerPhone,
+          },
+          paymentMethod: 'card_stripe',
+        }),
+      })
+
+      if (res.ok) {
+        const json = await res.json()
+        try {
+          confetti({ particleCount: 70, spread: 80, origin: { y: 0.6 } })
+        } catch (err) {}
+        setOrderSuccess(json)
+      }
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setProcessing(false)
+    }
+  }
+
+  const handleDirectTransferPayment = async (e) => {
+    if (e) e.preventDefault()
+    setProcessing(true)
+
+    try {
+      const res = await fetch('/api/payouts/order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username,
+          userId,
+          product,
+          buyer: {
+            name: buyerName || 'Direct Transfer Customer',
+            email: buyerEmail,
+            phone: buyerPhone,
+          },
+          paymentMethod: sellerPayoutSettings?.payoutMethod || 'direct_transfer',
+        }),
+      })
+
+      if (res.ok) {
+        const json = await res.json()
+        try {
+          confetti({ particleCount: 60, spread: 70, origin: { y: 0.6 } })
+        } catch (err) {}
+        setOrderSuccess(json)
+      }
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setProcessing(false)
+    }
+  }
+
+  const handleWhatsAppOrder = async (e) => {
     if (e) e.preventDefault()
 
     try {
       confetti({ particleCount: 50, spread: 60, origin: { y: 0.6 } })
     } catch (err) {}
 
+    // Record order in system
+    fetch('/api/payouts/order', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username,
+        userId,
+        product,
+        buyer: {
+          name: buyerName || 'WhatsApp Buyer',
+          phone: buyerPhone,
+          email: buyerEmail,
+        },
+        paymentMethod: 'whatsapp',
+      }),
+    }).catch(() => {})
+
     const text = [
       `👋 *New Order Request: ${product.name}*`,
-      `📦 *Product:* ${product.name}`,
-      `💰 *Price:* ${product.price || 'N/A'}`,
-      product.category ? `🏷️ *Type:* ${categoryObj.label}` : '',
-      buyerName ? `👤 *Buyer Name:* ${buyerName}` : '',
-      buyerPhone ? `📱 *Phone:* ${buyerPhone}` : '',
-      buyerEmail ? `📧 *Email:* ${buyerEmail}` : '',
+      `💰 *Price:* ${product.price || 'Free'}`,
+      `📦 *Category:* ${categoryObj.label}`,
+      buyerName ? `👤 *Buyer:* ${buyerName}` : null,
+      buyerEmail ? `📧 *Email:* ${buyerEmail}` : null,
+      buyerPhone ? `📱 *Phone:* ${buyerPhone}` : null,
+      `🔗 *Product Link:* ${window.location.href}`,
       '',
-      `Hi! I would like to purchase this digital product. Could you please send me the payment details (CIH, Bank, PayPal...) and the download/access link? Thank you!`,
+      'Hello, I would like to purchase and access this digital product!',
     ]
       .filter(Boolean)
       .join('\n')
 
-    const waUrl = `https://wa.me/${sellerPhone}?text=${encodeURIComponent(text)}`
+    const waUrl = sellerPhone
+      ? `https://wa.me/${sellerPhone}?text=${encodeURIComponent(text)}`
+      : `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`
 
-    // Log notification alert to seller
-    const username = profile?.username || ''
-    const userId = profile?.id || ''
-    if (username || userId) {
-      fetch('/api/send-alert', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          username,
-          userId,
-          type: 'inquiry',
-          data: {
-            title: `Digital Product Order: ${product.name}`,
-            name: buyerName || 'Interested Buyer',
-            phone: buyerPhone || 'Via WhatsApp',
-            message: `Requested to buy "${product.name}" (${product.price}).`,
-          },
-        }),
-      }).catch(() => {})
-    }
-
-    setOrdered(true)
     window.open(waUrl, '_blank')
   }
 
   const handleDirectDownload = () => {
     try {
       confetti({ particleCount: 60, spread: 70, origin: { y: 0.6 } })
-    } catch (err) {}
+    } catch (e) {}
 
-    const targetUrl = product.file_url || product.external_url || '#'
-    window.open(targetUrl, '_blank')
+    // Record download access
+    fetch('/api/payouts/order', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username,
+        userId,
+        product,
+        buyer: { name: 'Direct Download User' },
+        paymentMethod: 'free_access',
+      }),
+    }).catch(() => {})
+
+    if (product.file_url) {
+      window.open(product.file_url, '_blank')
+    } else if (product.external_url) {
+      window.open(product.external_url, '_blank')
+    } else {
+      alert('Your digital content is ready! Accessing instant download link.')
+    }
   }
 
   return (
@@ -88,7 +189,7 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
       style={{
         position: 'fixed',
         inset: 0,
-        background: 'rgba(15, 23, 42, 0.7)',
+        background: 'rgba(15, 23, 42, 0.75)',
         backdropFilter: 'blur(6px)',
         WebkitBackdropFilter: 'blur(6px)',
         zIndex: 999999,
@@ -105,9 +206,9 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
           background: theme?.cardBg || '#FFFFFF',
           color: theme?.textColor || '#0F172A',
           borderRadius: 24,
-          maxWidth: isEmbedded ? 300 : 420,
+          maxWidth: isEmbedded ? 310 : 440,
           width: '100%',
-          maxHeight: '90vh',
+          maxHeight: '92vh',
           overflowY: 'auto',
           boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.35)',
           position: 'relative',
@@ -119,7 +220,7 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
         <div
           style={{
             width: '100%',
-            height: isEmbedded ? 140 : 180,
+            height: isEmbedded ? 130 : 170,
             background: categoryObj.bg || '#F8FAFC',
             position: 'relative',
             display: 'flex',
@@ -169,83 +270,158 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
                 fontSize: 10,
                 fontWeight: 800,
                 padding: '3px 8px',
-                borderRadius: 8,
-                letterSpacing: '0.03em',
-                textTransform: 'uppercase',
-                boxShadow: '0 2px 6px rgba(0,0,0,0.2)',
+                borderRadius: 100,
+                letterSpacing: '0.02em',
               }}
             >
               {categoryObj.icon} {categoryObj.label}
             </span>
-            {product.original_price && (
+            {isFree ? (
               <span
                 style={{
-                  background: '#EF4444',
+                  background: '#10B981',
                   color: '#FFFFFF',
                   fontSize: 10,
                   fontWeight: 800,
-                  padding: '3px 7px',
-                  borderRadius: 8,
+                  padding: '3px 8px',
+                  borderRadius: 100,
                 }}
               >
-                🔥 SALE
+                FREE
+              </span>
+            ) : (
+              <span
+                style={{
+                  background: 'rgba(15,23,42,0.85)',
+                  color: '#FFFFFF',
+                  fontSize: 11,
+                  fontWeight: 800,
+                  padding: '3px 9px',
+                  borderRadius: 100,
+                  backdropFilter: 'blur(4px)',
+                }}
+              >
+                {product.price}
               </span>
             )}
           </div>
         </div>
 
         {/* Modal Body */}
-        <div style={{ padding: isEmbedded ? 14 : 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {/* Price & Title */}
+        <div style={{ padding: isEmbedded ? 14 : 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {/* Title & Creator */}
           <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
-              <span style={{ fontSize: isEmbedded ? 16 : 20, fontWeight: 800, color: color }}>
-                {product.price || 'Free'}
-              </span>
-              {product.original_price && (
-                <span style={{ fontSize: 13, color: '#94A3B8', textDecoration: 'line-through' }}>
-                  {product.original_price}
-                </span>
-              )}
-            </div>
-            <h3 style={{ margin: 0, fontSize: isEmbedded ? 14 : 16.5, fontWeight: 700, color: theme?.textColor || '#0F172A', lineHeight: 1.3 }}>
+            <h3 style={{ margin: 0, fontSize: isEmbedded ? 16 : 19, fontWeight: 800, lineHeight: 1.25 }}>
               {product.name}
             </h3>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4, fontSize: 12, opacity: 0.75 }}>
+              <span>by {profile?.display_name || username || 'Creator'}</span>
+              <span>·</span>
+              <span>Instant Digital Delivery</span>
+            </div>
           </div>
 
           {/* Description */}
           {product.description && (
-            <p style={{ margin: 0, fontSize: isEmbedded ? 11.5 : 13, color: theme?.subTextColor || '#64748B', lineHeight: 1.5 }}>
+            <p
+              style={{
+                margin: 0,
+                fontSize: isEmbedded ? 12 : 13.5,
+                lineHeight: 1.5,
+                opacity: 0.85,
+                whiteSpace: 'pre-line',
+              }}
+            >
               {product.description}
             </p>
           )}
 
-          {/* Key Highlights */}
-          {Array.isArray(product.highlights) && product.highlights.length > 0 && (
+          {/* Included Assets / Files */}
+          <div
+            style={{
+              background: 'rgba(0,0,0,0.03)',
+              borderRadius: 14,
+              padding: isEmbedded ? '10px 12px' : '12px 14px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 6,
+            }}
+          >
+            <div style={{ fontSize: 11.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em', opacity: 0.6 }}>
+              What you get:
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, fontWeight: 600 }}>
+              <span style={{ color: color }}>✓</span>
+              <span>Instant digital download / secure direct access</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, fontWeight: 600 }}>
+              <span style={{ color: color }}>✓</span>
+              <span>Lifetime access & future updates</span>
+            </div>
+            {product.preview_url && (
+              <a
+                href={product.preview_url}
+                target="_blank"
+                rel="noreferrer"
+                style={{ fontSize: 11.5, color: color, fontWeight: 700, textDecoration: 'none', marginTop: 2 }}
+              >
+                👁️ View Live Demo / Preview ↗
+              </a>
+            )}
+          </div>
+
+          {/* CHECKOUT / DOWNLOAD ACTIONS */}
+          {orderSuccess ? (
             <div
               style={{
-                background: 'rgba(255,255,255,0.06)',
-                border: '1px solid rgba(255,255,255,0.12)',
-                borderRadius: 14,
-                padding: '10px 12px',
+                background: '#ECFDF5',
+                border: '1px solid #A7F3D0',
+                borderRadius: 16,
+                padding: '16px',
+                textAlign: 'center',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 8,
               }}
             >
-              <p style={{ margin: '0 0 6px', fontSize: 11, fontWeight: 700, color: color, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                ✨ What's Included:
-              </p>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                {product.highlights.map((h, i) => (
-                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: isEmbedded ? 11 : 12.5, fontWeight: 600 }}>
-                    <span style={{ color: color, fontSize: 12 }}>✓</span>
-                    <span>{h}</span>
-                  </div>
-                ))}
+              <span style={{ fontSize: 32 }}>🎉</span>
+              <div style={{ fontSize: 16, fontWeight: 800, color: '#065F46' }}>
+                Payment & Order Confirmed!
               </div>
-            </div>
-          )}
+              <p style={{ margin: 0, fontSize: 12.5, color: '#047857' }}>
+                Thank you for your purchase. 91% net earnings have been routed to the creator.
+              </p>
 
-          {/* Action Button Section */}
-          {product.delivery_type === 'download' || isFree ? (
+              {(product.file_url || product.external_url) && (
+                <a
+                  href={product.file_url || product.external_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{
+                    background: '#059669',
+                    color: 'white',
+                    textDecoration: 'none',
+                    borderRadius: 12,
+                    padding: '11px',
+                    fontSize: 13.5,
+                    fontWeight: 800,
+                    display: 'block',
+                    marginTop: 4,
+                  }}
+                >
+                  ⚡ Download / Access Files Now ↗
+                </a>
+              )}
+
+              <button
+                type="button"
+                onClick={onClose}
+                style={{ background: 'transparent', border: 'none', color: '#047857', fontSize: 12, fontWeight: 700, cursor: 'pointer', marginTop: 4 }}
+              >
+                Close Window
+              </button>
+            </div>
+          ) : isFree || product.delivery_type === 'download' ? (
             <button
               type="button"
               onClick={handleDirectDownload}
@@ -266,84 +442,234 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
                 marginTop: 4,
               }}
             >
-              <span>⚡ Download / Access Now</span>
+              <span>⚡ Free Instant Access / Download</span>
             </button>
-          ) : product.delivery_type === 'external' ? (
-            <a
-              href={product.external_url || product.file_url}
-              target="_blank"
-              rel="noreferrer"
-              style={{
-                background: color,
-                color: '#FFFFFF',
-                textDecoration: 'none',
-                borderRadius: 14,
-                padding: '12px',
-                fontSize: 13.5,
-                fontWeight: 700,
-                textAlign: 'center',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 8,
-                boxShadow: `0 4px 14px ${color}40`,
-                marginTop: 4,
-              }}
-            >
-              <span>🛒 Buy on Store ↗</span>
-            </a>
           ) : (
-            /* WhatsApp Direct Order Form */
-            <form onSubmit={handleWhatsAppOrder} style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }}>
-              <div style={{ background: '#22C55E12', border: '1px solid #22C55E30', borderRadius: 12, padding: '8px 10px', fontSize: 11.5, color: '#15803D', display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span>💬</span>
-                <span>Instant Order via WhatsApp · Fast delivery & direct payment</span>
+            /* MULTI-METHOD GLOBAL PAYMENT CHECKOUT */
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 4 }}>
+              {/* Payment Method Selector Tabs */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 4, background: 'rgba(0,0,0,0.04)', padding: 3, borderRadius: 12 }}>
+                <button
+                  type="button"
+                  onClick={() => setPayTab('card')}
+                  style={{
+                    background: payTab === 'card' ? '#FFFFFF' : 'transparent',
+                    border: 'none',
+                    borderRadius: 9,
+                    padding: '6px 4px',
+                    fontSize: 11,
+                    fontWeight: payTab === 'card' ? 800 : 600,
+                    color: payTab === 'card' ? '#0F172A' : '#64748B',
+                    cursor: 'pointer',
+                    boxShadow: payTab === 'card' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                  }}
+                >
+                  💳 Card (Global)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPayTab('direct')}
+                  style={{
+                    background: payTab === 'direct' ? '#FFFFFF' : 'transparent',
+                    border: 'none',
+                    borderRadius: 9,
+                    padding: '6px 4px',
+                    fontSize: 11,
+                    fontWeight: payTab === 'direct' ? 800 : 600,
+                    color: payTab === 'direct' ? '#0F172A' : '#64748B',
+                    cursor: 'pointer',
+                    boxShadow: payTab === 'direct' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                  }}
+                >
+                  🌐 Bank / PayPal
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPayTab('whatsapp')}
+                  style={{
+                    background: payTab === 'whatsapp' ? '#FFFFFF' : 'transparent',
+                    border: 'none',
+                    borderRadius: 9,
+                    padding: '6px 4px',
+                    fontSize: 11,
+                    fontWeight: payTab === 'whatsapp' ? 800 : 600,
+                    color: payTab === 'whatsapp' ? '#0F172A' : '#64748B',
+                    cursor: 'pointer',
+                    boxShadow: payTab === 'whatsapp' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                  }}
+                >
+                  💬 WhatsApp
+                </button>
               </div>
 
-              <input
-                placeholder="Your Name (Optional)"
-                value={buyerName}
-                onChange={(e) => setBuyerName(e.target.value)}
-                style={{
-                  width: '100%',
-                  boxSizing: 'border-box',
-                  borderRadius: 10,
-                  border: '1px solid rgba(255,255,255,0.15)',
-                  background: 'rgba(255,255,255,0.08)',
-                  padding: '9px 12px',
-                  fontSize: 12.5,
-                  color: theme?.textColor || '#0F172A',
-                  outline: 'none',
-                }}
-              />
+              {/* TAB 1: CARD CHECKOUT (Stripe 130+ Countries) */}
+              {payTab === 'card' && (
+                <form onSubmit={handleCardPayment} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <input
+                    placeholder="Your Full Name"
+                    value={buyerName}
+                    onChange={(e) => setBuyerName(e.target.value)}
+                    required
+                    style={{
+                      width: '100%',
+                      boxSizing: 'border-box',
+                      borderRadius: 10,
+                      border: '1px solid rgba(0,0,0,0.15)',
+                      padding: '8px 10px',
+                      fontSize: 12,
+                      outline: 'none',
+                    }}
+                  />
+                  <input
+                    type="email"
+                    placeholder="Email Address (for instant file delivery)"
+                    value={buyerEmail}
+                    onChange={(e) => setBuyerEmail(e.target.value)}
+                    required
+                    style={{
+                      width: '100%',
+                      boxSizing: 'border-box',
+                      borderRadius: 10,
+                      border: '1px solid rgba(0,0,0,0.15)',
+                      padding: '8px 10px',
+                      fontSize: 12,
+                      outline: 'none',
+                    }}
+                  />
 
-              <button
-                type="submit"
-                style={{
-                  background: '#22C55E',
-                  color: '#FFFFFF',
-                  border: 'none',
-                  borderRadius: 14,
-                  padding: '12px',
-                  fontSize: 13.5,
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 8,
-                  boxShadow: '0 4px 14px rgba(34,197,94,0.3)',
-                }}
-              >
-                <span>💬 Order & Get File on WhatsApp</span>
-              </button>
-            </form>
+                  <button
+                    type="submit"
+                    disabled={processing}
+                    style={{
+                      background: '#635BFF',
+                      color: '#FFFFFF',
+                      border: 'none',
+                      borderRadius: 12,
+                      padding: '11px',
+                      fontSize: 13,
+                      fontWeight: 800,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 6,
+                      boxShadow: '0 4px 12px rgba(99,91,255,0.3)',
+                    }}
+                  >
+                    <span>{processing ? 'Processing Secure Card...' : `💳 Pay ${product.price || ''} Worldwide`}</span>
+                  </button>
+                </form>
+              )}
+
+              {/* TAB 2: DIRECT PAYMENT (PayPal, Wise, IBAN, Crypto, Local Bank) */}
+              {payTab === 'direct' && (
+                <form onSubmit={handleDirectTransferPayment} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 10, padding: '8px 10px', fontSize: 11.5 }}>
+                    {sellerPayoutSettings?.paypalEmail ? (
+                      <div>
+                        <div style={{ fontWeight: 700, color: '#0079C1' }}>🅿️ PayPal: {sellerPayoutSettings.paypalEmail}</div>
+                        <div style={{ color: '#64748B', fontSize: 10.5 }}>Send exact amount & click confirm below.</div>
+                      </div>
+                    ) : sellerPayoutSettings?.iban ? (
+                      <div>
+                        <div style={{ fontWeight: 700, color: '#0F172A' }}>🏛️ Bank: {sellerPayoutSettings.bankName || 'International Wire'}</div>
+                        <div style={{ color: '#475569', fontFamily: 'monospace', fontSize: 11 }}>IBAN: {sellerPayoutSettings.iban}</div>
+                        {sellerPayoutSettings.swiftBic && <div style={{ color: '#64748B', fontSize: 10.5 }}>SWIFT/BIC: {sellerPayoutSettings.swiftBic}</div>}
+                      </div>
+                    ) : sellerPayoutSettings?.cryptoAddress ? (
+                      <div>
+                        <div style={{ fontWeight: 700, color: '#26A17B' }}>🪙 {sellerPayoutSettings.cryptoNetwork || 'USDT'}:</div>
+                        <div style={{ color: '#475569', fontFamily: 'monospace', fontSize: 10, wordBreak: 'break-all' }}>{sellerPayoutSettings.cryptoAddress}</div>
+                      </div>
+                    ) : (
+                      <div>
+                        <div style={{ fontWeight: 700, color: '#0F172A' }}>🏛️ Bank Transfer / PayPal</div>
+                        <div style={{ color: '#64748B', fontSize: 10.5 }}>Beneficiary: {sellerPayoutSettings?.accountHolder || profile?.display_name || username}</div>
+                        {sellerPayoutSettings?.moroccoRib && <div style={{ fontFamily: 'monospace', fontSize: 10.5 }}>RIB: {sellerPayoutSettings.moroccoRib}</div>}
+                      </div>
+                    )}
+                  </div>
+
+                  <input
+                    placeholder="Your Name / Email"
+                    value={buyerName}
+                    onChange={(e) => setBuyerName(e.target.value)}
+                    style={{
+                      width: '100%',
+                      boxSizing: 'border-box',
+                      borderRadius: 10,
+                      border: '1px solid rgba(0,0,0,0.15)',
+                      padding: '8px 10px',
+                      fontSize: 12,
+                      outline: 'none',
+                    }}
+                  />
+
+                  <button
+                    type="submit"
+                    disabled={processing}
+                    style={{
+                      background: '#0F172A',
+                      color: '#FFFFFF',
+                      border: 'none',
+                      borderRadius: 12,
+                      padding: '11px',
+                      fontSize: 13,
+                      fontWeight: 800,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <span>{processing ? 'Confirming...' : '✓ I Have Sent The Payment'}</span>
+                  </button>
+                </form>
+              )}
+
+              {/* TAB 3: WHATSAPP DIRECT */}
+              {payTab === 'whatsapp' && (
+                <form onSubmit={handleWhatsAppOrder} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <input
+                    placeholder="Your Name (Optional)"
+                    value={buyerName}
+                    onChange={(e) => setBuyerName(e.target.value)}
+                    style={{
+                      width: '100%',
+                      boxSizing: 'border-box',
+                      borderRadius: 10,
+                      border: '1px solid rgba(0,0,0,0.15)',
+                      padding: '8px 10px',
+                      fontSize: 12,
+                      outline: 'none',
+                    }}
+                  />
+
+                  <button
+                    type="submit"
+                    style={{
+                      background: '#22C55E',
+                      color: '#FFFFFF',
+                      border: 'none',
+                      borderRadius: 12,
+                      padding: '11px',
+                      fontSize: 13,
+                      fontWeight: 800,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 6,
+                    }}
+                  >
+                    <span>💬 Order on WhatsApp</span>
+                  </button>
+                </form>
+              )}
+            </div>
           )}
 
           {/* Safe Digital Guarantee footer */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, fontSize: 10.5, opacity: 0.7, marginTop: 4 }}>
             <span>🔒</span>
-            <span>Instant Digital Delivery · Verified Creator</span>
+            <span>Worldwide Direct Checkout · 91% Creator Direct Support</span>
           </div>
         </div>
       </div>

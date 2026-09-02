@@ -11,6 +11,7 @@ import InquiryTab, { fetchServerInquirySettings, getStoredLeads } from './Inquir
 import BookingTab, { fetchServerBookingSettings, getStoredBookings } from './BookingTab'
 import RestaurantTab, { fetchServerRestaurantMenu } from './RestaurantTab'
 import NotificationTab from './NotificationTab'
+import PayoutsTab from './PayoutsTab'
 import { getNotificationSettings, playNotificationSound } from './notificationService'
 import { LivePagePreview } from './components/LivePagePreview'
 import confetti from 'canvas-confetti'
@@ -439,6 +440,7 @@ export default function Dashboard({ user }) {
     { key: 'inquiries', label: 'Messages & Leads', icon: '💬' },
     { key: 'notifications', label: 'WhatsApp & Email Alerts', icon: '🔔' },
     { key: 'shop', label: 'Store & Products', icon: '🛍️' },
+    { key: 'payouts', label: 'Wallet & 9% Fees', icon: '💰' },
     { key: 'theme', label: 'Appearance & Themes', icon: '🎨' },
     { key: 'qr', label: 'QR Code', icon: '🔲' },
     { key: 'analytics', label: 'Analytics', icon: '📊' },
@@ -991,6 +993,9 @@ export default function Dashboard({ user }) {
           )}
           {tab === 'shop' && (
             <ShopTab user={user} profile={profile} products={products} reloadProducts={loadProducts} />
+          )}
+          {tab === 'payouts' && (
+            <PayoutsTab user={user} profile={profile} />
           )}
           {tab === 'theme' && (
             <ThemeTab user={user} profile={profile} onUpdated={loadProfile} />

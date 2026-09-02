@@ -12,6 +12,9 @@ function apiPlugin() {
   const PRODUCTS_STORE_PATH = path.join(process.cwd(), '.products_store.json')
   const NOTIF_SETTINGS_PATH = path.join(process.cwd(), '.notification_settings.json')
   const NOTIF_LOGS_PATH = path.join(process.cwd(), '.notification_logs.json')
+  const PAYOUT_SETTINGS_PATH = path.join(process.cwd(), '.payout_settings.json')
+  const TRANSACTIONS_PATH = path.join(process.cwd(), '.transactions_store.json')
+  const PAYOUT_REQUESTS_PATH = path.join(process.cwd(), '.payout_requests.json')
 
   function readJson(filePath) {
     try {
@@ -860,6 +863,323 @@ function apiPlugin() {
                     timestamp: new Date().toISOString(),
                   })
                 )
+              } catch (e) {
+                res.statusCode = 400
+                res.setHeader('Content-Type', 'application/json')
+                res.end(JSON.stringify({ error: 'Invalid payload' }))
+              }
+            })
+            return
+          }
+        }
+
+        // 10. Payout & Wallet Settings API (Stripe Connect & Moroccan Banks)
+        if (urlObj.pathname === '/api/payouts/settings') {
+          const pSettingsStore = readJson(PAYOUT_SETTINGS_PATH)
+
+          if (req.method === 'GET') {
+            const username = (urlObj.searchParams.get('username') || '').toLowerCase().trim().replace(/^@/, '')
+            const userId = (urlObj.searchParams.get('userId') || '').trim()
+
+            const settings = (username && pSettingsStore[username]) || (userId && pSettingsStore[userId]) || {
+              stripeAccountId: '',
+              stripeConnected: false,
+              payoutMethod: 'stripe', // 'stripe' | 'paypal' | 'wise' | 'payoneer' | 'bank_iban' | 'crypto_usdt' | 'local_morocco'
+              selectedCurrency: 'USD',
+              currencySymbol: '$',
+              accountHolder: '',
+              paypalEmail: '',
+              payoneerEmail: '',
+              bankName: '',
+              bankCountry: 'United States',
+              iban: '',
+              swiftBic: '',
+              cryptoAddress: '',
+              cryptoNetwork: 'USDT-TRC20',
+              moroccoRib: '',
+              moroccoBankName: 'CIH Bank',
+            }
+
+            res.statusCode = 200
+            res.setHeader('Content-Type', 'application/json')
+            res.end(JSON.stringify({ success: true, settings }))
+            return
+          }
+
+          if (req.method === 'POST') {
+            let body = ''
+            req.on('data', (chunk) => { body += chunk })
+            req.on('end', () => {
+              try {
+                const payload = JSON.parse(body || '{}')
+                const username = (payload.username || '').toLowerCase().trim().replace(/^@/, '')
+                const userId = (payload.userId || '').trim()
+                const settings = payload.settings || {}
+
+                if (username) pSettingsStore[username] = settings
+                if (userId) pSettingsStore[userId] = settings
+
+                writeJson(PAYOUT_SETTINGS_PATH, pSettingsStore)
+
+                res.statusCode = 200
+                res.setHeader('Content-Type', 'application/json')
+                res.end(JSON.stringify({ success: true, settings }))
+              } catch (e) {
+                res.statusCode = 400
+                res.setHeader('Content-Type', 'application/json')
+                res.end(JSON.stringify({ error: 'Invalid JSON' }))
+              }
+            })
+            return
+          }
+        }
+
+        // 11. Payouts Stats & Transactions Ledger API (9% Platform Fee + 91% Seller Net)
+        if (urlObj.pathname === '/api/payouts/stats') {
+          const txStore = readJson(TRANSACTIONS_PATH)
+          const reqStore = readJson(PAYOUT_REQUESTS_PATH)
+          const username = (urlObj.searchParams.get('username') || '').toLowerCase().trim().replace(/^@/, '')
+          const userId = (urlObj.searchParams.get('userId') || '').trim()
+
+          const userTransactions = (username && txStore[username]) || (userId && txStore[userId]) || []
+          const userPayoutRequests = (username && reqStore[username]) || (userId && reqStore[userId]) || []
+
+          // Compute Totals
+          let grossSales = 0
+          let platformFees = 0
+          let netSellerEarnings = 0
+          let totalWithdrawn = 0
+
+          for (const tx of userTransactions) {
+            const gross = Number(tx.grossAmount) || 0
+            const fee = Number(tx.platformFee) || Math.round(gross * 0.09 * 100) / 100
+            const net = Number(tx.sellerNet) || Math.round((gross - fee) * 100) / 100
+            grossSales += gross
+            platformFees += fee
+            netSellerEarnings += net
+          }
+
+          for (const pr of userPayoutRequests) {
+            if (pr.status === 'completed' || pr.status === 'paid') {
+              totalWithdrawn += Number(pr.amount) || 0
+            }
+          }
+
+          const availableBalance = Math.max(0, Math.round((netSellerEarnings - totalWithdrawn) * 100) / 100)
+
+          // Platform wide stats across all users
+          let platformAllGross = 0
+          let platformAllFees = 0
+          let platformAllTransactions = 0
+          for (const list of Object.values(txStore)) {
+            if (Array.isArray(list)) {
+              for (const tx of list) {
+                platformAllTransactions++
+                const g = Number(tx.grossAmount) || 0
+                const f = Number(tx.platformFee) || Math.round(g * 0.09 * 100) / 100
+                platformAllGross += g
+                platformAllFees += f
+              }
+            }
+          }
+
+          res.statusCode = 200
+          res.setHeader('Content-Type', 'application/json')
+          res.end(
+            JSON.stringify({
+              success: true,
+              stats: {
+                grossSales: Math.round(grossSales * 100) / 100,
+                platformFees: Math.round(platformFees * 100) / 100, // 9%
+                netSellerEarnings: Math.round(netSellerEarnings * 100) / 100, // 91%
+                totalWithdrawn: Math.round(totalWithdrawn * 100) / 100,
+                availableBalance,
+                feePercentage: 9,
+                sellerPercentage: 91,
+                currency: 'DH',
+              },
+              transactions: Array.isArray(userTransactions) ? userTransactions : [],
+              payoutRequests: Array.isArray(userPayoutRequests) ? userPayoutRequests : [],
+              platformOverview: {
+                totalGross: Math.round(platformAllGross * 100) / 100,
+                totalFees9Percent: Math.round(platformAllFees * 100) / 100,
+                totalTransactions: platformAllTransactions,
+              },
+            })
+          )
+          return
+        }
+
+        // 12. Create Order & Process 9% Fee + 91% Seller Allocation API
+        if (urlObj.pathname === '/api/payouts/order') {
+          if (req.method === 'POST') {
+            let body = ''
+            req.on('data', (chunk) => { body += chunk })
+            req.on('end', () => {
+              try {
+                const payload = JSON.parse(body || '{}')
+                const username = (payload.username || '').toLowerCase().trim().replace(/^@/, '')
+                const userId = (payload.userId || '').trim()
+                const product = payload.product || {}
+                const buyer = payload.buyer || {}
+                const paymentMethod = payload.paymentMethod || 'card_stripe' // 'card_stripe' | 'bank_cih' | 'whatsapp' | 'free'
+
+                // Parse Price numeric
+                const rawPrice = String(product.price || '0').replace(/[^\d.]/g, '')
+                const grossAmount = Math.max(0, parseFloat(rawPrice) || 0)
+
+                // 9% Platform fee calculation & 91% Seller net
+                const platformFee = Math.round(grossAmount * 0.09 * 100) / 100
+                const sellerNet = Math.round((grossAmount - platformFee) * 100) / 100
+
+                const txStore = readJson(TRANSACTIONS_PATH)
+                const userKey = username || userId || 'default'
+                const userList = Array.isArray(txStore[userKey]) ? txStore[userKey] : []
+
+                const newTransaction = {
+                  id: 'tx_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+                  productId: product.id || 'prod_unknown',
+                  productName: product.name || 'Digital Product',
+                  category: product.category || 'digital',
+                  grossAmount,
+                  platformFee,
+                  sellerNet,
+                  feePercentage: 9,
+                  sellerPercentage: 91,
+                  currency: product.currency || 'DH',
+                  buyerName: buyer.name || 'Customer',
+                  buyerEmail: buyer.email || '',
+                  buyerPhone: buyer.phone || '',
+                  paymentMethod,
+                  status: paymentMethod === 'whatsapp' ? 'pending_settlement' : 'completed',
+                  createdAt: new Date().toISOString(),
+                  downloadUrl: product.file_url || product.external_url || '',
+                }
+
+                userList.unshift(newTransaction)
+                txStore[userKey] = userList
+                if (username && userKey !== username) txStore[username] = userList
+                if (userId && userKey !== userId) txStore[userId] = userList
+
+                writeJson(TRANSACTIONS_PATH, txStore)
+
+                // Trigger Notification to Seller
+                appendNotifLog(username, userId, {
+                  type: 'order',
+                  title: `🛍️ New Sale: ${product.name} (+${sellerNet} DH)`,
+                  details: `Gross: ${grossAmount} DH | Net (91%): ${sellerNet} DH | Fee (9%): ${platformFee} DH | Buyer: ${buyer.name || 'Online Customer'}`,
+                  data: newTransaction,
+                })
+
+                res.statusCode = 200
+                res.setHeader('Content-Type', 'application/json')
+                res.end(
+                  JSON.stringify({
+                    success: true,
+                    transaction: newTransaction,
+                    breakdown: {
+                      grossAmount,
+                      platformFee9Percent: platformFee,
+                      sellerNet91Percent: sellerNet,
+                    },
+                  })
+                )
+              } catch (e) {
+                res.statusCode = 400
+                res.setHeader('Content-Type', 'application/json')
+                res.end(JSON.stringify({ error: 'Invalid order payload' }))
+              }
+            })
+            return
+          }
+        }
+
+        // 13. Request Payout (Moroccan Bank, CIH, CashPlus, Stripe)
+        if (urlObj.pathname === '/api/payouts/request') {
+          if (req.method === 'POST') {
+            let body = ''
+            req.on('data', (chunk) => { body += chunk })
+            req.on('end', () => {
+              try {
+                const payload = JSON.parse(body || '{}')
+                const username = (payload.username || '').toLowerCase().trim().replace(/^@/, '')
+                const userId = (payload.userId || '').trim()
+                const amount = parseFloat(payload.amount) || 0
+                const method = payload.method || 'bank'
+                const details = payload.details || {}
+
+                if (amount <= 0) {
+                  res.statusCode = 400
+                  res.setHeader('Content-Type', 'application/json')
+                  res.end(JSON.stringify({ error: 'Invalid payout amount' }))
+                  return
+                }
+
+                const reqStore = readJson(PAYOUT_REQUESTS_PATH)
+                const userKey = username || userId || 'default'
+                const userList = Array.isArray(reqStore[userKey]) ? reqStore[userKey] : []
+
+                const payoutItem = {
+                  id: 'payout_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+                  amount: Math.round(amount * 100) / 100,
+                  currency: 'DH',
+                  method, // 'bank_cih' | 'stripe' | 'paypal' | 'cashplus'
+                  details,
+                  status: 'processing', // 'requested' | 'processing' | 'completed'
+                  createdAt: new Date().toISOString(),
+                }
+
+                userList.unshift(payoutItem)
+                reqStore[userKey] = userList
+                if (username && userKey !== username) reqStore[username] = userList
+                if (userId && userKey !== userId) reqStore[userId] = userList
+
+                writeJson(PAYOUT_REQUESTS_PATH, reqStore)
+
+                res.statusCode = 200
+                res.setHeader('Content-Type', 'application/json')
+                res.end(JSON.stringify({ success: true, payout: payoutItem }))
+              } catch (e) {
+                res.statusCode = 400
+                res.setHeader('Content-Type', 'application/json')
+                res.end(JSON.stringify({ error: 'Invalid payload' }))
+              }
+            })
+            return
+          }
+        }
+
+        // 14. Admin Approve Payout
+        if (urlObj.pathname === '/api/payouts/admin/approve') {
+          if (req.method === 'POST') {
+            let body = ''
+            req.on('data', (chunk) => { body += chunk })
+            req.on('end', () => {
+              try {
+                const payload = JSON.parse(body || '{}')
+                const payoutId = payload.payoutId
+                const reqStore = readJson(PAYOUT_REQUESTS_PATH)
+
+                let found = false
+                for (const [k, list] of Object.entries(reqStore)) {
+                  if (Array.isArray(list)) {
+                    for (const pr of list) {
+                      if (pr.id === payoutId) {
+                        pr.status = 'completed'
+                        pr.completedAt = new Date().toISOString()
+                        found = true
+                      }
+                    }
+                  }
+                }
+
+                if (found) {
+                  writeJson(PAYOUT_REQUESTS_PATH, reqStore)
+                }
+
+                res.statusCode = 200
+                res.setHeader('Content-Type', 'application/json')
+                res.end(JSON.stringify({ success: true, found }))
               } catch (e) {
                 res.statusCode = 400
                 res.setHeader('Content-Type', 'application/json')
