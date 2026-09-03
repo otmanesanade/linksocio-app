@@ -1261,11 +1261,14 @@ function apiPlugin() {
 
                 const isYearly = billingCycle === 'yearly'
                 const unitAmount = Math.round(Number(price) * 100)
+                const validEmail =
+                  customerEmail && typeof customerEmail === 'string' && customerEmail.includes('@')
+                    ? customerEmail.trim()
+                    : undefined
 
                 const session = await stripe.checkout.sessions.create({
-                  payment_method_types: ['card'],
                   mode: 'subscription',
-                  customer_email: customerEmail || undefined,
+                  customer_email: validEmail,
                   client_reference_id: userId || undefined,
                   line_items: [
                     {
@@ -1274,6 +1277,7 @@ function apiPlugin() {
                         product_data: {
                           name: `LinkSocio ${planName || 'Creator'}`,
                           description: `LinkSocio Subscription - ${isYearly ? 'Annual Billing' : 'Monthly Billing'}`,
+                          tax_code: 'txcd_10000000',
                         },
                         unit_amount: unitAmount,
                         recurring: {

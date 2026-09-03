@@ -146,6 +146,7 @@ export default function BillingSettings({ user, profile, onSaved }) {
   })
   const [stripeLoading, setStripeLoading] = useState(false)
   const [stripeError, setStripeError] = useState('')
+  const [stripeCheckoutUrl, setStripeCheckoutUrl] = useState(null)
   const [showStripeGuide, setShowStripeGuide] = useState(false)
   const [stripeSuccessNotice, setStripeSuccessNotice] = useState(false)
 
@@ -266,6 +267,7 @@ export default function BillingSettings({ user, profile, onSaved }) {
     if (!selectedPlanForUpgrade) return
     setStripeLoading(true)
     setStripeError('')
+    setStripeCheckoutUrl(null)
 
     const isYearly = billingCycle === 'yearly'
     const planPrice = isYearly ? selectedPlanForUpgrade.yearlyTotal : selectedPlanForUpgrade.priceMonthly
@@ -291,8 +293,24 @@ export default function BillingSettings({ user, profile, onSaved }) {
       const data = await res.json()
 
       if (data.url) {
-        // Redirect to official Stripe Checkout page
-        window.location.href = data.url
+        setStripeCheckoutUrl(data.url)
+        setStripeLoading(false)
+
+        // Try opening directly in a new window/tab
+        let opened = false
+        try {
+          const win = window.open(data.url, '_blank', 'noopener,noreferrer')
+          if (win) opened = true
+        } catch (e) {}
+
+        // If not opened and not blocked, try top window navigation
+        if (!opened) {
+          try {
+            if (window.top && window.top !== window.self) {
+              window.top.location.href = data.url
+            }
+          } catch (e) {}
+        }
         return
       }
 
@@ -783,6 +801,8 @@ export default function BillingSettings({ user, profile, onSaved }) {
                   onClick={() => {
                     const target = billingData.planId === 'free_trial' ? PLANS[1] : PLANS[2]
                     setSelectedPlanForUpgrade(target)
+                    setStripeError('')
+                    setStripeCheckoutUrl(null)
                   }}
                   style={{
                     background: '#14B8A6',
@@ -995,7 +1015,11 @@ export default function BillingSettings({ user, profile, onSaved }) {
                 ) : (
                   <button
                     type="button"
-                    onClick={() => setSelectedPlanForUpgrade(p)}
+                    onClick={() => {
+                      setSelectedPlanForUpgrade(p)
+                      setStripeError('')
+                      setStripeCheckoutUrl(null)
+                    }}
                     style={{
                       width: '100%',
                       background: p.popular ? 'linear-gradient(135deg, #14B8A6 0%, #0D9488 100%)' : '#0F172A',
@@ -1290,6 +1314,48 @@ export default function BillingSettings({ user, profile, onSaved }) {
             {stripeError && (
               <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', color: '#B91C1C', borderRadius: 12, padding: '10px 14px', fontSize: 12, marginBottom: 14, lineHeight: 1.4 }}>
                 ⚠️ {stripeError}
+              </div>
+            )}
+
+            {stripeCheckoutUrl && (
+              <div
+                style={{
+                  background: '#ECFDF5',
+                  border: '2px solid #10B981',
+                  borderRadius: 14,
+                  padding: '14px 16px',
+                  textAlign: 'center',
+                  marginBottom: 14,
+                  boxShadow: '0 4px 12px rgba(16, 185, 129, 0.15)',
+                }}
+              >
+                <div style={{ fontSize: 13.5, fontWeight: 800, color: '#065F46', marginBottom: 4 }}>
+                  ⚡ Stripe Checkout Ready!
+                </div>
+                <p style={{ fontSize: 12, color: '#047857', margin: '0 0 10px', lineHeight: 1.4 }}>
+                  Because this app is running in a preview frame, click the button below to open Stripe directly:
+                </p>
+                <a
+                  href={stripeCheckoutUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 8,
+                    background: '#10B981',
+                    color: 'white',
+                    padding: '12px 18px',
+                    borderRadius: 12,
+                    fontWeight: 800,
+                    fontSize: 13.5,
+                    textDecoration: 'none',
+                    boxShadow: '0 4px 12px rgba(16, 185, 129, 0.35)',
+                  }}
+                >
+                  <span>👉 Open Stripe Payment Page (€{billingCycle === 'yearly' ? selectedPlanForUpgrade.yearlyTotal : selectedPlanForUpgrade.priceMonthly}) ↗</span>
+                </a>
               </div>
             )}
 
