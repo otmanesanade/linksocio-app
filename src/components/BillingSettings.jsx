@@ -136,11 +136,110 @@ export default function BillingSettings({ user, profile, onSaved }) {
   const [upgrading, setUpgrading] = useState(false)
   const [upgradeSuccess, setUpgradeSuccess] = useState(false)
 
+  // Stripe Integration State
+  const [stripeStatus, setStripeStatus] = useState({
+    loading: true,
+    configured: false,
+    mode: 'test',
+    hasPublishableKey: false,
+    publishableKeyMasked: null,
+  })
+  const [stripeLoading, setStripeLoading] = useState(false)
+  const [stripeError, setStripeError] = useState('')
+  const [showStripeGuide, setShowStripeGuide] = useState(false)
+  const [stripeSuccessNotice, setStripeSuccessNotice] = useState(false)
+
   // Cancel / Pause Modal
   const [showCancelModal, setShowCancelModal] = useState(false)
 
   // Receipt Modal
   const [selectedInvoice, setSelectedInvoice] = useState(null)
+
+  // Load Stripe Status on mount
+  useEffect(() => {
+    async function loadStripeStatus() {
+      try {
+        const res = await fetch('/api/stripe/status')
+        const data = await res.json()
+        setStripeStatus({
+          loading: false,
+          configured: !!data.configured,
+          mode: data.mode || 'test',
+          hasPublishableKey: !!data.hasPublishableKey,
+          publishableKeyMasked: data.publishableKeyMasked,
+        })
+      } catch (e) {
+        setStripeStatus({ loading: false, configured: false, mode: 'test', hasPublishableKey: false })
+      }
+    }
+    loadStripeStatus()
+  }, [])
+
+  // Verify Stripe Return Session if redirected back with session_id
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search)
+    const sessionId = urlParams.get('session_id')
+    const isUpgraded = urlParams.get('upgraded')
+
+    if (sessionId && isUpgraded) {
+      async function verifySession() {
+        try {
+          const res = await fetch(`/api/stripe/verify-session?session_id=${encodeURIComponent(sessionId)}`)
+          const data = await res.json()
+          if (data.verified) {
+            const matchedPlan = PLANS.find((p) => p.id === data.planId) || PLANS[1]
+            const now = new Date()
+            const isYearly = data.billingCycle === 'yearly'
+            const nextPeriod = new Date(now.getTime() + (isYearly ? 365 : 30) * 86400000)
+
+            const newInvoice = {
+              id: `INV-${now.getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
+              date: now.toISOString().split('T')[0],
+              description: `${matchedPlan.name} (${isYearly ? 'Annual' : 'Monthly'}) - Stripe Paid`,
+              amount: data.amountTotal || (isYearly ? matchedPlan.yearlyTotal : matchedPlan.priceMonthly),
+              currency: (data.currency || 'EUR').toUpperCase(),
+              status: 'Paid',
+              pdfUrl: '#',
+            }
+
+            const updated = {
+              ...billingData,
+              planId: matchedPlan.id,
+              billingCycle: data.billingCycle || 'monthly',
+              status: 'active',
+              nextBillingDate: nextPeriod.toISOString(),
+              stripeSubscriptionId: data.subscriptionId,
+              invoices: [newInvoice, ...(billingData.invoices || [])],
+            }
+
+            saveBillingState(updated)
+
+            try {
+              if (username) localStorage.setItem(`linksocio_hide_branding_${username}`, 'true')
+              if (userId) localStorage.setItem(`linksocio_hide_branding_${userId}`, 'true')
+              await supabase.from('profiles').update({ plan: matchedPlan.id, hide_branding: true }).eq('id', userId)
+            } catch (e) {}
+
+            if (onSaved) onSaved()
+
+            try {
+              confetti({ particleCount: 120, spread: 80, origin: { y: 0.5 } })
+            } catch (e) {}
+
+            setStripeSuccessNotice(true)
+            setTimeout(() => setStripeSuccessNotice(false), 6000)
+
+            // Clean query params
+            const newUrl = window.location.pathname + (urlParams.get('tab') ? `?tab=${urlParams.get('tab')}` : '')
+            window.history.replaceState({}, document.title, newUrl)
+          }
+        } catch (e) {
+          console.error('Failed to verify session', e)
+        }
+      }
+      verifySession()
+    }
+  }, [billingData, userId, username, onSaved])
 
   // Save billing data locally whenever it changes
   function saveBillingState(updated) {
@@ -162,7 +261,55 @@ export default function BillingSettings({ user, profile, onSaved }) {
 
   const currentPlan = PLANS.find((p) => p.id === billingData.planId) || PLANS[0]
 
-  // Handle Plan Upgrade
+  // Handle Official Stripe Checkout
+  async function handleStripeCheckout() {
+    if (!selectedPlanForUpgrade) return
+    setStripeLoading(true)
+    setStripeError('')
+
+    const isYearly = billingCycle === 'yearly'
+    const planPrice = isYearly ? selectedPlanForUpgrade.yearlyTotal : selectedPlanForUpgrade.priceMonthly
+
+    try {
+      const res = await fetch('/api/stripe/create-checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          planId: selectedPlanForUpgrade.id,
+          planName: selectedPlanForUpgrade.name,
+          billingCycle: billingCycle,
+          price: planPrice,
+          currency: 'eur',
+          userId: userId,
+          username: username,
+          customerEmail: user?.email || profile?.email || '',
+          successUrl: `${window.location.origin}/dashboard?tab=billing&session_id={CHECKOUT_SESSION_ID}&upgraded=true`,
+          cancelUrl: `${window.location.origin}/dashboard?tab=billing`,
+        }),
+      })
+
+      const data = await res.json()
+
+      if (data.url) {
+        // Redirect to official Stripe Checkout page
+        window.location.href = data.url
+        return
+      }
+
+      if (!data.configured) {
+        setStripeError('Stripe API Key is not added yet in Settings. You can click "Test Instant Upgrade" below or add your STRIPE_SECRET_KEY in Settings.')
+        setShowStripeGuide(true)
+      } else {
+        setStripeError(data.error || 'Failed to start Stripe checkout session.')
+      }
+    } catch (err) {
+      setStripeError('Network error connecting to Stripe. You can test with the Instant Upgrade button below.')
+    } finally {
+      setStripeLoading(false)
+    }
+  }
+
+  // Handle Plan Upgrade (Instant / Demo simulation)
   async function handleConfirmUpgrade() {
     if (!selectedPlanForUpgrade) return
     setUpgrading(true)
@@ -328,10 +475,183 @@ export default function BillingSettings({ user, profile, onSaved }) {
               borderRadius: 100,
             }}
           >
-            Currency: USD ($)
+            Currency: EUR (€) / USD ($)
           </span>
         </div>
       </div>
+
+      {/* Stripe Payment Success Notice */}
+      {stripeSuccessNotice && (
+        <div
+          style={{
+            background: '#ECFDF5',
+            border: '2px solid #10B981',
+            borderRadius: 16,
+            padding: '16px 20px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 16,
+            boxShadow: '0 4px 14px rgba(16, 185, 129, 0.2)',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <span style={{ fontSize: 28 }}>🎉</span>
+            <div>
+              <h4 style={{ margin: '0 0 2px', fontSize: 15, fontWeight: 800, color: '#065F46' }}>
+                Payment & Subscription Confirmed by Stripe!
+              </h4>
+              <p style={{ margin: 0, fontSize: 12.5, color: '#047857' }}>
+                Your account has been upgraded with all premium creator benefits and branding removed.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setStripeSuccessNotice(false)}
+            style={{ background: 'none', border: 'none', fontSize: 16, color: '#047857', cursor: 'pointer' }}
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {/* Stripe España Gateway Status Banner */}
+      <div
+        style={{
+          background: stripeStatus.configured ? '#F8FAFC' : '#FFFBEB',
+          border: stripeStatus.configured ? '1px solid #E2E8F0' : '1px solid #FDE68A',
+          borderRadius: 18,
+          padding: '16px 20px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: 14,
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 280 }}>
+          <div
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 12,
+              background: '#635BFF',
+              color: 'white',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontWeight: 900,
+              fontSize: 18,
+              boxShadow: '0 4px 10px rgba(99, 91, 255, 0.3)',
+            }}
+          >
+            S
+          </div>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontWeight: 800, fontSize: 13.5, color: '#0F172A' }}>
+                Stripe Subscriptions Gateway 🇪🇸
+              </span>
+              <span
+                style={{
+                  fontSize: 10.5,
+                  fontWeight: 800,
+                  padding: '2px 8px',
+                  borderRadius: 100,
+                  background: stripeStatus.configured
+                    ? stripeStatus.mode === 'live'
+                      ? '#DCFCE7'
+                      : '#E0E7FF'
+                    : '#FEF3C7',
+                  color: stripeStatus.configured
+                    ? stripeStatus.mode === 'live'
+                      ? '#15803D'
+                      : '#4338CA'
+                    : '#B45309',
+                }}
+              >
+                {stripeStatus.configured
+                  ? `ONLINE (${stripeStatus.mode.toUpperCase()} MODE)`
+                  : 'AWAITING API KEY'}
+              </span>
+            </div>
+            <p style={{ margin: '2px 0 0', fontSize: 12, color: '#64748B' }}>
+              Accepts Visa, Mastercard, Apple Pay, Google Pay & SEPA in Euros (€) from Spain & Worldwide.
+            </p>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <button
+            type="button"
+            onClick={() => setShowStripeGuide(!showStripeGuide)}
+            style={{
+              background: 'white',
+              border: '1px solid #CBD5E1',
+              borderRadius: 10,
+              padding: '7px 12px',
+              fontSize: 12,
+              fontWeight: 700,
+              color: '#334155',
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+            }}
+          >
+            <span>{showStripeGuide ? 'Hide Guide' : '📖 Setup Instructions'}</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Collapsible Stripe Guide */}
+      {showStripeGuide && (
+        <div
+          style={{
+            background: 'white',
+            border: '1px solid #CBD5E1',
+            borderRadius: 18,
+            padding: '20px',
+            fontSize: 13,
+            color: '#334155',
+            lineHeight: 1.6,
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <h4 style={{ margin: 0, fontSize: 14, fontWeight: 800, color: '#0F172A' }}>
+              🇪🇸 How to activate Stripe Subscriptions with your Spanish Account:
+            </h4>
+            <button
+              type="button"
+              onClick={() => setShowStripeGuide(false)}
+              style={{ background: 'none', border: 'none', fontSize: 16, color: '#94A3B8', cursor: 'pointer' }}
+            >
+              ✕
+            </button>
+          </div>
+          <ol style={{ margin: '0 0 14px', paddingLeft: 20 }}>
+            <li>
+              Log into your <strong><a href="https://dashboard.stripe.com" target="_blank" rel="noreferrer" style={{ color: '#635BFF' }}>Stripe Dashboard</a></strong> (Spain).
+            </li>
+            <li>
+              In the top navigation, you can switch between <strong>Test mode</strong> (for safe testing) and <strong>Live mode</strong> (for real payments).
+            </li>
+            <li>
+              Go to <strong>Developers</strong> ➡️ <strong>API keys</strong>.
+            </li>
+            <li>
+              Copy your <strong>Secret key</strong> (<code style={{ background: '#F1F5F9', padding: '2px 5px', borderRadius: 4 }}>sk_test_...</code> or <code style={{ background: '#F1F5F9', padding: '2px 5px', borderRadius: 4 }}>sk_live_...</code>).
+            </li>
+            <li>
+              Add it as <code style={{ background: '#F1F5F9', padding: '2px 5px', borderRadius: 4 }}>STRIPE_SECRET_KEY</code> in project Settings / Environment variables.
+            </li>
+          </ol>
+          <div style={{ background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: 10, padding: '10px 14px', fontSize: 12, color: '#1E40AF' }}>
+            💡 <strong>Tip:</strong> Even before adding your live key, you can use the <strong>Instant Upgrade / Demo</strong> button inside the plan upgrade modal to test all features immediately!
+          </div>
+        </div>
+      )}
 
       {/* 2. Active Plan Status Card & Trial Countdown */}
       <div
@@ -963,53 +1283,92 @@ export default function BillingSettings({ user, profile, onSaved }) {
             </div>
 
             {/* Security Guarantee */}
-            <div style={{ background: '#F0FDFA', border: '1px solid #CCFBF1', borderRadius: 12, padding: '10px 14px', fontSize: 12, color: '#0F766E', marginBottom: 20 }}>
-              🛡️ <strong>Instant 1-Click Activation:</strong> You can cancel anytime directly from your dashboard.
+            <div style={{ background: '#F0FDFA', border: '1px solid #CCFBF1', borderRadius: 12, padding: '10px 14px', fontSize: 12, color: '#0F766E', marginBottom: 16 }}>
+              🛡️ <strong>Instant 1-Click Activation:</strong> You can cancel or switch plans anytime directly from your dashboard.
             </div>
 
+            {stripeError && (
+              <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', color: '#B91C1C', borderRadius: 12, padding: '10px 14px', fontSize: 12, marginBottom: 14, lineHeight: 1.4 }}>
+                ⚠️ {stripeError}
+              </div>
+            )}
+
             {upgradeSuccess ? (
-              <div style={{ background: '#ECFDF5', border: '1px solid #A7F3D0', color: '#065F46', borderRadius: 12, padding: '12px', textAlign: 'center', fontWeight: 800, fontSize: 14 }}>
+              <div style={{ background: '#ECFDF5', border: '1px solid #A7F3D0', color: '#065F46', borderRadius: 12, padding: '14px', textAlign: 'center', fontWeight: 800, fontSize: 14 }}>
                 🎉 Plan Upgraded Successfully! Enjoy {selectedPlanForUpgrade.name}!
               </div>
             ) : (
-              <div style={{ display: 'flex', gap: 10 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {/* 1. Official Stripe Button */}
                 <button
                   type="button"
-                  disabled={upgrading}
-                  onClick={() => setSelectedPlanForUpgrade(null)}
+                  disabled={stripeLoading || upgrading}
+                  onClick={handleStripeCheckout}
                   style={{
-                    flex: 1,
-                    background: '#F1F5F9',
-                    color: '#475569',
-                    border: 'none',
-                    borderRadius: 12,
-                    padding: '12px',
-                    fontSize: 13,
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                  }}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  disabled={upgrading}
-                  onClick={handleConfirmUpgrade}
-                  style={{
-                    flex: 2,
-                    background: 'linear-gradient(135deg, #14B8A6 0%, #0D9488 100%)',
+                    width: '100%',
+                    background: '#635BFF',
                     color: 'white',
                     border: 'none',
-                    borderRadius: 12,
-                    padding: '12px',
-                    fontSize: 13.5,
+                    borderRadius: 14,
+                    padding: '13px 18px',
+                    fontSize: 14,
                     fontWeight: 800,
-                    cursor: upgrading ? 'default' : 'pointer',
-                    boxShadow: '0 4px 14px rgba(20, 184, 166, 0.35)',
+                    cursor: stripeLoading ? 'wait' : 'pointer',
+                    boxShadow: '0 4px 14px rgba(99, 91, 255, 0.35)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
                   }}
                 >
-                  {upgrading ? 'Processing Activation...' : `Confirm Upgrade ($${billingCycle === 'yearly' ? selectedPlanForUpgrade.yearlyTotal : selectedPlanForUpgrade.priceMonthly})`}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 16 }}>💳</span>
+                    <span>{stripeLoading ? 'Connecting to Stripe...' : 'Pay via Stripe Checkout'}</span>
+                  </div>
+                  <span style={{ fontSize: 12, background: 'rgba(255,255,255,0.22)', padding: '3px 9px', borderRadius: 100 }}>
+                    €{billingCycle === 'yearly' ? selectedPlanForUpgrade.yearlyTotal : selectedPlanForUpgrade.priceMonthly} · Card / Apple Pay
+                  </span>
                 </button>
+
+                {/* 2. Instant Test / Simulate Upgrade Option */}
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <button
+                    type="button"
+                    disabled={upgrading || stripeLoading}
+                    onClick={() => setSelectedPlanForUpgrade(null)}
+                    style={{
+                      flex: 1,
+                      background: '#F1F5F9',
+                      color: '#475569',
+                      border: 'none',
+                      borderRadius: 12,
+                      padding: '11px',
+                      fontSize: 12.5,
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    disabled={upgrading || stripeLoading}
+                    onClick={handleConfirmUpgrade}
+                    style={{
+                      flex: 1.6,
+                      background: 'linear-gradient(135deg, #14B8A6 0%, #0D9488 100%)',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: 12,
+                      padding: '11px',
+                      fontSize: 12.5,
+                      fontWeight: 800,
+                      cursor: upgrading ? 'default' : 'pointer',
+                      boxShadow: '0 2px 8px rgba(20, 184, 166, 0.25)',
+                    }}
+                  >
+                    {upgrading ? 'Processing...' : '⚡ Test Instant Activation'}
+                  </button>
+                </div>
               </div>
             )}
           </div>

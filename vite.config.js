@@ -2,6 +2,17 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import fs from 'fs'
 import path from 'path'
+import Stripe from 'stripe'
+
+let stripeInstance = null
+function getStripe() {
+  const key = process.env.STRIPE_SECRET_KEY
+  if (!key || !key.trim()) return null
+  if (!stripeInstance) {
+    stripeInstance = new Stripe(key.trim())
+  }
+  return stripeInstance
+}
 
 function apiPlugin() {
   const STORE_PATH = path.join(process.cwd(), '.inquiry_store.json')
@@ -1188,6 +1199,156 @@ function apiPlugin() {
             })
             return
           }
+        }
+
+        // 15. Stripe Status Endpoint
+        if (urlObj.pathname === '/api/stripe/status') {
+          const secretKey = process.env.STRIPE_SECRET_KEY || ''
+          const publishableKey = process.env.STRIPE_PUBLISHABLE_KEY || ''
+          const isConfigured = secretKey.trim().length > 0
+          const mode = secretKey.startsWith('sk_live_') ? 'live' : 'test'
+
+          res.statusCode = 200
+          res.setHeader('Content-Type', 'application/json')
+          res.end(
+            JSON.stringify({
+              configured: isConfigured,
+              mode: mode,
+              hasPublishableKey: publishableKey.trim().length > 0,
+              publishableKeyMasked: publishableKey
+                ? `${publishableKey.slice(0, 8)}...${publishableKey.slice(-4)}`
+                : null,
+            })
+          )
+          return
+        }
+
+        // 16. Stripe Create Subscription Checkout Session
+        if (urlObj.pathname === '/api/stripe/create-checkout') {
+          if (req.method === 'POST') {
+            let body = ''
+            req.on('data', (chunk) => {
+              body += chunk
+            })
+            req.on('end', async () => {
+              try {
+                const payload = JSON.parse(body || '{}')
+                const {
+                  planId,
+                  planName,
+                  billingCycle,
+                  price,
+                  currency = 'eur',
+                  userId,
+                  username,
+                  customerEmail,
+                  successUrl,
+                  cancelUrl,
+                } = payload
+
+                const stripe = getStripe()
+                if (!stripe) {
+                  res.statusCode = 200
+                  res.setHeader('Content-Type', 'application/json')
+                  res.end(
+                    JSON.stringify({
+                      configured: false,
+                      error: 'STRIPE_SECRET_KEY is not configured yet in environment settings.',
+                    })
+                  )
+                  return
+                }
+
+                const isYearly = billingCycle === 'yearly'
+                const unitAmount = Math.round(Number(price) * 100)
+
+                const session = await stripe.checkout.sessions.create({
+                  payment_method_types: ['card'],
+                  mode: 'subscription',
+                  customer_email: customerEmail || undefined,
+                  client_reference_id: userId || undefined,
+                  line_items: [
+                    {
+                      price_data: {
+                        currency: currency.toLowerCase(),
+                        product_data: {
+                          name: `LinkSocio ${planName || 'Creator'}`,
+                          description: `LinkSocio Subscription - ${isYearly ? 'Annual Billing' : 'Monthly Billing'}`,
+                        },
+                        unit_amount: unitAmount,
+                        recurring: {
+                          interval: isYearly ? 'year' : 'month',
+                        },
+                      },
+                      quantity: 1,
+                    },
+                  ],
+                  metadata: {
+                    userId: userId || '',
+                    username: username || '',
+                    planId: planId || '',
+                    billingCycle: billingCycle || 'monthly',
+                  },
+                  success_url: successUrl || `http://${req.headers.host || 'localhost:3000'}/dashboard?tab=billing&session_id={CHECKOUT_SESSION_ID}&upgraded=true`,
+                  cancel_url: cancelUrl || `http://${req.headers.host || 'localhost:3000'}/dashboard?tab=billing`,
+                })
+
+                res.statusCode = 200
+                res.setHeader('Content-Type', 'application/json')
+                res.end(JSON.stringify({ configured: true, url: session.url, sessionId: session.id }))
+              } catch (err) {
+                console.error('Stripe checkout error:', err)
+                res.statusCode = 500
+                res.setHeader('Content-Type', 'application/json')
+                res.end(JSON.stringify({ error: err.message || 'Failed to create Stripe checkout session' }))
+              }
+            })
+            return
+          }
+        }
+
+        // 17. Stripe Verify Session
+        if (urlObj.pathname === '/api/stripe/verify-session') {
+          const sessionId = urlObj.searchParams.get('session_id')
+          if (!sessionId) {
+            res.statusCode = 400
+            res.setHeader('Content-Type', 'application/json')
+            res.end(JSON.stringify({ error: 'Missing session_id' }))
+            return
+          }
+
+          const stripe = getStripe()
+          if (!stripe) {
+            res.statusCode = 200
+            res.setHeader('Content-Type', 'application/json')
+            res.end(JSON.stringify({ configured: false, verified: false }))
+            return
+          }
+
+          try {
+            const session = await stripe.checkout.sessions.retrieve(sessionId)
+            const isPaid = session.payment_status === 'paid' || session.status === 'complete'
+
+            res.statusCode = 200
+            res.setHeader('Content-Type', 'application/json')
+            res.end(
+              JSON.stringify({
+                configured: true,
+                verified: isPaid,
+                planId: session.metadata?.planId,
+                billingCycle: session.metadata?.billingCycle,
+                customerEmail: session.customer_details?.email,
+                amountTotal: session.amount_total ? session.amount_total / 100 : 0,
+                currency: session.currency,
+                subscriptionId: session.subscription,
+              })
+            )
+          } catch (err) {
+            res.statusCode = 500
+            res.setHeader('Content-Type', 'application/json')
+            res.end(JSON.stringify({ error: err.message || 'Failed to retrieve Stripe session' }))
+          }
+          return
         }
 
         next()
