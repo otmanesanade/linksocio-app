@@ -176,18 +176,36 @@ function ProfileCard({ user, profile, onSaved }) {
   )
 }
 
-export default function Dashboard({ user }) {
+export default function Dashboard({ user, initialTab }) {
   const [profile, setProfile] = useState(null)
   const [links, setLinks] = useState([])
   const [products, setProducts] = useState([])
   const [copied, setCopied] = useState(false)
   const [qrUrl, setQrUrl] = useState(null)
-  const [tab, setTab] = useState('links')
+  const [tab, setTab] = useState(() => {
+    try {
+      const search = new URLSearchParams(window.location.search)
+      const qTab = search.get('tab')
+      if (qTab) return qTab
+      if (search.get('session_id')) return 'billing'
+    } catch (e) {}
+    if (initialTab) return initialTab
+    return 'links'
+  })
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [showMobilePreviewModal, setShowMobilePreviewModal] = useState(false)
   const [bookingCount, setBookingCount] = useState(0)
   const [leadsCount, setLeadsCount] = useState(0)
   const [floatingToast, setFloatingToast] = useState(null)
+
+  useEffect(() => {
+    try {
+      const search = new URLSearchParams(window.location.search)
+      const qTab = search.get('tab')
+      if (qTab) setTab(qTab)
+      else if (search.get('session_id')) setTab('billing')
+    } catch (e) {}
+  }, [])
 
   useEffect(() => {
     loadProfile()

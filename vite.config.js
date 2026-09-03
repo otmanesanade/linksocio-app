@@ -1293,8 +1293,12 @@ function apiPlugin() {
                     planId: planId || '',
                     billingCycle: billingCycle || 'monthly',
                   },
-                  success_url: successUrl || `http://${req.headers.host || 'localhost:3000'}/dashboard?tab=billing&session_id={CHECKOUT_SESSION_ID}&upgraded=true`,
-                  cancel_url: cancelUrl || `http://${req.headers.host || 'localhost:3000'}/dashboard?tab=billing`,
+                  success_url:
+                    successUrl ||
+                    `${req.headers['x-forwarded-proto'] || (req.headers.host?.includes('localhost') ? 'http' : 'https')}://${req.headers.host || 'localhost:3000'}/dashboard?tab=billing&session_id={CHECKOUT_SESSION_ID}&upgraded=true`,
+                  cancel_url:
+                    cancelUrl ||
+                    `${req.headers['x-forwarded-proto'] || (req.headers.host?.includes('localhost') ? 'http' : 'https')}://${req.headers.host || 'localhost:3000'}/dashboard?tab=billing`,
                 })
 
                 res.statusCode = 200

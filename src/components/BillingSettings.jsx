@@ -182,7 +182,7 @@ export default function BillingSettings({ user, profile, onSaved }) {
     const sessionId = urlParams.get('session_id')
     const isUpgraded = urlParams.get('upgraded')
 
-    if (sessionId && isUpgraded) {
+    if (sessionId) {
       async function verifySession() {
         try {
           const res = await fetch(`/api/stripe/verify-session?session_id=${encodeURIComponent(sessionId)}`)
