@@ -442,6 +442,7 @@ export default function Dashboard({ user }) {
     { key: 'notifications', label: 'WhatsApp & Email Alerts', icon: '🔔' },
     { key: 'shop', label: 'Store & Products', icon: '🛍️' },
     { key: 'payouts', label: 'Wallet & 9% Fees', icon: '💰' },
+    { key: 'billing', label: 'Billing & Plans', icon: '💳' },
     { key: 'theme', label: 'Appearance & Themes', icon: '🎨' },
     { key: 'qr', label: 'QR Code', icon: '🔲' },
     { key: 'analytics', label: 'Analytics', icon: '📊' },
@@ -1008,8 +1009,11 @@ export default function Dashboard({ user }) {
           {tab === 'analytics' && (
             <Analytics links={links} />
           )}
+          {tab === 'billing' && (
+            <SettingsTab user={user} profile={profile} onSaved={loadProfile} initialSubTab="billing" />
+          )}
           {tab === 'settings' && (
-            <SettingsTab user={user} profile={profile} onSaved={loadProfile} />
+            <SettingsTab user={user} profile={profile} onSaved={loadProfile} initialSubTab="profile" />
           )}
         </div>
 

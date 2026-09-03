@@ -1,8 +1,17 @@
 import { useState, useEffect } from 'react'
 import { supabase } from './supabaseClient'
 import AvatarUpload from './components/AvatarUpload'
+import BillingSettings from './components/BillingSettings'
 
-export default function SettingsTab({ user, profile, onSaved }) {
+export default function SettingsTab({ user, profile, onSaved, initialSubTab = 'profile' }) {
+  const [activeSubTab, setActiveSubTab] = useState(initialSubTab)
+
+  useEffect(() => {
+    if (initialSubTab) {
+      setActiveSubTab(initialSubTab)
+    }
+  }, [initialSubTab])
+
   // Profile & Basic Details
   const [displayName, setDisplayName] = useState(profile?.display_name || '')
   const [bio, setBio] = useState(profile?.bio || '')
@@ -187,263 +196,315 @@ export default function SettingsTab({ user, profile, onSaved }) {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       {/* Header */}
       <div style={{ background: 'white', border: '1px solid #E7EDEC', borderRadius: 20, padding: '20px 24px' }}>
         <h2 style={{ margin: '0 0 4px', fontSize: 18, fontWeight: 700, color: '#0F172A' }}>
           ⚙️ Account & Profile Settings
         </h2>
         <p style={{ margin: 0, fontSize: 13, color: '#64748B' }}>
-          Manage your public username URL, display identity, contact information, and security.
+          Manage your public username URL, display identity, membership subscription, and security.
         </p>
       </div>
 
-      {/* Card 1: Avatar & Basic Information */}
-      <div style={{ background: 'white', border: '1px solid #E7EDEC', borderRadius: 20, padding: 24 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
-          <div style={{ width: 36, height: 36, borderRadius: 10, background: '#F0FDFA', color: '#0D9488', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>
-            👤
-          </div>
-          <div>
-            <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: '#0F172A' }}>Personal & Page Identity</h3>
-            <p style={{ margin: 0, fontSize: 12, color: '#8A97A3' }}>Your public photo, custom username link, and bio</p>
-          </div>
-        </div>
+      {/* Sub Tabs Navigation */}
+      <div
+        style={{
+          display: 'flex',
+          gap: 6,
+          background: '#E2E8F0',
+          padding: 4,
+          borderRadius: 14,
+          overflowX: 'auto',
+        }}
+      >
+        {[
+          { key: 'profile', label: '👤 Profile & Identity' },
+          { key: 'billing', label: '💳 Billing & Subscription (Plans / Invoices)' },
+          { key: 'security', label: '🔒 Security & Password' },
+        ].map((tab) => {
+          const isActive = activeSubTab === tab.key
+          return (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => setActiveSubTab(tab.key)}
+              style={{
+                flex: 1,
+                padding: '9px 14px',
+                borderRadius: 10,
+                border: 'none',
+                fontSize: 13,
+                fontWeight: 700,
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                background: isActive ? 'white' : 'transparent',
+                color: isActive ? '#0F172A' : '#64748B',
+                boxShadow: isActive ? '0 2px 6px rgba(0,0,0,0.06)' : 'none',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              {tab.label}
+            </button>
+          )
+        })}
+      </div>
 
-        {/* Avatar Upload */}
-        <div style={{ marginBottom: 20, paddingBottom: 20, borderBottom: '1px solid #F1F5F9' }}>
-          <AvatarUpload user={user} profile={profile} onUpdated={onSaved} />
-        </div>
+      {/* SUB-TAB 1: Billing & Subscription */}
+      {activeSubTab === 'billing' && (
+        <BillingSettings user={user} profile={profile} onSaved={onSaved} />
+      )}
 
-        <form onSubmit={handleSaveProfile} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {/* Username Field */}
-          <div>
-            <label htmlFor="settings-username" style={{ fontSize: 12, color: '#475569', fontWeight: 600, display: 'block', marginBottom: 6 }}>
-              Username & Public Link (URL)
-            </label>
-            <div style={{ display: 'flex', alignItems: 'center', position: 'relative' }}>
-              <span
+      {/* SUB-TAB 2: Profile & Identity */}
+      {activeSubTab === 'profile' && (
+        <div style={{ background: 'white', border: '1px solid #E7EDEC', borderRadius: 20, padding: 24 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
+            <div style={{ width: 36, height: 36, borderRadius: 10, background: '#F0FDFA', color: '#0D9488', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>
+              👤
+            </div>
+            <div>
+              <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: '#0F172A' }}>Personal & Page Identity</h3>
+              <p style={{ margin: 0, fontSize: 12, color: '#8A97A3' }}>Your public photo, custom username link, and bio</p>
+            </div>
+          </div>
+
+          {/* Avatar Upload */}
+          <div style={{ marginBottom: 20, paddingBottom: 20, borderBottom: '1px solid #F1F5F9' }}>
+            <AvatarUpload user={user} profile={profile} onUpdated={onSaved} />
+          </div>
+
+          <form onSubmit={handleSaveProfile} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {/* Username Field */}
+            <div>
+              <label htmlFor="settings-username" style={{ fontSize: 12, color: '#475569', fontWeight: 600, display: 'block', marginBottom: 6 }}>
+                Username & Public Link (URL)
+              </label>
+              <div style={{ display: 'flex', alignItems: 'center', position: 'relative' }}>
+                <span
+                  style={{
+                    position: 'absolute',
+                    left: 14,
+                    fontSize: 13,
+                    fontWeight: 600,
+                    color: '#94A3B8',
+                    pointerEvents: 'none',
+                  }}
+                >
+                  linksocio.com/
+                </span>
+                <input
+                  id="settings-username"
+                  type="text"
+                  value={username}
+                  onChange={(e) => {
+                    setUsername(e.target.value.toLowerCase().replace(/\s+/g, ''))
+                    setProfileError('')
+                  }}
+                  placeholder="yourname"
+                  style={{
+                    ...inputStyle,
+                    paddingLeft: 126,
+                    fontWeight: 600,
+                    borderColor: usernameStatus?.available === false ? '#EF4444' : usernameStatus?.available ? '#10B981' : '#E2E8F0',
+                  }}
+                />
+              </div>
+              {usernameChecking && (
+                <p style={{ margin: '4px 0 0', fontSize: 11.5, color: '#64748B' }}>⏳ Checking username availability...</p>
+              )}
+              {usernameStatus && !usernameChecking && (
+                <p
+                  style={{
+                    margin: '4px 0 0',
+                    fontSize: 11.5,
+                    fontWeight: 600,
+                    color: usernameStatus.available ? '#059669' : '#DC2626',
+                  }}
+                >
+                  {usernameStatus.msg}
+                </p>
+              )}
+            </div>
+
+            {/* Display Name */}
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                <label htmlFor="settings-display-name" style={{ fontSize: 12, color: '#475569', fontWeight: 600 }}>
+                  Display Name / Brand Title
+                </label>
+                <span style={{ fontSize: 11, color: '#94A3B8' }}>{displayName.length}/50</span>
+              </div>
+              <input
+                id="settings-display-name"
+                type="text"
+                value={displayName}
+                maxLength={50}
+                onChange={(e) => { setDisplayName(e.target.value); setProfileError('') }}
+                placeholder="e.g. Otman | Digital Creator"
+                style={inputStyle}
+              />
+            </div>
+
+            {/* Bio */}
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                <label htmlFor="settings-bio" style={{ fontSize: 12, color: '#475569', fontWeight: 600 }}>
+                  Bio & Subtitle
+                </label>
+                <span style={{ fontSize: 11, color: '#94A3B8' }}>{bio.length}/120</span>
+              </div>
+              <textarea
+                id="settings-bio"
+                value={bio}
+                maxLength={120}
+                rows={2}
+                onChange={(e) => { setBio(e.target.value); setProfileError('') }}
+                placeholder="Creative designer & consultant · Book an appointment or browse products 👇"
+                style={{ ...inputStyle, resize: 'vertical', minHeight: 65, fontFamily: 'inherit' }}
+              />
+            </div>
+
+            {/* Location & WhatsApp Grid */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 14 }}>
+              <div>
+                <label htmlFor="settings-location" style={{ fontSize: 12, color: '#475569', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4, marginBottom: 6 }}>
+                  <span>📍</span> Location / City
+                </label>
+                <input
+                  id="settings-location"
+                  type="text"
+                  value={location}
+                  maxLength={80}
+                  onChange={(e) => { setLocation(e.target.value); setProfileError('') }}
+                  placeholder="e.g. Casablanca, Morocco"
+                  style={inputStyle}
+                />
+              </div>
+
+              <div>
+                <label htmlFor="settings-whatsapp" style={{ fontSize: 12, color: '#475569', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4, marginBottom: 6 }}>
+                  <span>💬</span> WhatsApp Number
+                </label>
+                <input
+                  id="settings-whatsapp"
+                  type="tel"
+                  value={whatsapp}
+                  onChange={(e) => { setWhatsapp(e.target.value); setProfileError('') }}
+                  placeholder="e.g. +212612345678"
+                  style={inputStyle}
+                />
+              </div>
+            </div>
+
+            {profileError && (
+              <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', color: '#B91C1C', borderRadius: 10, padding: '10px 14px', fontSize: 12.5 }}>
+                {profileError}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 6 }}>
+              <button
+                type="submit"
+                disabled={profileSaving}
                 style={{
-                  position: 'absolute',
-                  left: 14,
+                  background: profileSaved ? '#ECFDF5' : '#14B8A6',
+                  color: profileSaved ? '#059669' : 'white',
+                  border: profileSaved ? '1px solid #A7F3D0' : 'none',
+                  borderRadius: 12,
+                  padding: '11px 24px',
+                  fontSize: 13.5,
+                  fontWeight: 600,
+                  cursor: profileSaving ? 'default' : 'pointer',
+                  transition: 'all 0.15s ease',
+                  boxShadow: profileSaved ? 'none' : '0 2px 6px rgba(20, 184, 166, 0.25)',
+                }}
+              >
+                {profileSaved ? '✓ Profile Changes Saved!' : profileSaving ? 'Saving...' : 'Save Profile Changes'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* SUB-TAB 3: Security & Password */}
+      {activeSubTab === 'security' && (
+        <div style={{ background: 'white', border: '1px solid #E7EDEC', borderRadius: 20, padding: 24 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
+            <div style={{ width: 36, height: 36, borderRadius: 10, background: '#FEF3C7', color: '#D97706', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>
+              🔒
+            </div>
+            <div>
+              <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: '#0F172A' }}>Security & Password</h3>
+              <p style={{ margin: 0, fontSize: 12, color: '#8A97A3' }}>Update your account login password</p>
+            </div>
+          </div>
+
+          <form onSubmit={handlePasswordChange} style={{ display: 'flex', flexDirection: 'column', gap: 14, maxWidth: 460 }}>
+            <div>
+              <label htmlFor="settings-new-password" style={{ fontSize: 12, color: '#475569', fontWeight: 600, display: 'block', marginBottom: 6 }}>
+                New Password
+              </label>
+              <input
+                id="settings-new-password"
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="••••••••••••"
+                style={inputStyle}
+              />
+            </div>
+
+            <div>
+              <label htmlFor="settings-confirm-password" style={{ fontSize: 12, color: '#475569', fontWeight: 600, display: 'block', marginBottom: 6 }}>
+                Confirm New Password
+              </label>
+              <input
+                id="settings-confirm-password"
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="••••••••••••"
+                style={inputStyle}
+              />
+            </div>
+
+            {passwordMsg.text && (
+              <div
+                style={{
+                  background: passwordMsg.type === 'success' ? '#ECFDF5' : '#FEF2F2',
+                  border: passwordMsg.type === 'success' ? '1px solid #A7F3D0' : '1px solid #FECACA',
+                  color: passwordMsg.type === 'success' ? '#065F46' : '#B91C1C',
+                  borderRadius: 10,
+                  padding: '9px 12px',
+                  fontSize: 12.5,
+                }}
+              >
+                {passwordMsg.text}
+              </div>
+            )}
+
+            <div>
+              <button
+                type="submit"
+                disabled={passwordLoading || !newPassword}
+                style={{
+                  background: !newPassword ? '#E2E8F0' : '#0F172A',
+                  color: !newPassword ? '#94A3B8' : 'white',
+                  border: 'none',
+                  borderRadius: 12,
+                  padding: '10px 20px',
                   fontSize: 13,
                   fontWeight: 600,
-                  color: '#94A3B8',
-                  pointerEvents: 'none',
+                  cursor: !newPassword || passwordLoading ? 'default' : 'pointer',
+                  transition: 'all 0.15s ease',
                 }}
               >
-                linksocio.com/
-              </span>
-              <input
-                id="settings-username"
-                type="text"
-                value={username}
-                onChange={(e) => {
-                  setUsername(e.target.value.toLowerCase().replace(/\s+/g, ''))
-                  setProfileError('')
-                }}
-                placeholder="yourname"
-                style={{
-                  ...inputStyle,
-                  paddingLeft: 126,
-                  fontWeight: 600,
-                  borderColor: usernameStatus?.available === false ? '#EF4444' : usernameStatus?.available ? '#10B981' : '#E2E8F0',
-                }}
-              />
+                {passwordLoading ? 'Updating Password...' : 'Update Password'}
+              </button>
             </div>
-            {usernameChecking && (
-              <p style={{ margin: '4px 0 0', fontSize: 11.5, color: '#64748B' }}>⏳ Checking username availability...</p>
-            )}
-            {usernameStatus && !usernameChecking && (
-              <p
-                style={{
-                  margin: '4px 0 0',
-                  fontSize: 11.5,
-                  fontWeight: 600,
-                  color: usernameStatus.available ? '#059669' : '#DC2626',
-                }}
-              >
-                {usernameStatus.msg}
-              </p>
-            )}
-          </div>
-
-          {/* Display Name */}
-          <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-              <label htmlFor="settings-display-name" style={{ fontSize: 12, color: '#475569', fontWeight: 600 }}>
-                Display Name / Brand Title
-              </label>
-              <span style={{ fontSize: 11, color: '#94A3B8' }}>{displayName.length}/50</span>
-            </div>
-            <input
-              id="settings-display-name"
-              type="text"
-              value={displayName}
-              maxLength={50}
-              onChange={(e) => { setDisplayName(e.target.value); setProfileError('') }}
-              placeholder="e.g. Otman | Digital Creator"
-              style={inputStyle}
-            />
-          </div>
-
-          {/* Bio */}
-          <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-              <label htmlFor="settings-bio" style={{ fontSize: 12, color: '#475569', fontWeight: 600 }}>
-                Bio & Subtitle
-              </label>
-              <span style={{ fontSize: 11, color: '#94A3B8' }}>{bio.length}/120</span>
-            </div>
-            <textarea
-              id="settings-bio"
-              value={bio}
-              maxLength={120}
-              rows={2}
-              onChange={(e) => { setBio(e.target.value); setProfileError('') }}
-              placeholder="Creative designer & consultant · Book an appointment or browse products 👇"
-              style={{ ...inputStyle, resize: 'vertical', minHeight: 65, fontFamily: 'inherit' }}
-            />
-          </div>
-
-          {/* Location & WhatsApp Grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 14 }}>
-            <div>
-              <label htmlFor="settings-location" style={{ fontSize: 12, color: '#475569', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4, marginBottom: 6 }}>
-                <span>📍</span> Location / City
-              </label>
-              <input
-                id="settings-location"
-                type="text"
-                value={location}
-                maxLength={80}
-                onChange={(e) => { setLocation(e.target.value); setProfileError('') }}
-                placeholder="e.g. Casablanca, Morocco"
-                style={inputStyle}
-              />
-            </div>
-
-            <div>
-              <label htmlFor="settings-whatsapp" style={{ fontSize: 12, color: '#475569', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4, marginBottom: 6 }}>
-                <span>💬</span> WhatsApp Number
-              </label>
-              <input
-                id="settings-whatsapp"
-                type="tel"
-                value={whatsapp}
-                onChange={(e) => { setWhatsapp(e.target.value); setProfileError('') }}
-                placeholder="e.g. +212612345678"
-                style={inputStyle}
-              />
-            </div>
-          </div>
-
-          {profileError && (
-            <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', color: '#B91C1C', borderRadius: 10, padding: '10px 14px', fontSize: 12.5 }}>
-              {profileError}
-            </div>
-          )}
-
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 6 }}>
-            <button
-              type="submit"
-              disabled={profileSaving}
-              style={{
-                background: profileSaved ? '#ECFDF5' : '#14B8A6',
-                color: profileSaved ? '#059669' : 'white',
-                border: profileSaved ? '1px solid #A7F3D0' : 'none',
-                borderRadius: 12,
-                padding: '11px 24px',
-                fontSize: 13.5,
-                fontWeight: 600,
-                cursor: profileSaving ? 'default' : 'pointer',
-                transition: 'all 0.15s ease',
-                boxShadow: profileSaved ? 'none' : '0 2px 6px rgba(20, 184, 166, 0.25)',
-              }}
-            >
-              {profileSaved ? '✓ Profile Changes Saved!' : profileSaving ? 'Saving...' : 'Save Profile Changes'}
-            </button>
-          </div>
-        </form>
-      </div>
-
-      {/* Card 2: Security & Password */}
-      <div style={{ background: 'white', border: '1px solid #E7EDEC', borderRadius: 20, padding: 24 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
-          <div style={{ width: 36, height: 36, borderRadius: 10, background: '#FEF3C7', color: '#D97706', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>
-            🔒
-          </div>
-          <div>
-            <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: '#0F172A' }}>Security & Password</h3>
-            <p style={{ margin: 0, fontSize: 12, color: '#8A97A3' }}>Update your account login password</p>
-          </div>
+          </form>
         </div>
-
-        <form onSubmit={handlePasswordChange} style={{ display: 'flex', flexDirection: 'column', gap: 14, maxWidth: 460 }}>
-          <div>
-            <label htmlFor="settings-new-password" style={{ fontSize: 12, color: '#475569', fontWeight: 600, display: 'block', marginBottom: 6 }}>
-              New Password
-            </label>
-            <input
-              id="settings-new-password"
-              type="password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              placeholder="••••••••••••"
-              style={inputStyle}
-            />
-          </div>
-
-          <div>
-            <label htmlFor="settings-confirm-password" style={{ fontSize: 12, color: '#475569', fontWeight: 600, display: 'block', marginBottom: 6 }}>
-              Confirm New Password
-            </label>
-            <input
-              id="settings-confirm-password"
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              placeholder="••••••••••••"
-              style={inputStyle}
-            />
-          </div>
-
-          {passwordMsg.text && (
-            <div
-              style={{
-                background: passwordMsg.type === 'success' ? '#ECFDF5' : '#FEF2F2',
-                border: passwordMsg.type === 'success' ? '1px solid #A7F3D0' : '1px solid #FECACA',
-                color: passwordMsg.type === 'success' ? '#065F46' : '#B91C1C',
-                borderRadius: 10,
-                padding: '9px 12px',
-                fontSize: 12.5,
-              }}
-            >
-              {passwordMsg.text}
-            </div>
-          )}
-
-          <div>
-            <button
-              type="submit"
-              disabled={passwordLoading || !newPassword}
-              style={{
-                background: !newPassword ? '#E2E8F0' : '#0F172A',
-                color: !newPassword ? '#94A3B8' : 'white',
-                border: 'none',
-                borderRadius: 12,
-                padding: '10px 20px',
-                fontSize: 13,
-                fontWeight: 600,
-                cursor: !newPassword || passwordLoading ? 'default' : 'pointer',
-                transition: 'all 0.15s ease',
-              }}
-            >
-              {passwordLoading ? 'Updating Password...' : 'Update Password'}
-            </button>
-          </div>
-        </form>
-      </div>
+      )}
 
       {/* Card 3: Account Information & Logged in details */}
       <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 20, padding: '20px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 14 }}>
