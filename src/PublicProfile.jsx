@@ -99,6 +99,10 @@ export default function PublicProfile({ username }) {
     setLoading(false)
   }
 
+  const created = profile?.created_at ? new Date(profile.created_at) : null
+  const isPaid = profile?.plan === 'pro' || profile?.plan === 'business'
+  const isTrialExpired = !isPaid && created && (Date.now() - created.getTime() > 14 * 24 * 60 * 60 * 1000)
+
   if (loading) {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#F8FAFA', fontFamily: 'sans-serif' }}>
@@ -121,6 +125,21 @@ export default function PublicProfile({ username }) {
         </p>
         <a href="/" style={{ background: '#14B8A6', color: 'white', textDecoration: 'none', padding: '10px 20px', borderRadius: 12, fontSize: 13.5, fontWeight: 600 }}>
           Create your LinkSocio page
+        </a>
+      </div>
+    )
+  }
+
+  if (isTrialExpired) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#F8FAFA', fontFamily: 'sans-serif', padding: 24, textAlign: 'center' }}>
+        <div style={{ fontSize: 52, marginBottom: 16 }}>⏳</div>
+        <h2 style={{ fontSize: 22, fontWeight: 800, color: '#0F172A', margin: '0 0 8px' }}>Page Paused</h2>
+        <p style={{ color: '#64748B', fontSize: 14, maxWidth: 380, margin: '0 0 24px', lineHeight: 1.5 }}>
+          The 14-day free trial for @{username} has ended. The creator needs to activate their LinkSocio subscription to reactivate this page.
+        </p>
+        <a href="/login" style={{ background: '#14B8A6', color: 'white', textDecoration: 'none', padding: '12px 24px', borderRadius: 14, fontSize: 14, fontWeight: 700, boxShadow: '0 4px 12px rgba(20, 184, 166, 0.25)' }}>
+          Creator Login & Activate
         </a>
       </div>
     )

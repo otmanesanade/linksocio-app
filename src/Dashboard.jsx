@@ -16,6 +16,8 @@ import SettingsTab from './SettingsTab'
 import { getNotificationSettings, playNotificationSound } from './notificationService'
 import { LivePagePreview } from './components/LivePagePreview'
 import confetti from 'canvas-confetti'
+import { getTrialStatus } from './utils/trialHelper'
+import TrialExpiredPaywall from './components/TrialExpiredPaywall'
 
 function ProfileCard({ user, profile, onSaved }) {
   const [displayName, setDisplayName] = useState(profile?.display_name || '')
@@ -197,6 +199,9 @@ export default function Dashboard({ user, initialTab }) {
   const [bookingCount, setBookingCount] = useState(0)
   const [leadsCount, setLeadsCount] = useState(0)
   const [floatingToast, setFloatingToast] = useState(null)
+
+  // 14-Day Free Trial Computation
+  const trial = getTrialStatus(user, profile)
 
   useEffect(() => {
     try {
@@ -985,6 +990,64 @@ export default function Dashboard({ user, initialTab }) {
 
         {/* Center Editing Workspace */}
         <div>
+          {/* 14-Day Free Trial Notice Banner */}
+          {trial.isTrialActive && (
+            <div
+              style={{
+                background: 'linear-gradient(135deg, #F0FDFA 0%, #E6FFFA 100%)',
+                border: '1px solid #99F6E4',
+                borderRadius: 16,
+                padding: '12px 18px',
+                marginBottom: 16,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: 12,
+                boxShadow: '0 2px 8px rgba(13, 148, 136, 0.08)',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontSize: 22 }}>⏳</span>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: '#0F766E' }}>
+                    14-Day Free Trial Active
+                  </div>
+                  <div style={{ fontSize: 11.5, color: '#115E59' }}>
+                    <strong>{trial.daysRemaining} days left</strong>. Full access included. Subscribe anytime to keep your page active permanently.
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setTab('billing')}
+                style={{
+                  background: '#0D9488',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: 10,
+                  padding: '7px 15px',
+                  fontSize: 12,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  boxShadow: '0 2px 6px rgba(13, 148, 136, 0.3)',
+                }}
+              >
+                Upgrade to Pro 🚀
+              </button>
+            </div>
+          )}
+
+          {/* If 14-day free trial expired, hard lock dashboard with Stripe paywall */}
+          {trial.isTrialExpired && (
+            <TrialExpiredPaywall
+              user={user}
+              profile={profile}
+              onLogout={logout}
+              onUnlocked={loadProfile}
+            />
+          )}
+
           {tab === 'links' && (
             <div>
               <ProfileCard user={user} profile={profile} onSaved={loadProfile} />
