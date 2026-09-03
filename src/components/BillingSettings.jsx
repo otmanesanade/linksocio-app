@@ -29,7 +29,7 @@ export const PLANS = [
     name: 'Pro Creator',
     badge: 'MOST POPULAR',
     priceMonthly: 4.99,
-    priceYearly: 3.99, // billed $47.90/yr
+    priceYearly: 3.99, // billed €47.90/yr
     yearlyTotal: 47.90,
     period: '/ month',
     desc: 'For individual creators, coaches & freelancers wanting a premium branded page.',
@@ -51,7 +51,7 @@ export const PLANS = [
     name: 'Business & Agency',
     badge: 'AGENCY & ENTERPRISE',
     priceMonthly: 11.99,
-    priceYearly: 9.59, // billed $115.10/yr
+    priceYearly: 9.59, // billed €115.10/yr
     yearlyTotal: 115.10,
     period: '/ month',
     desc: 'For high-volume stores, restaurant chains, multi-brand agencies & VIP support.',

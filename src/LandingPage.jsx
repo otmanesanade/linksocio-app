@@ -70,8 +70,8 @@ const SHOWCASE_PROFILES = [
       { id: 3, label: '📷 Instagram Daily Tips', url: 'https://instagram.com', icon: 'instagram', clicks: 3100 },
     ],
     products: [
-      { id: 1, name: 'Digital Creator Masterclass 2026', price: '$29.00', category: 'course', image: 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=300&q=80' },
-      { id: 2, name: 'Pro Lightroom Preset Pack (50+)', price: '$14.99', category: 'file', image: 'https://images.unsplash.com/photo-1516961642265-531546e84af2?w=300&q=80' },
+      { id: 1, name: 'Digital Creator Masterclass 2026', price: '€29.00', category: 'course', image: 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=300&q=80' },
+      { id: 2, name: 'Pro Lightroom Preset Pack (50+)', price: '€14.99', category: 'file', image: 'https://images.unsplash.com/photo-1516961642265-531546e84af2?w=300&q=80' },
     ],
   },
   {
@@ -89,8 +89,8 @@ const SHOWCASE_PROFILES = [
       { id: 3, label: '💬 WhatsApp Table Inquiries', url: 'https://wa.me/212600000000', icon: 'whatsapp', clicks: 1750 },
     ],
     products: [
-      { id: 1, name: 'Tasting Menu Voucher', price: '$45.00', category: 'voucher', image: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=300&q=80' },
-      { id: 2, name: 'Signature Roasted Coffee Beans', price: '$18.00', category: 'physical', image: 'https://images.unsplash.com/photo-1559056199-641a0ac8b55e?w=300&q=80' },
+      { id: 1, name: 'Tasting Menu Voucher', price: '€45.00', category: 'voucher', image: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=300&q=80' },
+      { id: 2, name: 'Signature Roasted Coffee Beans', price: '€18.00', category: 'physical', image: 'https://images.unsplash.com/photo-1559056199-641a0ac8b55e?w=300&q=80' },
     ],
   },
   {
@@ -108,8 +108,8 @@ const SHOWCASE_PROFILES = [
       { id: 3, label: '📁 Agency Portfolio & Case Studies', url: 'https://example.com', icon: 'store', clicks: 650 },
     ],
     products: [
-      { id: 1, name: 'Brand Identity Template Kit', price: '$49.00', category: 'template', image: 'https://images.unsplash.com/photo-1626785774573-4b799315345d?w=300&q=80' },
-      { id: 2, name: 'UI/UX Component Pack', price: '$29.00', category: 'file', image: 'https://images.unsplash.com/photo-1507238691740-187a5b1d37b8?w=300&q=80' },
+      { id: 1, name: 'Brand Identity Template Kit', price: '€49.00', category: 'template', image: 'https://images.unsplash.com/photo-1626785774573-4b799315345d?w=300&q=80' },
+      { id: 2, name: 'UI/UX Component Pack', price: '€29.00', category: 'file', image: 'https://images.unsplash.com/photo-1507238691740-187a5b1d37b8?w=300&q=80' },
     ],
   },
 ]
@@ -230,7 +230,7 @@ export default function LandingPage({ goToLogin, goToSignUp, goTo }) {
             <a href="#digital-store" style={navLinkStyle}>Digital Store & Payouts</a>
             <a href="#features" style={navLinkStyle}>All Features</a>
             <a href="#demo" style={navLinkStyle}>Live Simulator</a>
-            <a href="#pricing" style={navLinkStyle}>Pricing ($)</a>
+            <a href="#pricing" style={navLinkStyle}>Pricing (€)</a>
             <a href="#faq" style={navLinkStyle}>FAQ</a>
           </nav>
 
@@ -520,7 +520,7 @@ export default function LandingPage({ goToLogin, goToSignUp, goTo }) {
               </div>
               <div>
                 <div style={{ fontSize: 11, fontWeight: 800, color: '#0F766E' }}>INSTANT 91% PAYOUT</div>
-                <div style={{ fontSize: 12.5, fontWeight: 800, color: '#0F172A' }}>+$26.39 Net Earned</div>
+                <div style={{ fontSize: 12.5, fontWeight: 800, color: '#0F172A' }}>+€26.39 Net Earned</div>
               </div>
             </div>
 
@@ -942,7 +942,7 @@ export default function LandingPage({ goToLogin, goToSignUp, goTo }) {
               Sell Ebooks, Courses & Files with 91% Net Payouts
             </h2>
             <p style={{ fontSize: 16, color: '#94A3B8', lineHeight: 1.6, margin: 0 }}>
-              Upload your digital files, set your price in $, and let buyers purchase with card or PayPal. Instant file download for buyers, 91% net payout for you.
+              Upload your digital files, set your price in €, and let buyers purchase with card or PayPal. Instant file download for buyers, 91% net payout for you.
             </p>
           </div>
 
@@ -1088,7 +1088,7 @@ export default function LandingPage({ goToLogin, goToSignUp, goTo }) {
         </div>
       </section>
 
-      {/* 5. PRICING PLANS ($0 14-DAYS FREE, $4.99 PRO, $11.99 BUSINESS) */}
+      {/* 5. PRICING PLANS (€0 14-DAYS FREE, €4.99 PRO, €11.99 BUSINESS) */}
       <section id="pricing" style={{ background: 'white', borderTop: '1px solid #E7EDEC', borderBottom: '1px solid #E7EDEC', padding: '90px 20px' }}>
         <div style={{ maxWidth: 1100, margin: '0 auto', textAlign: 'center' }}>
           {/* 14-Days Free Badge */}
@@ -1111,7 +1111,7 @@ export default function LandingPage({ goToLogin, goToSignUp, goTo }) {
           </div>
 
           <h2 style={{ fontSize: 'clamp(28px, 4vw, 38px)', fontWeight: 800, color: '#0F172A', margin: '6px 0' }}>
-            Simple, Transparent Pricing in USD ($)
+            Simple, Transparent Pricing in EUR (€)
           </h2>
           <p style={{ fontSize: 15, color: '#64748B', margin: '0 0 40px' }}>
             Start completely free for 14 days. Upgrade whenever you are ready to scale.
@@ -1126,11 +1126,11 @@ export default function LandingPage({ goToLogin, goToSignUp, goTo }) {
             }}
             className="pricing-grid"
           >
-            {/* Plan 1: 14-Days Free Trial ($0) */}
+            {/* Plan 1: 14-Days Free Trial (€0) */}
             <div style={{ border: '1px solid #E2E8F0', borderRadius: 24, padding: '32px 24px', background: '#F8FAFA', display: 'flex', flexDirection: 'column' }}>
               <span style={{ fontSize: 12, fontWeight: 800, color: '#64748B', letterSpacing: '0.06em' }}>14-DAY FULL ACCESS</span>
               <p style={{ fontSize: 34, fontWeight: 800, color: '#0F172A', margin: '10px 0 6px' }}>
-                $0 <span style={{ fontSize: 13, fontWeight: 600, color: '#8A97A3' }}>/ 14 days free</span>
+                €0 <span style={{ fontSize: 13, fontWeight: 600, color: '#8A97A3' }}>/ 14 days free</span>
               </p>
               <p style={{ fontSize: 12.5, color: '#64748B', margin: '0 0 20px', minHeight: 36 }}>
                 Full dashboard access to build your bio link, list products & test features.
@@ -1174,7 +1174,7 @@ export default function LandingPage({ goToLogin, goToSignUp, goTo }) {
               </button>
             </div>
 
-            {/* Plan 2: Pro Creator ($4.99) */}
+            {/* Plan 2: Pro Creator (€4.99) */}
             <div
               style={{
                 border: '2px solid #14B8A6',
