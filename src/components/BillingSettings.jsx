@@ -290,7 +290,22 @@ export default function BillingSettings({ user, profile, onSaved }) {
         }),
       })
 
-      const data = await res.json()
+      const rawText = await res.text()
+      let data = {}
+      try {
+        data = JSON.parse(rawText)
+      } catch (jsonErr) {
+        throw new Error(
+          !res.ok
+            ? `Server responded with error (${res.status}). Ensure STRIPE_SECRET_KEY is added to Vercel Environment Variables.`
+            : 'Invalid response from server. Check serverless deployment.'
+        )
+      }
+
+      if (!res.ok) {
+        setStripeError(data.error || `Server error (${res.status}): Failed to start Stripe checkout session.`)
+        return
+      }
 
       if (data.url) {
         setStripeCheckoutUrl(data.url)
@@ -315,13 +330,18 @@ export default function BillingSettings({ user, profile, onSaved }) {
       }
 
       if (!data.configured) {
-        setStripeError('Stripe API Key is not added yet in Settings. You can click "Test Instant Upgrade" below or add your STRIPE_SECRET_KEY in Settings.')
+        setStripeError(
+          data.error ||
+            'STRIPE_SECRET_KEY is not configured in Vercel. Add STRIPE_SECRET_KEY in Vercel Project Settings > Environment Variables.'
+        )
         setShowStripeGuide(true)
       } else {
         setStripeError(data.error || 'Failed to start Stripe checkout session.')
       }
     } catch (err) {
-      setStripeError('Network error connecting to Stripe. You can test with the Instant Upgrade button below.')
+      setStripeError(
+        err.message || 'Network error connecting to Stripe. You can test with the Instant Upgrade button below.'
+      )
     } finally {
       setStripeLoading(false)
     }
