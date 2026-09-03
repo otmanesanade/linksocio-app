@@ -39,27 +39,44 @@ export default function LinksManager({
   const [editingId, setEditingId] = useState(null)
   const [editLabel, setEditLabel] = useState('')
   const [editUrl, setEditUrl] = useState('')
+  const [linkError, setLinkError] = useState('')
 
   async function addLink(e) {
     if (e) e.preventDefault()
-    if (!label || !url) return
+    if (!label.trim() || !url.trim() || !profile?.id) return
     setAdding(true)
-    const normalized = /^https?:\/\//i.test(url) ? url : `https://${url}`
+    setLinkError('')
+    const normalized = /^https?:\/\//i.test(url.trim()) ? url.trim() : `https://${url.trim()}`
     const embedInfo = getMediaEmbedInfo(normalized)
     const initialStyle = embedInfo ? 'embed' : 'button'
-    const { error } = await supabase.from('links').insert({
+
+    const insertData = {
       user_id: profile.id,
       label: label.trim(),
       url: normalized.trim(),
       position: links.length,
       style: initialStyle,
-    })
+    }
+
+    let { error } = await supabase.from('links').insert(insertData)
+
+    // Schema fallback if style column does not exist in Supabase
+    if (error && (error.message?.includes('style') || error.code === '42703')) {
+      delete insertData.style
+      const retry = await supabase.from('links').insert(insertData)
+      error = retry.error
+    }
+
     setAdding(false)
-    if (!error) {
+    if (error) {
+      console.error('Failed to add link:', error)
+      setLinkError(error.message || 'Failed to save link. Please try again.')
+    } else {
       setLabel('')
       setUrl('')
       setActivePreset(null)
       setPresetInput('')
+      setLinkError('')
       onLinksChanged()
     }
   }
@@ -450,6 +467,11 @@ export default function LinksManager({
       {/* Add Custom Link Card */}
       <div style={{ background: 'white', border: '1px solid #E7EDEC', borderRadius: 20, padding: 20 }}>
         <p style={{ margin: '0 0 12px', fontSize: 14, fontWeight: 600, color: '#0F172A' }}>+ Add Custom Link</p>
+        {linkError && (
+          <div style={{ background: '#FEF2F2', border: '1px solid #FCA5A5', color: '#DC2626', padding: '10px 14px', borderRadius: 10, fontSize: 12.5, fontWeight: 600, marginBottom: 12 }}>
+            ⚠️ {linkError}
+          </div>
+        )}
         <form onSubmit={addLink} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           <input
             placeholder="Link Title (e.g. My Portfolio, WhatsApp Chat, TikTok)"

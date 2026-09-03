@@ -64,8 +64,9 @@ export default function App() {
   if (path === 'forgot-password') return <ForgotPassword goHome={() => goTo('')} switchToLogin={() => goTo('login')} />
   if (path === 'reset-password') return <ResetPassword goHome={() => goTo('')} onDone={() => goTo('login')} />
 
-  if (path && !reservedPaths.includes(path)) {
-    return <PublicProfile username={path.toLowerCase()} />
+  if (path && !reservedPaths.includes(path.toLowerCase())) {
+    const cleanUsername = path.replace(/^@+/, '')
+    return <PublicProfile username={cleanUsername} />
   }
 
   if (checking) {

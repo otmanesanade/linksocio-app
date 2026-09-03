@@ -18,13 +18,34 @@ export default function PublicProfile({ username }) {
 
   async function load() {
     setLoading(true)
-    const { data: profileData, error: profileErr } = await supabase
+    setNotFound(false)
+    const cleanUser = username ? String(username).trim().replace(/^@+/, '') : ''
+
+    if (!cleanUser) {
+      setNotFound(true)
+      setLoading(false)
+      return
+    }
+
+    // Try case-insensitive lookup first so e.g. Otman, otman, OTMAN all work
+    let { data: profileData } = await supabase
       .from('profiles')
       .select('*')
-      .eq('username', username)
-      .single()
+      .ilike('username', cleanUser)
+      .limit(1)
+      .maybeSingle()
 
-    if (profileErr || !profileData) {
+    if (!profileData) {
+      const fallback = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('username', cleanUser)
+        .limit(1)
+        .maybeSingle()
+      profileData = fallback.data
+    }
+
+    if (!profileData) {
       setNotFound(true)
       setLoading(false)
       return
@@ -99,9 +120,8 @@ export default function PublicProfile({ username }) {
     setLoading(false)
   }
 
-  const created = profile?.created_at ? new Date(profile.created_at) : null
   const isPaid = profile?.plan === 'pro' || profile?.plan === 'business'
-  const isTrialExpired = !isPaid && created && (Date.now() - created.getTime() > 14 * 24 * 60 * 60 * 1000)
+  const isTrialExpired = !isPaid && (profile?.trial_status === 'expired' || profile?.plan === 'expired' || profile?.status === 'suspended')
 
   if (loading) {
     return (

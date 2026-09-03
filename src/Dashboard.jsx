@@ -442,9 +442,33 @@ export default function Dashboard({ user, initialTab }) {
     a.click()
   }
 
+  function fallbackCopy(text) {
+    try {
+      const el = document.createElement('textarea')
+      el.value = text
+      el.style.position = 'fixed'
+      el.style.left = '-9999px'
+      document.body.appendChild(el)
+      el.select()
+      document.execCommand('copy')
+      document.body.removeChild(el)
+    } catch (e) {}
+  }
+
   function copyLink() {
-    if (!profile) return
-    navigator.clipboard.writeText(`https://linksocio.com/${profile.username}`)
+    if (!profile?.username) return
+    const url = `https://linksocio.com/${profile.username}`
+    try {
+      if (navigator?.clipboard?.writeText) {
+        navigator.clipboard.writeText(url).catch(() => {
+          fallbackCopy(url)
+        })
+      } else {
+        fallbackCopy(url)
+      }
+    } catch (e) {
+      fallbackCopy(url)
+    }
     setCopied(true)
     try {
       confetti({ particleCount: 40, spread: 50, origin: { y: 0.8 } })

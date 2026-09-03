@@ -34,11 +34,8 @@ export function getTrialStatus(user, profile) {
   if (billingData?.trialEndDate) {
     trialEnd = new Date(billingData.trialEndDate)
     trialStart = billingData.trialStartDate ? new Date(billingData.trialStartDate) : new Date(trialEnd.getTime() - 14 * 86400000)
-  } else if (profile?.created_at) {
-    trialStart = new Date(profile.created_at)
-    trialEnd = new Date(trialStart.getTime() + 14 * 86400000)
   } else {
-    // Brand new session: record 14 days
+    // Brand new or uninitialized session: record 14 days from now
     trialStart = now
     trialEnd = new Date(now.getTime() + 14 * 86400000)
     if (storageKey) {
