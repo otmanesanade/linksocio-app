@@ -384,6 +384,7 @@ export default function LandingPage({ goToLogin, goToSignUp, goTo }) {
 
             {/* Claim your handle input box */}
             <div
+              className="claim-input-box"
               style={{
                 background: 'white',
                 border: '2px solid #14B8A6',
@@ -394,11 +395,13 @@ export default function LandingPage({ goToLogin, goToSignUp, goTo }) {
                 gap: 8,
                 boxShadow: '0 12px 32px -8px rgba(20,184,166,0.2)',
                 maxWidth: 500,
+                width: '100%',
+                boxSizing: 'border-box',
                 marginTop: 6,
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 2, flex: 1, minWidth: 0 }}>
-                <span style={{ fontSize: 14, fontWeight: 700, color: '#14B8A6' }}>linksocio.com/</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 2, flex: 1, minWidth: 0, width: '100%' }}>
+                <span style={{ fontSize: 14, fontWeight: 700, color: '#14B8A6', whiteSpace: 'nowrap' }}>linksocio.com/</span>
                 <input
                   type="text"
                   placeholder="yourname"
@@ -413,6 +416,7 @@ export default function LandingPage({ goToLogin, goToSignUp, goTo }) {
                     color: '#0F172A',
                     width: '100%',
                     background: 'transparent',
+                    minWidth: 0,
                   }}
                 />
               </div>
@@ -431,7 +435,7 @@ export default function LandingPage({ goToLogin, goToSignUp, goTo }) {
                   boxShadow: '0 4px 14px rgba(20, 184, 166, 0.4)',
                   transition: 'all 0.15s ease',
                 }}
-                className="btn-scale"
+                className="btn-scale claim-btn"
               >
                 Claim Link (14-Day Free) →
               </button>
@@ -1403,6 +1407,7 @@ export default function LandingPage({ goToLogin, goToSignUp, goTo }) {
 
           <form
             onSubmit={handleClaimSubmit}
+            className="claim-bottom-form"
             style={{
               background: 'rgba(255,255,255,0.08)',
               border: '1px solid rgba(255,255,255,0.15)',
@@ -1412,10 +1417,12 @@ export default function LandingPage({ goToLogin, goToSignUp, goTo }) {
               alignItems: 'center',
               gap: 8,
               maxWidth: 460,
+              width: '100%',
+              boxSizing: 'border-box',
               margin: '0 auto',
             }}
           >
-            <span style={{ fontSize: 14, color: '#94A3B8', fontWeight: 700 }}>linksocio.com/</span>
+            <span style={{ fontSize: 14, color: '#94A3B8', fontWeight: 700, whiteSpace: 'nowrap' }}>linksocio.com/</span>
             <input
               type="text"
               placeholder="yourname"
@@ -1430,6 +1437,7 @@ export default function LandingPage({ goToLogin, goToSignUp, goTo }) {
                 fontWeight: 700,
                 flex: 1,
                 minWidth: 0,
+                width: '100%',
               }}
             />
             <button
@@ -1503,13 +1511,42 @@ export default function LandingPage({ goToLogin, goToSignUp, goTo }) {
           transform: translateY(0px);
         }
         @media (max-width: 900px) {
-          .hero-grid { grid-template-columns: 1fr !important; gap: 40px !important; text-align: center; }
+          .hero-grid { grid-template-columns: 1fr !important; gap: 36px !important; text-align: center; }
           .hero-grid > div:first-child { align-items: center !important; }
           .hero-grid p { text-align: center !important; }
           .features-grid { grid-template-columns: 1fr !important; }
           .pricing-grid { grid-template-columns: 1fr !important; }
           .desktop-nav { display: none !important; }
           .desktop-only { display: none !important; }
+        }
+        @media (max-width: 600px) {
+          .claim-input-box {
+            flex-direction: column !important;
+            padding: 12px !important;
+            gap: 10px !important;
+            border-radius: 18px !important;
+          }
+          .claim-input-box > div {
+            width: 100% !important;
+            justify-content: center !important;
+          }
+          .claim-btn {
+            width: 100% !important;
+            padding: 12px 16px !important;
+            font-size: 13.5px !important;
+          }
+          .claim-bottom-form {
+            flex-direction: column !important;
+            padding: 12px !important;
+            gap: 10px !important;
+            border-radius: 18px !important;
+          }
+          .claim-bottom-form > input {
+            text-align: center !important;
+          }
+          .claim-bottom-form > button {
+            width: 100% !important;
+          }
         }
       `}</style>
     </div>

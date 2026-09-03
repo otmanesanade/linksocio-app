@@ -12,6 +12,7 @@ import BookingTab, { fetchServerBookingSettings, getStoredBookings } from './Boo
 import RestaurantTab, { fetchServerRestaurantMenu } from './RestaurantTab'
 import NotificationTab from './NotificationTab'
 import PayoutsTab from './PayoutsTab'
+import SettingsTab from './SettingsTab'
 import { getNotificationSettings, playNotificationSound } from './notificationService'
 import { LivePagePreview } from './components/LivePagePreview'
 import confetti from 'canvas-confetti'
@@ -444,6 +445,7 @@ export default function Dashboard({ user }) {
     { key: 'theme', label: 'Appearance & Themes', icon: '🎨' },
     { key: 'qr', label: 'QR Code', icon: '🔲' },
     { key: 'analytics', label: 'Analytics', icon: '📊' },
+    { key: 'settings', label: 'Settings', icon: '⚙️' },
   ]
 
   const currentNavItem = navItems.find((it) => it.key === tab) || navItems[0]
@@ -1005,6 +1007,9 @@ export default function Dashboard({ user }) {
           )}
           {tab === 'analytics' && (
             <Analytics links={links} />
+          )}
+          {tab === 'settings' && (
+            <SettingsTab user={user} profile={profile} onSaved={loadProfile} />
           )}
         </div>
 
