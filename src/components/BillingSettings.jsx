@@ -513,7 +513,7 @@ export default function BillingSettings({ user, profile, onSaved }) {
               borderRadius: 100,
             }}
           >
-            Currency: EUR (€) / USD ($)
+            Currency: EUR (€)
           </span>
         </div>
       </div>
@@ -797,7 +797,7 @@ export default function BillingSettings({ user, profile, onSaved }) {
               Current Rate
             </div>
             <div style={{ fontSize: 32, fontWeight: 800, margin: '2px 0 6px' }}>
-              ${billingData.planId === 'free_trial' ? '0' : currentPlan.priceMonthly}
+              €{billingData.planId === 'free_trial' ? '0' : currentPlan.priceMonthly}
               <span style={{ fontSize: 13, fontWeight: 600, color: billingData.planId !== 'free_trial' ? '#94A3B8' : '#64748B' }}>
                 {billingData.planId === 'free_trial' ? ' / 14d free' : ' / month'}
               </span>
@@ -992,7 +992,7 @@ export default function BillingSettings({ user, profile, onSaved }) {
 
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, margin: '8px 0 10px' }}>
                   <span style={{ fontSize: 30, fontWeight: 800, color: '#0F172A' }}>
-                    ${price}
+                    €{price}
                   </span>
                   <span style={{ fontSize: 12.5, color: '#64748B', fontWeight: 600 }}>
                     {p.id === 'free_trial' ? '/ 14 days free' : billingCycle === 'yearly' ? '/ month (billed annually)' : '/ month'}
@@ -1218,7 +1218,7 @@ export default function BillingSettings({ user, profile, onSaved }) {
 
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     <span style={{ fontWeight: 800, color: '#0F172A', fontSize: 13 }}>
-                      ${Number(inv.amount).toFixed(2)}
+                      €{Number(inv.amount).toFixed(2)}
                     </span>
                     <button
                       type="button"
@@ -1299,7 +1299,7 @@ export default function BillingSettings({ user, profile, onSaved }) {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
                 <span style={{ fontSize: 13, fontWeight: 700, color: '#0F172A' }}>{selectedPlanForUpgrade.name}</span>
                 <span style={{ fontSize: 16, fontWeight: 800, color: '#14B8A6' }}>
-                  ${billingCycle === 'yearly' ? selectedPlanForUpgrade.yearlyTotal : selectedPlanForUpgrade.priceMonthly}
+                  €{billingCycle === 'yearly' ? selectedPlanForUpgrade.yearlyTotal : selectedPlanForUpgrade.priceMonthly}
                   <span style={{ fontSize: 11, fontWeight: 600, color: '#64748B' }}>
                     {billingCycle === 'yearly' ? ' / year' : ' / month'}
                   </span>
@@ -1730,7 +1730,7 @@ export default function BillingSettings({ user, profile, onSaved }) {
                 <span style={{ flex: 3 }}>{selectedInvoice.description}</span>
                 <span style={{ flex: 1, textAlign: 'center' }}>1</span>
                 <span style={{ flex: 1, textAlign: 'right', fontWeight: 700 }}>
-                  ${Number(selectedInvoice.amount).toFixed(2)}
+                  €{Number(selectedInvoice.amount).toFixed(2)}
                 </span>
               </div>
             </div>
@@ -1739,15 +1739,15 @@ export default function BillingSettings({ user, profile, onSaved }) {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end', marginBottom: 24, fontSize: 12.5 }}>
               <div style={{ display: 'flex', gap: 30, color: '#64748B' }}>
                 <span>Subtotal:</span>
-                <span>${Number(selectedInvoice.amount).toFixed(2)}</span>
+                <span>€{Number(selectedInvoice.amount).toFixed(2)}</span>
               </div>
               <div style={{ display: 'flex', gap: 30, color: '#64748B' }}>
                 <span>Taxes (0%):</span>
-                <span>$0.00</span>
+                <span>€0.00</span>
               </div>
               <div style={{ display: 'flex', gap: 30, fontSize: 15, fontWeight: 800, color: '#0F172A', borderTop: '2px solid #E2E8F0', paddingTop: 6 }}>
                 <span>Total Paid:</span>
-                <span style={{ color: '#14B8A6' }}>${Number(selectedInvoice.amount).toFixed(2)} USD</span>
+                <span style={{ color: '#14B8A6' }}>€{Number(selectedInvoice.amount).toFixed(2)} EUR</span>
               </div>
               <div style={{ fontSize: 11, color: '#94A3B8', marginTop: 4 }}>
                 Paid via {billingData.paymentMethod?.brand?.toUpperCase() || 'VISA'} ending in {billingData.paymentMethod?.last4 || '4242'}

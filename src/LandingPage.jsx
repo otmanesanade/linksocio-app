@@ -1206,7 +1206,7 @@ export default function LandingPage({ goToLogin, goToSignUp, goTo }) {
               </div>
               <span style={{ fontSize: 12, fontWeight: 800, color: '#0D9488', letterSpacing: '0.06em' }}>PRO CREATOR</span>
               <p style={{ fontSize: 34, fontWeight: 800, color: '#0F172A', margin: '10px 0 6px' }}>
-                $4.99 <span style={{ fontSize: 13, fontWeight: 600, color: '#8A97A3' }}>/ month</span>
+                €4.99 <span style={{ fontSize: 13, fontWeight: 600, color: '#8A97A3' }}>/ month</span>
               </p>
               <p style={{ fontSize: 12.5, color: '#64748B', margin: '0 0 20px', minHeight: 36 }}>
                 For individual creators, coaches & freelancers wanting a premium page.
@@ -1246,15 +1246,15 @@ export default function LandingPage({ goToLogin, goToSignUp, goTo }) {
                 }}
                 className="btn-scale"
               >
-                Get Started ($4.99/mo) 🚀
+                Get Started (€4.99/mo) 🚀
               </button>
             </div>
 
-            {/* Plan 3: Business & Agency ($11.99) */}
+            {/* Plan 3: Business & Agency (€11.99) */}
             <div style={{ border: '1px solid #CBD5E1', borderRadius: 24, padding: '32px 24px', background: '#F8FAFA', display: 'flex', flexDirection: 'column' }}>
               <span style={{ fontSize: 12, fontWeight: 800, color: '#6366F1', letterSpacing: '0.06em' }}>BUSINESS & AGENCY</span>
               <p style={{ fontSize: 34, fontWeight: 800, color: '#0F172A', margin: '10px 0 6px' }}>
-                $11.99 <span style={{ fontSize: 13, fontWeight: 600, color: '#8A97A3' }}>/ month</span>
+                €11.99 <span style={{ fontSize: 13, fontWeight: 600, color: '#8A97A3' }}>/ month</span>
               </p>
               <p style={{ fontSize: 12.5, color: '#64748B', margin: '0 0 20px', minHeight: 36 }}>
                 For high-volume stores, restaurant chains, and commercial agencies.
@@ -1293,7 +1293,7 @@ export default function LandingPage({ goToLogin, goToSignUp, goTo }) {
                 }}
                 className="btn-scale"
               >
-                Choose Business ($11.99/mo)
+                Choose Business (€11.99/mo)
               </button>
             </div>
           </div>
@@ -1319,7 +1319,7 @@ export default function LandingPage({ goToLogin, goToSignUp, goTo }) {
             },
             {
               q: 'What are the pricing options after the 14 days?',
-              a: 'You can continue with the Pro Creator plan at $4.99/month, or the Business plan at $11.99/month for higher volume and advanced capabilities.',
+              a: 'You can continue with the Pro Creator plan at €4.99/month, or the Business plan at €11.99/month for higher volume and advanced capabilities.',
             },
             {
               q: 'How do digital product sales and payouts work?',
