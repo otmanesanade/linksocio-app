@@ -76,9 +76,16 @@ export default function PublicProfile({ username }) {
       profileData._restaurantMenu = restaurantMenu
     }
 
-    if (!profileData.location && profileData.username) {
-      const storedLoc = localStorage.getItem(`linksocio_profile_location_${profileData.username}`)
+    if (!profileData.location) {
+      const storedLoc = (profileData.username && localStorage.getItem(`linksocio_profile_location_${profileData.username}`)) ||
+                        (profileData.id && localStorage.getItem(`linksocio_profile_location_${profileData.id}`))
       if (storedLoc) profileData.location = storedLoc
+    }
+
+    if (!profileData.whatsapp) {
+      const storedWa = (profileData.username && localStorage.getItem(`linksocio_contact_whatsapp_${profileData.username}`)) ||
+                       (profileData.id && localStorage.getItem(`linksocio_contact_whatsapp_${profileData.id}`))
+      if (storedWa) profileData.whatsapp = storedWa
     }
 
     setProfile(profileData)

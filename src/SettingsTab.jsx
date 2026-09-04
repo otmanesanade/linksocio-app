@@ -115,35 +115,48 @@ export default function SettingsTab({ user, profile, onSaved, initialSubTab = 'p
     }
 
     setProfileSaving(true)
+    setProfileError('')
 
-    const updatePayload = {
+    // Only send fields that exist in the Supabase 'profiles' table schema
+    const validProfilePayload = {
+      id: user.id,
+      username: cleanUsername,
       display_name: cleanName,
       bio: cleanBio,
-      location: cleanLocation,
-      username: cleanUsername,
-      whatsapp: cleanWhatsapp,
     }
 
     try {
+      // Upsert ensures the profile is created if not already present or updated if existing
       const { error: updateError } = await supabase
         .from('profiles')
-        .update(updatePayload)
-        .eq('id', user.id)
+        .upsert(validProfilePayload)
 
       if (updateError) {
-        setProfileError(updateError.message || 'Failed to update profile.')
+        setProfileError(
+          updateError.message?.includes('unique') || updateError.message?.includes('duplicate')
+            ? 'This username is already taken. Please choose another.'
+            : updateError.message || 'Failed to update profile.'
+        )
         setProfileSaving(false)
         return
       }
 
-      // Local storage sync
+      // Local storage sync for Location & WhatsApp (since they are client-handled metadata)
       try {
         if (cleanLocation) {
           localStorage.setItem(`linksocio_profile_location_${cleanUsername}`, cleanLocation)
+          localStorage.setItem(`linksocio_profile_location_${user.id}`, cleanLocation)
         } else {
           localStorage.removeItem(`linksocio_profile_location_${cleanUsername}`)
+          localStorage.removeItem(`linksocio_profile_location_${user.id}`)
         }
-        if (cleanWhatsapp) localStorage.setItem(`linksocio_contact_whatsapp_${cleanUsername}`, cleanWhatsapp)
+        if (cleanWhatsapp) {
+          localStorage.setItem(`linksocio_contact_whatsapp_${cleanUsername}`, cleanWhatsapp)
+          localStorage.setItem(`linksocio_contact_whatsapp_${user.id}`, cleanWhatsapp)
+        } else {
+          localStorage.removeItem(`linksocio_contact_whatsapp_${cleanUsername}`)
+          localStorage.removeItem(`linksocio_contact_whatsapp_${user.id}`)
+        }
       } catch (e) {}
 
       setProfileSaved(true)

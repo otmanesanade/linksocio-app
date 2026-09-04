@@ -17,6 +17,7 @@ const QUICK_PRESETS = [
 ]
 
 export default function LinksManager({
+  user,
   profile,
   links,
   onLinksChanged,
@@ -43,18 +44,40 @@ export default function LinksManager({
 
   async function addLink(e) {
     if (e) e.preventDefault()
-    if (!label.trim() || !url.trim() || !profile?.id) return
+    if (!label.trim() || !url.trim()) return
+
+    const targetUserId = profile?.id || user?.id
+    if (!targetUserId) {
+      setLinkError('User session not found. Please refresh the page.')
+      return
+    }
+
     setAdding(true)
     setLinkError('')
     const normalized = /^https?:\/\//i.test(url.trim()) ? url.trim() : `https://${url.trim()}`
     const embedInfo = getMediaEmbedInfo(normalized)
     const initialStyle = embedInfo ? 'embed' : 'button'
 
+    // Make sure a profile row exists in Supabase so foreign key or user reference is valid
+    try {
+      const { data: existingProf } = await supabase.from('profiles').select('id').eq('id', targetUserId).maybeSingle()
+      if (!existingProf) {
+        const fallbackName = profile?.username || (user?.email ? user.email.split('@')[0] : 'user')
+        await supabase.from('profiles').upsert({
+          id: targetUserId,
+          username: fallbackName,
+          display_name: profile?.display_name || fallbackName,
+        })
+        if (onProfileSaved) onProfileSaved()
+      }
+    } catch (e) {}
+
     const insertData = {
-      user_id: profile.id,
+      user_id: targetUserId,
       label: label.trim(),
       url: normalized.trim(),
       position: links.length,
+      active: true,
       style: initialStyle,
     }
 
@@ -63,6 +86,20 @@ export default function LinksManager({
     // Schema fallback if style column does not exist in Supabase
     if (error && (error.message?.includes('style') || error.code === '42703')) {
       delete insertData.style
+      const retry = await supabase.from('links').insert(insertData)
+      error = retry.error
+    }
+
+    // Schema fallback if position column does not exist in Supabase
+    if (error && (error.message?.includes('position') || error.code === '42703')) {
+      delete insertData.position
+      const retry = await supabase.from('links').insert(insertData)
+      error = retry.error
+    }
+
+    // Schema fallback if active column does not exist in Supabase
+    if (error && (error.message?.includes('active') || error.code === '42703')) {
+      delete insertData.active
       const retry = await supabase.from('links').insert(insertData)
       error = retry.error
     }

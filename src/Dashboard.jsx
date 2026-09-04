@@ -61,8 +61,12 @@ function ProfileCard({ user, profile, onSaved }) {
     setSaving(true)
     const { error: updateError } = await supabase
       .from('profiles')
-      .update({ display_name: cleanName, bio: cleanBio, location: cleanLocation })
-      .eq('id', profile.id)
+      .upsert({
+        id: profile?.id || user?.id,
+        username: profile?.username || (user?.email ? user.email.split('@')[0] : 'user'),
+        display_name: cleanName,
+        bio: cleanBio,
+      })
 
     setSaving(false)
 
@@ -71,15 +75,15 @@ function ProfileCard({ user, profile, onSaved }) {
       return
     }
 
-    if (profile?.username) {
-      try {
-        if (cleanLocation) {
-          localStorage.setItem(`linksocio_profile_location_${profile.username}`, cleanLocation)
-        } else {
-          localStorage.removeItem(`linksocio_profile_location_${profile.username}`)
-        }
-      } catch (e) {}
-    }
+    try {
+      if (cleanLocation) {
+        if (profile?.username) localStorage.setItem(`linksocio_profile_location_${profile.username}`, cleanLocation)
+        if (user?.id) localStorage.setItem(`linksocio_profile_location_${user.id}`, cleanLocation)
+      } else {
+        if (profile?.username) localStorage.removeItem(`linksocio_profile_location_${profile.username}`)
+        if (user?.id) localStorage.removeItem(`linksocio_profile_location_${user.id}`)
+      }
+    } catch (e) {}
 
     setDisplayName(cleanName)
     setBio(cleanBio)
@@ -349,10 +353,20 @@ export default function Dashboard({ user, initialTab }) {
   }
 
   async function loadProfile() {
-    const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single()
+    let { data } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle()
     if (!data) {
-      setProfile(null)
-      return
+      const fallbackUser = (user?.email ? user.email.split('@')[0] : 'user').toLowerCase().replace(/[^a-z0-9_-]/g, '')
+      const newProf = {
+        id: user.id,
+        username: fallbackUser,
+        display_name: fallbackUser,
+      }
+      try {
+        const { data: created } = await supabase.from('profiles').upsert(newProf).select().maybeSingle()
+        data = created || newProf
+      } catch (e) {
+        data = newProf
+      }
     }
 
     const [serverInquiry, serverBooking] = await Promise.all([
@@ -374,9 +388,16 @@ export default function Dashboard({ user, initialTab }) {
       }
     }
 
-    if (!data.location && data.username) {
-      const storedLoc = localStorage.getItem(`linksocio_profile_location_${data.username}`)
+    if (!data.location) {
+      const storedLoc = (data.username && localStorage.getItem(`linksocio_profile_location_${data.username}`)) ||
+                        (user?.id && localStorage.getItem(`linksocio_profile_location_${user.id}`))
       if (storedLoc) data.location = storedLoc
+    }
+
+    if (!data.whatsapp) {
+      const storedWa = (data.username && localStorage.getItem(`linksocio_contact_whatsapp_${data.username}`)) ||
+                       (user?.id && localStorage.getItem(`linksocio_contact_whatsapp_${user.id}`))
+      if (storedWa) data.whatsapp = storedWa
     }
 
     // Auto-detect Owner / VIP status and guarantee permanent Business & Agency unlock
@@ -395,7 +416,6 @@ export default function Dashboard({ user, initialTab }) {
           localStorage.setItem(`linksocio_lifetime_${user.id}`, 'true')
           localStorage.setItem(`linksocio_hide_branding_${user.id}`, 'true')
         }
-        supabase.from('profiles').update({ plan: 'business', hide_branding: true }).eq('id', user.id).then(() => {})
       } catch (e) {}
     }
 
@@ -1153,6 +1173,7 @@ export default function Dashboard({ user, initialTab }) {
             <div>
               <ProfileCard user={user} profile={profile} onSaved={loadProfile} />
               <LinksManager
+                user={user}
                 profile={profile}
                 links={links}
                 onLinksChanged={loadLinks}
