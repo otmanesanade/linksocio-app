@@ -130,9 +130,19 @@ export function LivePagePreview({ profile, links = [], products = [], isEmbedded
     }
   }, [profile?.username])
 
-  const themeKey = profile?.theme_preset || 'default'
-  const fontKey = profile?.font_family || 'default'
-  const buttonKey = profile?.button_style || 'rounded'
+  const themeKey =
+    profile?.theme_preset ||
+    (profile?.username && typeof window !== 'undefined' && localStorage.getItem(`linksocio_theme_preset_${profile.username}`)) ||
+    (profile?.id && typeof window !== 'undefined' && localStorage.getItem(`linksocio_theme_preset_${profile.id}`)) ||
+    'default'
+  const fontKey =
+    profile?.font_family ||
+    (profile?.username && typeof window !== 'undefined' && localStorage.getItem(`linksocio_font_family_${profile.username}`)) ||
+    'default'
+  const buttonKey =
+    profile?.button_style ||
+    (profile?.username && typeof window !== 'undefined' && localStorage.getItem(`linksocio_button_style_${profile.username}`)) ||
+    'rounded'
 
   const theme = getTheme(themeKey)
   const font = getFont(fontKey)
@@ -290,33 +300,52 @@ export function LivePagePreview({ profile, links = [], products = [], isEmbedded
             </a>
           )}
           {/* Header info */}
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', position: 'relative', width: '100%' }}>
+            {/* Ambient spotlight behind avatar for photo themes */}
+            {theme.avatarSpotlight && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: isEmbedded ? -12 : -18,
+                  width: isEmbedded ? 140 : 190,
+                  height: isEmbedded ? 140 : 190,
+                  borderRadius: '50%',
+                  background: theme.avatarSpotlight,
+                  filter: 'blur(20px)',
+                  pointerEvents: 'none',
+                  zIndex: 0,
+                }}
+              />
+            )}
+
             <div
               style={{
-                width: isEmbedded ? 64 : 88,
-                height: isEmbedded ? 64 : 88,
-                borderRadius: '50%',
+                width: theme.avatarSize === 'hero' ? (isEmbedded ? 82 : 108) : theme.avatarSize === 'large' ? (isEmbedded ? 74 : 96) : (isEmbedded ? 64 : 88),
+                height: theme.avatarSize === 'hero' ? (isEmbedded ? 82 : 108) : theme.avatarSize === 'large' ? (isEmbedded ? 74 : 96) : (isEmbedded ? 64 : 88),
+                borderRadius: theme.avatarShape === 'squircle' ? (isEmbedded ? 22 : 30) : '50%',
                 background: profile?.avatar_url
                   ? '#F1F5F9'
                   : `linear-gradient(135deg, ${color}, #0F172A)`,
-                border: '3px solid white',
-                boxShadow: `0 4px 16px ${color}33`,
+                border: theme.avatarBorder || '3px solid white',
+                boxShadow: theme.avatarRing || `0 4px 16px ${color}33`,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 color: '#ffffff',
-                fontSize: isEmbedded ? 22 : 30,
+                fontSize: theme.avatarSize === 'hero' ? (isEmbedded ? 28 : 36) : (isEmbedded ? 22 : 30),
                 fontWeight: 700,
-                marginBottom: isEmbedded ? 10 : 14,
+                marginBottom: isEmbedded ? 11 : 15,
                 overflow: 'hidden',
                 position: 'relative',
+                zIndex: 1,
+                transition: 'all 0.25s ease',
               }}
             >
               {profile?.avatar_url ? (
                 <img
                   src={profile.avatar_url}
                   alt={profile?.display_name || profile?.username || 'Avatar'}
-                  style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                  style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', transition: 'transform 0.3s ease' }}
                 />
               ) : (
                 profile?.display_name?.[0]?.toUpperCase() || profile?.username?.[0]?.toUpperCase() || '?'
