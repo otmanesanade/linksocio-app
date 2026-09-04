@@ -16,7 +16,7 @@ import SettingsTab from './SettingsTab'
 import { getNotificationSettings, playNotificationSound } from './notificationService'
 import { LivePagePreview } from './components/LivePagePreview'
 import confetti from 'canvas-confetti'
-import { getTrialStatus } from './utils/trialHelper'
+import { getTrialStatus, checkIsOwnerOrVip } from './utils/trialHelper'
 import TrialExpiredPaywall from './components/TrialExpiredPaywall'
 
 function ProfileCard({ user, profile, onSaved }) {
@@ -371,6 +371,26 @@ export default function Dashboard({ user, initialTab }) {
     if (!data.location && data.username) {
       const storedLoc = localStorage.getItem(`linksocio_profile_location_${data.username}`)
       if (storedLoc) data.location = storedLoc
+    }
+
+    // Auto-detect Owner / VIP status and guarantee permanent Business & Agency unlock
+    const isOwnerVip = checkIsOwnerOrVip(user, data)
+    if (isOwnerVip) {
+      data.plan = 'business'
+      data.hide_branding = true
+      data.is_owner = true
+      try {
+        if (data.username) {
+          localStorage.setItem('linksocio_owner_bypass', 'true')
+          localStorage.setItem(`linksocio_lifetime_${data.username}`, 'true')
+          localStorage.setItem(`linksocio_hide_branding_${data.username}`, 'true')
+        }
+        if (user?.id) {
+          localStorage.setItem(`linksocio_lifetime_${user.id}`, 'true')
+          localStorage.setItem(`linksocio_hide_branding_${user.id}`, 'true')
+        }
+        supabase.from('profiles').update({ plan: 'business', hide_branding: true }).eq('id', user.id).then(() => {})
+      } catch (e) {}
     }
 
     setProfile({ ...data, _ts: Date.now() })
@@ -1014,6 +1034,57 @@ export default function Dashboard({ user, initialTab }) {
 
         {/* Center Editing Workspace */}
         <div>
+          {/* Owner VIP Permanent Status Banner */}
+          {trial.isOwner && (
+            <div
+              style={{
+                background: 'linear-gradient(135deg, #042F2E 0%, #0F172A 100%)',
+                border: '1px solid #14B8A6',
+                borderRadius: 16,
+                padding: '12px 18px',
+                marginBottom: 16,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: 12,
+                boxShadow: '0 4px 14px rgba(20, 184, 166, 0.18)',
+                color: 'white',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontSize: 22 }}>👑</span>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: '#2DD4BF', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span>Owner / VIP Account Active</span>
+                    <span style={{ fontSize: 10.5, background: '#14B8A6', color: 'white', padding: '1px 7px', borderRadius: 100, fontWeight: 800 }}>
+                      100% FREE FOREVER (بلا خلاص)
+                    </span>
+                  </div>
+                  <div style={{ fontSize: 11.5, color: '#94A3B8' }}>
+                    All Business & Agency features unlocked permanently. No subscription or payment required.
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setTab('billing')}
+                style={{
+                  background: 'rgba(20, 184, 166, 0.2)',
+                  border: '1px solid #14B8A6',
+                  color: '#2DD4BF',
+                  borderRadius: 10,
+                  padding: '7px 14px',
+                  fontSize: 12,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                }}
+              >
+                VIP Billing & Plan ⚡
+              </button>
+            </div>
+          )}
+
           {/* 14-Day Free Trial Notice Banner */}
           {trial.isTrialActive && (
             <div

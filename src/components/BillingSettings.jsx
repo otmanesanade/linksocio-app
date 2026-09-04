@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import confetti from 'canvas-confetti'
 import { supabase } from '../supabaseClient'
+import { checkIsOwnerOrVip } from '../utils/trialHelper'
 
 export const PLANS = [
   {
@@ -253,14 +254,17 @@ export default function BillingSettings({ user, profile, onSaved }) {
     } catch (e) {}
   }
 
-  // Calculate Trial Remaining
+  // Calculate Trial Remaining & VIP Owner status
+  const isOwnerVip = checkIsOwnerOrVip(user, profile)
+  const activePlanId = isOwnerVip ? 'business' : (profile?.plan || billingData.planId || 'free_trial')
+
   const now = new Date()
   const trialEnd = new Date(billingData.trialEndDate || now.getTime() + 10 * 86400000)
-  const daysRemaining = Math.max(0, Math.ceil((trialEnd - now) / (1000 * 60 * 60 * 24)))
-  const trialDaysUsed = Math.min(14, Math.max(0, 14 - daysRemaining))
-  const trialProgressPercent = Math.min(100, Math.round((trialDaysUsed / 14) * 100))
+  const daysRemaining = isOwnerVip ? 99999 : Math.max(0, Math.ceil((trialEnd - now) / (1000 * 60 * 60 * 24)))
+  const trialDaysUsed = isOwnerVip ? 0 : Math.min(14, Math.max(0, 14 - daysRemaining))
+  const trialProgressPercent = isOwnerVip ? 100 : Math.min(100, Math.round((trialDaysUsed / 14) * 100))
 
-  const currentPlan = PLANS.find((p) => p.id === billingData.planId) || PLANS[0]
+  const currentPlan = PLANS.find((p) => p.id === activePlanId) || PLANS[0]
 
   // Handle Official Stripe Checkout
   async function handleStripeCheckout() {
@@ -694,17 +698,18 @@ export default function BillingSettings({ user, profile, onSaved }) {
       {/* 2. Active Plan Status Card & Trial Countdown */}
       <div
         style={{
-          background:
-            billingData.planId === 'pro'
-              ? 'linear-gradient(135deg, #0F172A 0%, #1E293B 100%)'
-              : billingData.planId === 'business'
-              ? 'linear-gradient(135deg, #1E1B4B 0%, #312E81 100%)'
-              : 'white',
-          color: billingData.planId !== 'free_trial' ? 'white' : '#0F172A',
-          border: billingData.planId === 'free_trial' ? '2px solid #14B8A6' : '1px solid #334155',
+          background: isOwnerVip
+            ? 'linear-gradient(135deg, #042F2E 0%, #0F172A 100%)'
+            : activePlanId === 'pro'
+            ? 'linear-gradient(135deg, #0F172A 0%, #1E293B 100%)'
+            : activePlanId === 'business'
+            ? 'linear-gradient(135deg, #1E1B4B 0%, #312E81 100%)'
+            : 'white',
+          color: isOwnerVip || activePlanId !== 'free_trial' ? 'white' : '#0F172A',
+          border: isOwnerVip ? '2px solid #14B8A6' : activePlanId === 'free_trial' ? '2px solid #14B8A6' : '1px solid #334155',
           borderRadius: 22,
           padding: '26px',
-          boxShadow: '0 8px 24px -6px rgba(0,0,0,0.06)',
+          boxShadow: isOwnerVip ? '0 8px 30px rgba(20, 184, 166, 0.25)' : '0 8px 24px -6px rgba(0,0,0,0.06)',
           position: 'relative',
           overflow: 'hidden',
         }}
@@ -720,11 +725,11 @@ export default function BillingSettings({ user, profile, onSaved }) {
         >
           {/* Plan Info */}
           <div style={{ maxWidth: 520 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, flexWrap: 'wrap' }}>
               <span
                 style={{
-                  background: billingData.planId === 'free_trial' ? '#ECFDF5' : '#14B8A6',
-                  color: billingData.planId === 'free_trial' ? '#047857' : 'white',
+                  background: isOwnerVip ? '#14B8A6' : activePlanId === 'free_trial' ? '#ECFDF5' : '#14B8A6',
+                  color: !isOwnerVip && activePlanId === 'free_trial' ? '#047857' : 'white',
                   fontSize: 11,
                   fontWeight: 800,
                   letterSpacing: '0.04em',
@@ -732,40 +737,44 @@ export default function BillingSettings({ user, profile, onSaved }) {
                   borderRadius: 100,
                 }}
               >
-                {billingData.status === 'cancelled'
+                {isOwnerVip
+                  ? '👑 OWNER / VIP ACCOUNT — 100% FREE FOREVER (LIFETIME)'
+                  : billingData.status === 'cancelled'
                   ? 'SUBSCRIPTION CANCELLED'
-                  : billingData.planId === 'free_trial'
+                  : activePlanId === 'free_trial'
                   ? '🟢 14-DAY FULL ACCESS TRIAL'
                   : `✨ ${currentPlan.name.toUpperCase()} ACTIVE`}
               </span>
               <span
                 style={{
                   fontSize: 12,
-                  color: billingData.planId !== 'free_trial' ? '#94A3B8' : '#64748B',
+                  color: isOwnerVip || activePlanId !== 'free_trial' ? '#94A3B8' : '#64748B',
                   fontWeight: 600,
                 }}
               >
-                Auto-Renew: {billingData.autoRenew ? 'ON ✓' : 'OFF'}
+                Auto-Renew: {isOwnerVip ? 'LIFETIME FREE (بلا خلاص)' : billingData.autoRenew ? 'ON ✓' : 'OFF'}
               </span>
             </div>
 
-            <h3 style={{ margin: '4px 0 8px', fontSize: 24, fontWeight: 800 }}>
-              {currentPlan.name}
+            <h3 style={{ margin: '4px 0 8px', fontSize: 24, fontWeight: 800, color: isOwnerVip ? '#2DD4BF' : 'inherit' }}>
+              {isOwnerVip ? '👑 LinkSocio Owner & VIP — Business & Agency Plan' : currentPlan.name}
             </h3>
 
             <p
               style={{
                 margin: 0,
                 fontSize: 13.5,
-                color: billingData.planId !== 'free_trial' ? '#CBD5E1' : '#64748B',
+                color: isOwnerVip || activePlanId !== 'free_trial' ? '#CBD5E1' : '#64748B',
                 lineHeight: 1.5,
               }}
             >
-              {currentPlan.desc}
+              {isOwnerVip
+                ? 'Welcome Otman! You have permanent unlimited access to all Business & Agency features, unlimited store capacity, custom themes, and watermark removal. You will never be charged.'
+                : currentPlan.desc}
             </p>
 
             {/* Trial progress tracker */}
-            {billingData.planId === 'free_trial' && (
+            {!isOwnerVip && activePlanId === 'free_trial' && (
               <div style={{ marginTop: 20, maxWidth: 440 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, fontWeight: 700, marginBottom: 6 }}>
                   <span style={{ color: '#0D9488' }}>
@@ -793,71 +802,94 @@ export default function BillingSettings({ user, profile, onSaved }) {
 
           {/* Right Side: Price & Action */}
           <div style={{ textAlign: 'right', minWidth: 180 }}>
-            <div style={{ fontSize: 12, color: billingData.planId !== 'free_trial' ? '#94A3B8' : '#64748B', fontWeight: 600 }}>
+            <div style={{ fontSize: 12, color: isOwnerVip || activePlanId !== 'free_trial' ? '#94A3B8' : '#64748B', fontWeight: 600 }}>
               Current Rate
             </div>
-            <div style={{ fontSize: 32, fontWeight: 800, margin: '2px 0 6px' }}>
-              €{billingData.planId === 'free_trial' ? '0' : currentPlan.priceMonthly}
-              <span style={{ fontSize: 13, fontWeight: 600, color: billingData.planId !== 'free_trial' ? '#94A3B8' : '#64748B' }}>
-                {billingData.planId === 'free_trial' ? ' / 14d free' : ' / month'}
+            <div style={{ fontSize: 32, fontWeight: 800, margin: '2px 0 6px', color: isOwnerVip ? '#2DD4BF' : 'inherit' }}>
+              €{isOwnerVip ? '0' : activePlanId === 'free_trial' ? '0' : currentPlan.priceMonthly}
+              <span style={{ fontSize: 13, fontWeight: 600, color: isOwnerVip || activePlanId !== 'free_trial' ? '#94A3B8' : '#64748B' }}>
+                {isOwnerVip ? ' / Lifetime Free' : activePlanId === 'free_trial' ? ' / 14d free' : ' / month'}
               </span>
             </div>
 
-            <div style={{ fontSize: 12, color: billingData.planId !== 'free_trial' ? '#94A3B8' : '#64748B', marginBottom: 14 }}>
+            <div style={{ fontSize: 12, color: isOwnerVip || activePlanId !== 'free_trial' ? '#94A3B8' : '#64748B', marginBottom: 14 }}>
               Next renewal:{' '}
-              <strong style={{ color: billingData.planId !== 'free_trial' ? 'white' : '#0F172A' }}>
-                {new Date(billingData.nextBillingDate).toLocaleDateString('en-US', {
-                  month: 'short',
-                  day: 'numeric',
-                  year: 'numeric',
-                })}
+              <strong style={{ color: isOwnerVip ? '#2DD4BF' : activePlanId !== 'free_trial' ? 'white' : '#0F172A' }}>
+                {isOwnerVip
+                  ? 'Permanent (Never)'
+                  : new Date(billingData.nextBillingDate).toLocaleDateString('en-US', {
+                      month: 'short',
+                      day: 'numeric',
+                      year: 'numeric',
+                    })}
               </strong>
             </div>
 
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
-              {billingData.planId !== 'business' && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    const target = billingData.planId === 'free_trial' ? PLANS[1] : PLANS[2]
-                    setSelectedPlanForUpgrade(target)
-                    setStripeError('')
-                    setStripeCheckoutUrl(null)
-                  }}
+              {isOwnerVip ? (
+                <div
                   style={{
-                    background: '#14B8A6',
-                    color: 'white',
-                    border: 'none',
+                    background: 'rgba(20, 184, 166, 0.2)',
+                    border: '1px solid #14B8A6',
+                    color: '#2DD4BF',
                     borderRadius: 12,
-                    padding: '10px 18px',
-                    fontSize: 13,
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    boxShadow: '0 4px 12px rgba(20, 184, 166, 0.35)',
-                    transition: 'all 0.15s ease',
+                    padding: '9px 16px',
+                    fontSize: 12.5,
+                    fontWeight: 800,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
                   }}
                 >
-                  🚀 Upgrade Plan
-                </button>
-              )}
+                  <span>✓ 100% Unlocked Forever</span>
+                </div>
+              ) : (
+                <>
+                  {activePlanId !== 'business' && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const target = activePlanId === 'free_trial' ? PLANS[1] : PLANS[2]
+                        setSelectedPlanForUpgrade(target)
+                        setStripeError('')
+                        setStripeCheckoutUrl(null)
+                      }}
+                      style={{
+                        background: '#14B8A6',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: 12,
+                        padding: '10px 18px',
+                        fontSize: 13,
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        boxShadow: '0 4px 12px rgba(20, 184, 166, 0.35)',
+                        transition: 'all 0.15s ease',
+                      }}
+                    >
+                      🚀 Upgrade Plan
+                    </button>
+                  )}
 
-              {billingData.planId !== 'free_trial' && (
-                <button
-                  type="button"
-                  onClick={() => setShowCancelModal(true)}
-                  style={{
-                    background: 'transparent',
-                    color: billingData.planId !== 'free_trial' ? '#94A3B8' : '#64748B',
-                    border: '1px solid rgba(255,255,255,0.2)',
-                    borderRadius: 12,
-                    padding: '9px 14px',
-                    fontSize: 12,
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                  }}
-                >
-                  Cancel Plan
-                </button>
+                  {activePlanId !== 'free_trial' && (
+                    <button
+                      type="button"
+                      onClick={() => setShowCancelModal(true)}
+                      style={{
+                        background: 'transparent',
+                        color: activePlanId !== 'free_trial' ? '#94A3B8' : '#64748B',
+                        border: '1px solid rgba(255,255,255,0.2)',
+                        borderRadius: 12,
+                        padding: '9px 14px',
+                        fontSize: 12,
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Cancel Plan
+                    </button>
+                  )}
+                </>
               )}
             </div>
           </div>

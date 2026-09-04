@@ -120,7 +120,7 @@ export default function PublicProfile({ username }) {
     setLoading(false)
   }
 
-  const isPaid = profile?.plan === 'pro' || profile?.plan === 'business'
+  const isPaid = profile?.plan === 'pro' || profile?.plan === 'business' || profile?.plan === 'lifetime' || profile?.plan === 'owner' || String(profile?.username || '').toLowerCase() === 'otman'
   const isTrialExpired = !isPaid && (profile?.trial_status === 'expired' || profile?.plan === 'expired' || profile?.status === 'suspended')
 
   if (loading) {
