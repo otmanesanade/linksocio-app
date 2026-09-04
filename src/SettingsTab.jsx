@@ -138,7 +138,11 @@ export default function SettingsTab({ user, profile, onSaved, initialSubTab = 'p
 
       // Local storage sync
       try {
-        if (cleanLocation) localStorage.setItem(`linksocio_profile_location_${cleanUsername}`, cleanLocation)
+        if (cleanLocation) {
+          localStorage.setItem(`linksocio_profile_location_${cleanUsername}`, cleanLocation)
+        } else {
+          localStorage.removeItem(`linksocio_profile_location_${cleanUsername}`)
+        }
         if (cleanWhatsapp) localStorage.setItem(`linksocio_contact_whatsapp_${cleanUsername}`, cleanWhatsapp)
       } catch (e) {}
 
@@ -367,16 +371,21 @@ export default function SettingsTab({ user, profile, onSaved, initialSubTab = 'p
             {/* Location & WhatsApp Grid */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 14 }}>
               <div>
-                <label htmlFor="settings-location" style={{ fontSize: 12, color: '#475569', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4, marginBottom: 6 }}>
-                  <span>📍</span> Location / City
-                </label>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <label htmlFor="settings-location" style={{ fontSize: 12, color: '#475569', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4, margin: 0 }}>
+                    <span>📍</span> Location / City
+                  </label>
+                  <span style={{ fontSize: 10.5, color: '#0D9488', fontWeight: 600, background: '#F0FDFA', padding: '1px 7px', borderRadius: 10 }}>
+                    Optional · اختياري
+                  </span>
+                </div>
                 <input
                   id="settings-location"
                   type="text"
                   value={location}
                   maxLength={80}
                   onChange={(e) => { setLocation(e.target.value); setProfileError('') }}
-                  placeholder="e.g. Casablanca, Morocco"
+                  placeholder="Optional — leave empty if not needed (e.g. Casablanca, Morocco)"
                   style={inputStyle}
                 />
               </div>

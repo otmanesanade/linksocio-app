@@ -1426,9 +1426,14 @@ export default function BookingTab({ profile, onUpdated }) {
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, color: '#334155', marginBottom: 4 }}>
-                  Meeting Platform / Location
-                </label>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                  <label style={{ fontSize: 12.5, fontWeight: 700, color: '#334155', margin: 0 }}>
+                    Meeting Platform / Location
+                  </label>
+                  <span style={{ fontSize: 10.5, color: '#0D9488', fontWeight: 600, background: '#F0FDFA', padding: '1px 7px', borderRadius: 10 }}>
+                    Optional · اختياري
+                  </span>
+                </div>
                 <select
                   value={serviceForm.platform}
                   onChange={(e) => setServiceForm({ ...serviceForm, platform: e.target.value })}
@@ -1438,7 +1443,9 @@ export default function BookingTab({ profile, onUpdated }) {
                   <option value="WhatsApp Call">WhatsApp Video / Audio Call</option>
                   <option value="Phone Call">Phone Call</option>
                   <option value="Zoom">Zoom</option>
-                  <option value="In Person">In Person</option>
+                  <option value="In Person">In Person (Presencial)</option>
+                  <option value="Online">Online</option>
+                  <option value="Not Specified">None / Not Specified</option>
                 </select>
               </div>
 

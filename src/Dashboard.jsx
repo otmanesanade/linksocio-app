@@ -73,7 +73,11 @@ function ProfileCard({ user, profile, onSaved }) {
 
     if (profile?.username) {
       try {
-        localStorage.setItem(`linksocio_profile_location_${profile.username}`, cleanLocation)
+        if (cleanLocation) {
+          localStorage.setItem(`linksocio_profile_location_${profile.username}`, cleanLocation)
+        } else {
+          localStorage.removeItem(`linksocio_profile_location_${profile.username}`)
+        }
       } catch (e) {}
     }
 
@@ -134,13 +138,15 @@ function ProfileCard({ user, profile, onSaved }) {
             <label htmlFor="profile-location" style={{ fontSize: 11.5, color: '#64748B', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
               <span>📍</span> Location / City / Address
             </label>
-            <span style={{ fontSize: 10.5, color: '#94A3B8' }}>Optional · Shows on public page</span>
+            <span style={{ fontSize: 10.5, color: '#0D9488', fontWeight: 600, background: '#F0FDFA', padding: '1px 7px', borderRadius: 10 }}>
+              Optional · اختياري
+            </span>
           </div>
           <input
             id="profile-location"
             value={location}
             onChange={(e) => { setLocation(e.target.value); setError('') }}
-            placeholder="e.g. Casablanca, Morocco or Marrakech, Gueliz"
+            placeholder="Optional — leave empty if not needed (e.g. Casablanca, Morocco)"
             maxLength={80}
             style={{ ...inputStyle, marginTop: 4, borderColor: locTooLong ? '#EF4444' : '#E7EDEC' }}
           />

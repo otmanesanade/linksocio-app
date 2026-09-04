@@ -353,7 +353,7 @@ export function LivePagePreview({ profile, links = [], products = [], isEmbedded
               </p>
             )}
 
-            {profile?.location && (
+            {Boolean(profile?.location && profile.location.trim()) && (
               <a
                 href={
                   /^https?:\/\//i.test(profile.location)
