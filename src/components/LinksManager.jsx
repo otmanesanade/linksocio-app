@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../supabaseClient'
 import { getSocialIcon } from './LivePagePreview'
 import { getMediaEmbedInfo } from '../utils/mediaEmbed'
+import SocialBarManager from './SocialBarManager'
+import ShareModal from './ShareModal'
 
 const QUICK_PRESETS = [
   { label: 'Instagram', prefix: 'https://instagram.com/', placeholder: 'username', icon: 'Instagram' },
@@ -35,6 +37,8 @@ export default function LinksManager({
   const [activePreset, setActivePreset] = useState(null)
   const [presetInput, setPresetInput] = useState('')
   const [showQrModal, setShowQrModal] = useState(false)
+  const [showShareModal, setShowShareModal] = useState(false)
+  const [activeSubTab, setActiveSubTab] = useState('links') // 'links' | 'socials'
 
   // Edit Link modal/inline
   const [editingId, setEditingId] = useState(null)
@@ -271,6 +275,27 @@ export default function LinksManager({
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <button
+              onClick={() => setShowShareModal(true)}
+              style={{
+                flexShrink: 0,
+                background: '#F1F5F9',
+                color: '#0F172A',
+                border: '1px solid #E2E8F0',
+                borderRadius: 10,
+                padding: '9px 14px',
+                fontSize: 12.5,
+                fontWeight: 600,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                transition: 'all 0.15s ease',
+              }}
+            >
+              <span>↗️</span>
+              <span>Share</span>
+            </button>
+            <button
               onClick={() => setShowQrModal(true)}
               style={{
                 flexShrink: 0,
@@ -438,8 +463,64 @@ export default function LinksManager({
         </div>
       )}
 
-      {/* Quick Social Presets Bar */}
-      <div style={{ background: 'white', border: '1px solid #E7EDEC', borderRadius: 20, padding: '18px 20px' }}>
+      {/* Sub-navigation switcher between custom links and dedicated social icons */}
+      <div style={{ display: 'flex', gap: 6, background: '#F1F5F9', padding: 4, borderRadius: 14 }}>
+        <button
+          type="button"
+          onClick={() => setActiveSubTab('links')}
+          style={{
+            flex: 1,
+            padding: '10px 14px',
+            borderRadius: 10,
+            border: 'none',
+            background: activeSubTab === 'links' ? 'white' : 'transparent',
+            color: activeSubTab === 'links' ? '#0F172A' : '#64748B',
+            fontWeight: 700,
+            fontSize: 13,
+            cursor: 'pointer',
+            boxShadow: activeSubTab === 'links' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 7,
+            transition: 'all 0.15s ease',
+          }}
+        >
+          <span>🔗</span>
+          <span>Custom Links & Content ({links.length})</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveSubTab('socials')}
+          style={{
+            flex: 1,
+            padding: '10px 14px',
+            borderRadius: 10,
+            border: 'none',
+            background: activeSubTab === 'socials' ? 'white' : 'transparent',
+            color: activeSubTab === 'socials' ? '#0F172A' : '#64748B',
+            fontWeight: 700,
+            fontSize: 13,
+            cursor: 'pointer',
+            boxShadow: activeSubTab === 'socials' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 7,
+            transition: 'all 0.15s ease',
+          }}
+        >
+          <span>⚡</span>
+          <span>Social Media Icons Bar</span>
+        </button>
+      </div>
+
+      {activeSubTab === 'socials' ? (
+        <SocialBarManager profile={profile} user={user} onSocialsChanged={onLinksChanged} />
+      ) : (
+        <>
+          {/* Quick Social Presets Bar */}
+          <div style={{ background: 'white', border: '1px solid #E7EDEC', borderRadius: 20, padding: '18px 20px' }}>
         <p style={{ margin: '0 0 10px', fontSize: 13.5, fontWeight: 600, color: '#0F172A' }}>
           ⚡ Quick Connect Bar
         </p>
@@ -769,6 +850,16 @@ export default function LinksManager({
           )}
         </div>
       </div>
+      </>
+      )}
+
+      {/* Profile Native Share Sheet Modal */}
+      <ShareModal
+        profile={profile}
+        isOpen={showShareModal}
+        onClose={() => setShowShareModal(false)}
+        onOpenQr={() => setShowQrModal(true)}
+      />
     </div>
   )
 }

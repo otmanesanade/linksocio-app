@@ -18,6 +18,15 @@ export default function InquiryCard({ profile, links = [], theme, isEmbedded = f
   // Determine recipient WhatsApp number
   let targetPhone = settings.whatsapp_number
   if (!targetPhone) {
+    const cleanUsername = profile?.username || ''
+    const storedPhone = (typeof window !== 'undefined' && cleanUsername && localStorage.getItem(`linksocio_contact_phone_${cleanUsername}`)) || ''
+    let waSocialPhone = ''
+    try {
+      const storedSocials = typeof window !== 'undefined' && cleanUsername ? JSON.parse(localStorage.getItem(`linksocio_socials_${cleanUsername}`) || '[]') : []
+      const waSocial = Array.isArray(storedSocials) ? storedSocials.find((s) => s.platformId === 'whatsapp' && s.active !== false) : null
+      waSocialPhone = waSocial?.rawHandle?.replace(/[^0-9]/g, '') || ''
+    } catch (e) {}
+
     const waLink = links.find(
       (l) => l.label?.toLowerCase().includes('whatsapp') || l.url?.includes('wa.me') || l.url?.includes('whatsapp.com')
     )
@@ -25,6 +34,7 @@ export default function InquiryCard({ profile, links = [], theme, isEmbedded = f
       const match = waLink.url.match(/(\d{6,15})/)
       if (match) targetPhone = match[1]
     }
+    targetPhone = targetPhone || storedPhone || waSocialPhone || profile?.contact_phone || profile?.whatsapp || ''
   }
 
   const cleanTargetPhone = (targetPhone || '').replace(/[^0-9]/g, '')

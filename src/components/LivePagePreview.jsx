@@ -10,8 +10,30 @@ import MediaEmbedCard from './MediaEmbedCard'
 import { getMediaEmbedInfo } from '../utils/mediaEmbed'
 import DigitalProductModal from './DigitalProductModal'
 import { DIGITAL_CATEGORIES } from '../ShopTab'
+import ShareModal from './ShareModal'
+import { getStoredSocials } from '../utils/socialPlatforms'
 
 // SVG Social Icons
+const IconShare = ({ color = 'currentColor', size = 18 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="18" cy="5" r="3" />
+    <circle cx="6" cy="12" r="3" />
+    <circle cx="18" cy="19" r="3" />
+    <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+    <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+  </svg>
+)
+const IconMail = ({ color = 'currentColor', size = 18 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="2" y="4" width="20" height="16" rx="2" />
+    <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
+  </svg>
+)
+const IconGithub = ({ color = 'currentColor', size = 18 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22" />
+  </svg>
+)
 const IconInstagram = ({ color = 'currentColor', size = 18 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <rect x="2" y="2" width="20" height="20" rx="5" />
@@ -99,6 +121,8 @@ export const getSocialIcon = (label = '', color, size = 18) => {
   if (l.includes('snapchat')) return <IconSnapchat color={color} size={size} />
   if (l.includes('spotify')) return <IconSpotify color={color} size={size} />
   if (l.includes('telegram') || l.includes('t.me')) return <IconTelegram color={color} size={size} />
+  if (l.includes('email') || l.includes('mail') || l.includes('contact') || l.includes('@')) return <IconMail color={color} size={size} />
+  if (l.includes('github') || l.includes('git')) return <IconGithub color={color} size={size} />
   if (l.includes('map') || l.includes('location') || l.includes('gps') || l.includes('address') || l.includes('localiser')) return <IconMapPin color={color} size={size} />
   if (l.includes('website') || l.includes('store') || l.includes('shop')) return <IconGlobe color={color} size={size} />
   return <IconLink color={color} size={size} />
@@ -109,8 +133,23 @@ export function LivePagePreview({ profile, links = [], products = [], isEmbedded
   const [pressedId, setPressedId] = useState(null)
   const [copiedContact, setCopiedContact] = useState(false)
   const [showQrModal, setShowQrModal] = useState(false)
+  const [showShareModal, setShowShareModal] = useState(false)
   const [publicQrUrl, setPublicQrUrl] = useState(null)
   const [selectedProductModal, setSelectedProductModal] = useState(null)
+  const [storedSocials, setStoredSocials] = useState(() => getStoredSocials(profile?.username, profile?.id))
+
+  useEffect(() => {
+    setStoredSocials(getStoredSocials(profile?.username, profile?.id))
+    const handleSocialUpdate = (e) => {
+      if (e?.detail?.socials) {
+        setStoredSocials(e.detail.socials)
+      } else {
+        setStoredSocials(getStoredSocials(profile?.username, profile?.id))
+      }
+    }
+    window.addEventListener('linksocio_socials_updated', handleSocialUpdate)
+    return () => window.removeEventListener('linksocio_socials_updated', handleSocialUpdate)
+  }, [profile?.username, profile?.id])
 
   useEffect(() => {
     if (activeTabOverride) setTab(activeTabOverride)
@@ -162,6 +201,19 @@ export function LivePagePreview({ profile, links = [], products = [], isEmbedded
   const bottomIcons = activeLinks.filter((l) => l.style === 'icon' && l.icon_position === 'bottom')
   const hasShop = products.length > 0
 
+  // Merge dedicated social platforms from SocialBarManager with custom icon links
+  const activeSocialPlatforms = storedSocials.filter((s) => s.active !== false)
+  const combinedTopIcons = [
+    ...activeSocialPlatforms.map((s) => ({
+      id: `social_platform_${s.platformId}`,
+      label: s.name,
+      url: s.url,
+      isPlatform: true,
+      platformId: s.platformId,
+    })),
+    ...topIcons,
+  ]
+
   const handleLinkClick = (link, e) => {
     if (isEmbedded) return
     const key = `linksocio_clicked_${link.id}`
@@ -184,30 +236,72 @@ export function LivePagePreview({ profile, links = [], products = [], isEmbedded
       confetti({ particleCount: 60, spread: 60, origin: { y: 0.7 } })
     } catch (e) {}
 
+    const cleanUsername = profile?.username || ''
+    const storedPhone = (typeof window !== 'undefined' && cleanUsername && localStorage.getItem(`linksocio_contact_phone_${cleanUsername}`)) || ''
+    const storedEmail = (typeof window !== 'undefined' && cleanUsername && localStorage.getItem(`linksocio_contact_email_${cleanUsername}`)) || ''
+
     const phoneMatch = whatsappLink?.url.match(/(\d{6,15})/)
-    const phone = phoneMatch ? phoneMatch[1] : ''
+    const socialWa = storedSocials.find((s) => s.platformId === 'whatsapp' && s.active !== false)
+    const waPhone = socialWa?.rawHandle?.replace(/[^0-9]/g, '') || ''
+    const phone = profile?.contact_phone || profile?.whatsapp || storedPhone || waPhone || (phoneMatch ? phoneMatch[1] : '')
+
+    const socialEmail = storedSocials.find((s) => s.platformId === 'email' && s.active !== false)
+    const email = profile?.contact_email || profile?.email || storedEmail || (socialEmail ? (socialEmail.rawHandle || socialEmail.url.replace(/^mailto:/, '')) : '')
+
+    const fullName = profile?.display_name || profile?.username || 'Contact'
+    const nameParts = fullName.trim().split(/\s+/)
+    const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : ''
+    const firstName = nameParts[0] || fullName
+
+    const currentOrigin = typeof window !== 'undefined' ? window.location.origin : 'https://linksocio.com'
+    const pageUrl = `${currentOrigin}/${cleanUsername}`
 
     const vcard = [
       'BEGIN:VCARD',
       'VERSION:3.0',
-      `FN:${profile?.display_name || profile?.username || 'Contact'}`,
-      phone ? `TEL;TYPE=CELL:${phone}` : '',
-      `URL:https://linksocio.com/${profile?.username}`,
+      `FN:${fullName}`,
+      `N:${lastName};${firstName};;;`,
+      phone ? `TEL;TYPE=CELL,VOICE,PREF:${phone}` : '',
+      email ? `EMAIL;TYPE=INTERNET,WORK,PREF:${email}` : '',
+      `URL:${pageUrl}`,
+      profile?.job_title ? `TITLE:${profile.job_title}` : '',
+      profile?.organization ? `ORG:${profile.organization}` : '',
       profile?.location ? `ADR;TYPE=WORK:;;${profile.location};;;;` : '',
       profile?.bio ? `NOTE:${profile.bio}` : '',
       'END:VCARD',
     ]
       .filter(Boolean)
-      .join('\n')
+      .join('\r\n')
 
-    const blob = new Blob([vcard], { type: 'text/vcard' })
+    const blob = new Blob([vcard], { type: 'text/vcard;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `${profile?.username || 'contact'}.vcf`
+    a.download = `${cleanUsername || 'contact'}.vcf`
+    document.body.appendChild(a)
     a.click()
+    document.body.removeChild(a)
+    setTimeout(() => URL.revokeObjectURL(url), 1000)
     setCopiedContact(true)
-    setTimeout(() => setCopiedContact(false), 2000)
+    setTimeout(() => setCopiedContact(false), 2500)
+  }
+
+  const handleShareClick = (e) => {
+    if (e) e.stopPropagation()
+    const currentOrigin = typeof window !== 'undefined' ? window.location.origin : 'https://linksocio.com'
+    const pageUrl = `${currentOrigin}/${profile?.username || ''}`
+    const displayName = profile?.display_name || profile?.username || 'Creator'
+    const shareData = {
+      title: `${displayName} on LinkSocio`,
+      text: profile?.bio || `Check out ${displayName}'s profile on LinkSocio!`,
+      url: pageUrl,
+    }
+
+    if (!isEmbedded && typeof navigator !== 'undefined' && navigator.share && navigator.canShare && navigator.canShare(shareData)) {
+      navigator.share(shareData).catch(() => {})
+    } else {
+      setShowShareModal(true)
+    }
   }
 
   return (
@@ -299,6 +393,42 @@ export function LivePagePreview({ profile, links = [], products = [], isEmbedded
               </span>
             </a>
           )}
+
+          {/* Top-Right Native Share / Quick Share Button */}
+          <button
+            type="button"
+            onClick={handleShareClick}
+            aria-label="Share profile"
+            title="Share this profile"
+            style={{
+              position: 'absolute',
+              top: isEmbedded ? 12 : 16,
+              right: isEmbedded ? 12 : 16,
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: isEmbedded ? 30 : 36,
+              height: isEmbedded ? 30 : 36,
+              borderRadius: '50%',
+              background: tint,
+              border: '1px solid rgba(0,0,0,0.06)',
+              color: theme.textColor,
+              cursor: 'pointer',
+              zIndex: 10,
+              backdropFilter: 'blur(8px)',
+              padding: 0,
+              transition: 'transform 0.15s ease',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = 'scale(1.08)'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = 'scale(1)'
+            }}
+          >
+            <IconShare color={theme.textColor} size={isEmbedded ? 14 : 17} />
+          </button>
+
           {/* Header info */}
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', position: 'relative', width: '100%' }}>
             {/* Ambient spotlight behind avatar for photo themes */}
@@ -486,18 +616,19 @@ export function LivePagePreview({ profile, links = [], products = [], isEmbedded
             </div>
 
             {/* Top Social Icons Bar */}
-            {topIcons.length > 0 && (
+            {combinedTopIcons.length > 0 && (
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center', marginTop: isEmbedded ? 14 : 18 }}>
-                {topIcons.map((link) => (
+                {combinedTopIcons.map((link) => (
                   <a
                     key={link.id}
                     href={link.url}
                     target="_blank"
                     rel="noreferrer"
+                    title={link.label}
                     onClick={(e) => handleLinkClick(link, e)}
                     style={{
-                      width: isEmbedded ? 32 : 40,
-                      height: isEmbedded ? 32 : 40,
+                      width: isEmbedded ? 34 : 40,
+                      height: isEmbedded ? 34 : 40,
                       borderRadius: '50%',
                       background: tint,
                       color: color,
@@ -505,10 +636,18 @@ export function LivePagePreview({ profile, links = [], products = [], isEmbedded
                       alignItems: 'center',
                       justifyContent: 'center',
                       textDecoration: 'none',
-                      transition: 'transform 0.15s ease',
+                      border: '1px solid rgba(0,0,0,0.05)',
+                      transition: 'transform 0.15s ease, background 0.15s ease',
+                      flexShrink: 0,
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.transform = 'translateY(-2px) scale(1.05)'
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.transform = 'none'
                     }}
                   >
-                    {getSocialIcon(link.label, color, isEmbedded ? 15 : 18)}
+                    {getSocialIcon(link.label, color, isEmbedded ? 16 : 19)}
                   </a>
                 ))}
               </div>
@@ -1008,6 +1147,14 @@ export function LivePagePreview({ profile, links = [], products = [], isEmbedded
           onClose={() => setSelectedProductModal(null)}
         />
       )}
+
+      {/* Profile Native Share Sheet Modal */}
+      <ShareModal
+        profile={profile}
+        isOpen={showShareModal}
+        onClose={() => setShowShareModal(false)}
+        onOpenQr={() => setShowQrModal(true)}
+      />
 
       <style>{`
         @keyframes gradientAnimation {
