@@ -4,7 +4,7 @@ import CountryPhoneInput from './components/CountryPhoneInput'
 
 function normalizeUrl(url) {
   if (!url) return url
-  if (url.startsWith('/uploads/')) return url
+  if (url.startsWith('data:') || url.startsWith('blob:') || url.startsWith('/uploads/') || url.startsWith('/api/')) return url
   if (!/^https?:\/\//i.test(url)) return `https://${url}`
   return url
 }
@@ -266,8 +266,30 @@ export default function ShopTab({ user, profile, products = [], reloadProducts }
       setSuccessMsg(`✓ File "${file.name}" uploaded successfully from your desktop!`)
       setTimeout(() => setSuccessMsg(''), 4000)
     } catch (err) {
-      console.error('File upload error:', err)
-      setUploadError(err.message || 'Failed to upload file from desktop')
+      console.warn('Server storage write restricted or failed (EROFS / serverless). Converting to direct browser asset:', err)
+      try {
+        setUploadProgress(85)
+        const clientDataUrl = await new Promise((resolve, reject) => {
+          const reader = new FileReader()
+          reader.onload = () => resolve(reader.result)
+          reader.onerror = () => reject(new Error('Could not read file locally from disk'))
+          reader.readAsDataURL(file)
+        })
+
+        setUploadProgress(100)
+        setFileUrl(clientDataUrl)
+        setUploadedFile({
+          name: file.name,
+          size: formattedSize,
+          type: file.type || ext,
+          url: clientDataUrl,
+        })
+        setSuccessMsg(`✓ File "${file.name}" attached successfully! Ready for instant customer download.`)
+        setTimeout(() => setSuccessMsg(''), 4000)
+      } catch (clientErr) {
+        console.error('Local fallback read error:', clientErr)
+        setUploadError(clientErr.message || 'Failed to attach file from desktop')
+      }
     } finally {
       setUploadingFile(false)
     }
@@ -342,6 +364,15 @@ export default function ShopTab({ user, profile, products = [], reloadProducts }
 
   const downloadUploadedFile = async (url, fileName) => {
     try {
+      if (url.startsWith('data:')) {
+        const link = document.createElement('a')
+        link.href = url
+        link.download = fileName || 'download.pdf'
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+        return
+      }
       const res = await fetch(url)
       if (!res.ok) throw new Error('Download failed')
       const contentType = res.headers.get('content-type') || ''

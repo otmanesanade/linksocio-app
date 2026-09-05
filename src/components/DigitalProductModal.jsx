@@ -183,7 +183,41 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
       return
     }
 
-    // External Cloud links (Google Drive, Dropbox, Canva, Notion)
+    // 1. Direct Data URI download (e.g. self-contained PDF/file data)
+    if (targetFile.startsWith('data:')) {
+      setDownloading(true)
+      try {
+        let downloadName = product.file_name || ''
+        if (!downloadName || !downloadName.includes('.')) {
+          downloadName = (product.name ? product.name.replace(/[^a-zA-Z0-9_\-]/g, '_') : 'digital_product') + '.pdf'
+        }
+        const link = document.createElement('a')
+        link.href = targetFile
+        link.download = downloadName
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+      } catch (err) {
+        console.error('Data URL download fallback to blob:', err)
+        try {
+          const res = await fetch(targetFile)
+          const blob = await res.blob()
+          const blobUrl = window.URL.createObjectURL(blob)
+          const link = document.createElement('a')
+          link.href = blobUrl
+          link.download = product.file_name || 'digital_product.pdf'
+          document.body.appendChild(link)
+          link.click()
+          document.body.removeChild(link)
+          setTimeout(() => window.URL.revokeObjectURL(blobUrl), 1500)
+        } catch (_) {}
+      } finally {
+        setDownloading(false)
+      }
+      return
+    }
+
+    // 2. External Cloud links (Google Drive, Dropbox, Canva, Notion)
     if (!targetFile.startsWith('/uploads/') && !targetFile.startsWith('/api/download')) {
       window.open(targetFile, '_blank')
       return

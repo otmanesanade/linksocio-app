@@ -1022,15 +1022,22 @@ function apiPlugin() {
                 }
                 base64Data = base64Data.trim()
 
-                const buffer = Buffer.from(base64Data, 'base64')
-                const filePath = path.join(uploadsDir, uniqueName)
-                fs.writeFileSync(filePath, buffer)
+                let finalUrl = null
+                try {
+                  const filePath = path.join(uploadsDir, uniqueName)
+                  fs.writeFileSync(filePath, buffer)
 
-                // Mirror to dist/uploads if it exists
-                if (fs.existsSync(distUploadsDir)) {
-                  try {
-                    fs.copyFileSync(filePath, path.join(distUploadsDir, uniqueName))
-                  } catch (_) {}
+                  // Mirror to dist/uploads if it exists
+                  if (fs.existsSync(distUploadsDir)) {
+                    try {
+                      fs.copyFileSync(filePath, path.join(distUploadsDir, uniqueName))
+                    } catch (_) {}
+                  }
+                  finalUrl = `/uploads/${uniqueName}`
+                } catch (fsErr) {
+                  console.warn('Read-only filesystem, falling back to direct Data URI:', fsErr.message)
+                  const mime = type || MIME_TYPES[ext] || (ext === '.pdf' ? 'application/pdf' : 'application/octet-stream')
+                  finalUrl = `data:${mime};base64,${base64Data}`
                 }
 
                 res.statusCode = 200
@@ -1038,10 +1045,11 @@ function apiPlugin() {
                 res.end(
                   JSON.stringify({
                     success: true,
-                    url: `/uploads/${uniqueName}`,
+                    url: finalUrl,
                     filename: rawName,
                     size: buffer.length,
                     type: type || MIME_TYPES[ext] || 'application/octet-stream',
+                    storage: finalUrl.startsWith('data:') ? 'direct_data' : 'server_disk',
                   })
                 )
               } catch (err) {

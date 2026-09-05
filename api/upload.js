@@ -46,15 +46,6 @@ export default async function handler(req, res) {
     if (!cleanBase || cleanBase === '_') cleanBase = 'product'
     const uniqueName = `${Date.now()}_${cleanBase}${ext}`
 
-    const uploadsDir = path.join(process.cwd(), 'public', 'uploads')
-    if (!fs.existsSync(uploadsDir)) {
-      fs.mkdirSync(uploadsDir, { recursive: true })
-    }
-    const distUploadsDir = path.join(process.cwd(), 'dist', 'uploads')
-    if (fs.existsSync(path.join(process.cwd(), 'dist')) && !fs.existsSync(distUploadsDir)) {
-      fs.mkdirSync(distUploadsDir, { recursive: true })
-    }
-
     let base64Data = base64
     const base64Index = base64.indexOf('base64,')
     if (base64Index !== -1) {
@@ -65,21 +56,45 @@ export default async function handler(req, res) {
     base64Data = base64Data.trim()
 
     const buffer = Buffer.from(base64Data, 'base64')
-    const filePath = path.join(uploadsDir, uniqueName)
-    fs.writeFileSync(filePath, buffer)
+    const mime = type || (ext === '.pdf' ? 'application/pdf' : 'application/octet-stream')
+    const fullDataUrl = base64.startsWith('data:') ? base64 : `data:${mime};base64,${base64Data}`
 
-    if (fs.existsSync(distUploadsDir)) {
-      try {
-        fs.copyFileSync(filePath, path.join(distUploadsDir, uniqueName))
-      } catch (_) {}
+    let finalUrl = null
+    try {
+      const uploadsDir = path.join(process.cwd(), 'public', 'uploads')
+      if (!fs.existsSync(uploadsDir)) {
+        fs.mkdirSync(uploadsDir, { recursive: true })
+      }
+      const distUploadsDir = path.join(process.cwd(), 'dist', 'uploads')
+      if (fs.existsSync(path.join(process.cwd(), 'dist')) && !fs.existsSync(distUploadsDir)) {
+        try {
+          fs.mkdirSync(distUploadsDir, { recursive: true })
+        } catch (_) {}
+      }
+
+      const filePath = path.join(uploadsDir, uniqueName)
+      fs.writeFileSync(filePath, buffer)
+
+      if (fs.existsSync(distUploadsDir)) {
+        try {
+          fs.copyFileSync(filePath, path.join(distUploadsDir, uniqueName))
+        } catch (_) {}
+      }
+      finalUrl = `/uploads/${uniqueName}`
+    } catch (fsErr) {
+      // Read-only filesystem (e.g. Vercel / AWS Lambda /var/task)
+      // Seamlessly fall back to self-contained direct Data URI so upload NEVER fails with EROFS
+      console.warn('Read-only filesystem detected on serverless host, falling back to direct Data URI:', fsErr.message)
+      finalUrl = fullDataUrl
     }
 
     return res.status(200).json({
       success: true,
-      url: `/uploads/${uniqueName}`,
+      url: finalUrl,
       filename: rawName,
       size: buffer.length,
-      type: type || 'application/octet-stream',
+      type: mime,
+      storage: finalUrl.startsWith('data:') ? 'direct_data' : 'server_disk',
     })
   } catch (err) {
     console.error('Upload handler error:', err)
