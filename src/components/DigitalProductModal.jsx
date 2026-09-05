@@ -175,10 +175,18 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
       }),
     }).catch(() => {})
 
-    if (product.file_url) {
-      window.open(product.file_url, '_blank')
-    } else if (product.external_url) {
-      window.open(product.external_url, '_blank')
+    const targetFile = product.file_url || product.external_url
+    if (targetFile) {
+      if (targetFile.startsWith('/uploads/')) {
+        const link = document.createElement('a')
+        link.href = targetFile
+        link.download = product.file_name || targetFile.split('/').pop().replace(/^\d+_/, '')
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+      } else {
+        window.open(targetFile, '_blank')
+      }
     } else {
       alert('Your digital content is ready! Accessing instant download link.')
     }
@@ -395,6 +403,7 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
               {(product.file_url || product.external_url) && (
                 <a
                   href={product.file_url || product.external_url}
+                  download={product.file_name || true}
                   target="_blank"
                   rel="noreferrer"
                   style={{
@@ -409,7 +418,7 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
                     marginTop: 4,
                   }}
                 >
-                  ⚡ Download / Access Files Now ↗
+                  ⚡ Download {product.file_name ? `"${product.file_name}"` : 'Files'} Now ↗
                 </a>
               )}
 

@@ -61,21 +61,34 @@ function apiPlugin() {
     } catch (e) {}
   }
 
-  return {
-    name: 'api-server',
-    configureServer(server) {
-      server.middlewares.use(async (req, res, next) => {
-        // Global CORS headers for API routes
-        if (req.url && req.url.startsWith('/api/')) {
-          res.setHeader('Access-Control-Allow-Origin', '*')
-          res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS')
-          res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
-          if (req.method === 'OPTIONS') {
-            res.statusCode = 200
-            res.end()
-            return
-          }
-        }
+  const apiMiddleware = async (req, res, next) => {
+    // Direct uploaded digital product file download handler
+    if (req.url && req.url.startsWith('/uploads/')) {
+      const rawUrl = req.url.split('?')[0]
+      const fileName = path.basename(decodeURIComponent(rawUrl))
+      const filePath = path.join(process.cwd(), 'public', 'uploads', fileName)
+      if (fs.existsSync(filePath)) {
+        const stat = fs.statSync(filePath)
+        res.statusCode = 200
+        res.setHeader('Content-Length', stat.size)
+        const cleanDownloadName = fileName.replace(/^\d+_/, '')
+        res.setHeader('Content-Disposition', `attachment; filename="${cleanDownloadName}"`)
+        fs.createReadStream(filePath).pipe(res)
+        return
+      }
+    }
+
+    // Global CORS headers for API routes
+    if (req.url && req.url.startsWith('/api/')) {
+      res.setHeader('Access-Control-Allow-Origin', '*')
+      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS')
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+      if (req.method === 'OPTIONS') {
+        res.statusCode = 200
+        res.end()
+        return
+      }
+    }
 
         const urlObj = new URL(req.url, `http://${req.headers.host || 'localhost'}`)
 
@@ -773,6 +786,60 @@ function apiPlugin() {
           }
         }
 
+        // Digital Product File Upload API (/api/upload)
+        if (urlObj.pathname === '/api/upload') {
+          if (req.method === 'POST') {
+            const chunks = []
+            req.on('data', (chunk) => chunks.push(chunk))
+            req.on('end', () => {
+              try {
+                const bodyStr = Buffer.concat(chunks).toString('utf-8')
+                const payload = JSON.parse(bodyStr || '{}')
+                const { filename, base64, size, type } = payload
+
+                if (!base64) {
+                  res.statusCode = 400
+                  res.setHeader('Content-Type', 'application/json')
+                  res.end(JSON.stringify({ error: 'No file content provided' }))
+                  return
+                }
+
+                const rawName = filename || 'digital_product'
+                const ext = path.extname(rawName) || '.bin'
+                const cleanBase = path.basename(rawName, ext).replace(/[^a-zA-Z0-9_\-]/g, '_')
+                const uniqueName = `${Date.now()}_${cleanBase}${ext}`
+
+                const uploadsDir = path.join(process.cwd(), 'public', 'uploads')
+                if (!fs.existsSync(uploadsDir)) {
+                  fs.mkdirSync(uploadsDir, { recursive: true })
+                }
+
+                const base64Data = base64.replace(/^data:[^;]+;base64,/, '')
+                const buffer = Buffer.from(base64Data, 'base64')
+                const filePath = path.join(uploadsDir, uniqueName)
+                fs.writeFileSync(filePath, buffer)
+
+                res.statusCode = 200
+                res.setHeader('Content-Type', 'application/json')
+                res.end(
+                  JSON.stringify({
+                    success: true,
+                    url: `/uploads/${uniqueName}`,
+                    filename: rawName,
+                    size: buffer.length,
+                    type: type || 'application/octet-stream',
+                  })
+                )
+              } catch (err) {
+                res.statusCode = 500
+                res.setHeader('Content-Type', 'application/json')
+                res.end(JSON.stringify({ error: 'Upload failed: ' + err.message }))
+              }
+            })
+            return
+          }
+        }
+
         // 7. Notification Settings API
         if (urlObj.pathname === '/api/notification-settings') {
           const nStore = readJson(NOTIF_SETTINGS_PATH)
@@ -1360,20 +1427,31 @@ function apiPlugin() {
         }
 
         next()
-      })
+  }
+
+  return {
+    name: 'api-server',
+    configureServer(server) {
+      server.middlewares.use(apiMiddleware)
+    },
+    configurePreviewServer(server) {
+      server.middlewares.use(apiMiddleware)
     },
   }
 }
 
 export default defineConfig({
   plugins: [react(), apiPlugin()],
+  clearScreen: false,
   server: {
     host: '0.0.0.0',
     port: 3000,
+    strictPort: true,
   },
   preview: {
     host: '0.0.0.0',
     port: 3000,
+    strictPort: true,
   },
 })
 

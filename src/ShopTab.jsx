@@ -4,6 +4,7 @@ import CountryPhoneInput from './components/CountryPhoneInput'
 
 function normalizeUrl(url) {
   if (!url) return url
+  if (url.startsWith('/uploads/')) return url
   if (!/^https?:\/\//i.test(url)) return `https://${url}`
   return url
 }
@@ -85,6 +86,14 @@ export default function ShopTab({ user, profile, products = [], reloadProducts }
   const [highlightInput, setHighlightInput] = useState('')
   const [highlights, setHighlights] = useState([])
 
+  // Desktop File Upload state for digital product
+  const [fileSourceMode, setFileSourceMode] = useState('upload') // 'upload' | 'link'
+  const [uploadedFile, setUploadedFile] = useState(null) // { name, size, type, url }
+  const [uploadingFile, setUploadingFile] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState(0)
+  const [uploadError, setUploadError] = useState('')
+  const [isDraggingFile, setIsDraggingFile] = useState(false)
+
   // Editing state
   const [editingId, setEditingId] = useState(null)
 
@@ -94,6 +103,105 @@ export default function ShopTab({ user, profile, products = [], reloadProducts }
   const [draggedIdx, setDraggedIdx] = useState(null)
   const [successMsg, setSuccessMsg] = useState('')
   const [previewProduct, setPreviewProduct] = useState(null)
+
+  // Upload digital file from desktop
+  const handleDigitalFileUpload = async (file) => {
+    if (!file) return
+    setUploadingFile(true)
+    setUploadError('')
+    setUploadProgress(15)
+
+    const formattedSize = file.size > 1024 * 1024 
+      ? (file.size / (1024 * 1024)).toFixed(1) + ' MB' 
+      : Math.max(1, Math.round(file.size / 1024)) + ' KB'
+
+    const ext = (file.name.split('.').pop() || '').toLowerCase()
+
+    // Auto-detect digital category based on file extension
+    if (['pdf', 'epub', 'mobi'].includes(ext)) {
+      setCategory('ebook')
+    } else if (['zip', 'rar', '7z', 'tar', 'gz', 'pkg'].includes(ext)) {
+      setCategory('file')
+    } else if (['mp3', 'wav', 'm4a', 'flac', 'aac', 'ogg'].includes(ext)) {
+      setCategory('audio')
+    } else if (['mp4', 'mov', 'avi', 'mkv', 'webm'].includes(ext)) {
+      setCategory('course')
+    } else if (['psd', 'ai', 'fig', 'sketch', 'xd', 'canva'].includes(ext)) {
+      setCategory('template')
+    } else if (['exe', 'dmg', 'js', 'py', 'json'].includes(ext)) {
+      setCategory('software')
+    }
+
+    // Auto-fill title if empty
+    if (!name.trim()) {
+      const cleanTitle = file.name
+        .replace(/\.[^/.]+$/, '')
+        .replace(/[-_]+/g, ' ')
+        .trim()
+      if (cleanTitle) {
+        setName(cleanTitle.charAt(0).toUpperCase() + cleanTitle.slice(1))
+      }
+    }
+
+    // Default delivery to direct instant download
+    if (deliveryType === 'external') {
+      setDeliveryType('download')
+    }
+
+    try {
+      setUploadProgress(35)
+      const base64 = await new Promise((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onprogress = (e) => {
+          if (e.lengthComputable) {
+            const percent = Math.min(80, Math.round((e.loaded / e.total) * 45) + 35)
+            setUploadProgress(percent)
+          }
+        }
+        reader.onload = () => resolve(reader.result)
+        reader.onerror = reject
+        reader.readAsDataURL(file)
+      })
+
+      setUploadProgress(85)
+
+      const res = await fetch('/api/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          filename: file.name,
+          base64,
+          size: file.size,
+          type: file.type || 'application/octet-stream',
+        }),
+      })
+
+      if (!res.ok) {
+        throw new Error('Upload failed on server with status ' + res.status)
+      }
+
+      const json = await res.json()
+      if (!json.success || !json.url) {
+        throw new Error(json.error || 'Upload failed')
+      }
+
+      setUploadProgress(100)
+      setFileUrl(json.url)
+      setUploadedFile({
+        name: file.name,
+        size: formattedSize,
+        type: file.type || ext,
+        url: json.url,
+      })
+      setSuccessMsg(`✓ File "${file.name}" uploaded successfully from your desktop!`)
+      setTimeout(() => setSuccessMsg(''), 4000)
+    } catch (err) {
+      console.error('File upload error:', err)
+      setUploadError(err.message || 'Failed to upload file from desktop')
+    } finally {
+      setUploadingFile(false)
+    }
+  }
 
   // Fetch product info from external URL (Amazon, Shopify, etc.)
   async function fetchInfo() {
@@ -125,6 +233,8 @@ export default function ShopTab({ user, profile, products = [], reloadProducts }
     setDeliveryType(preset.delivery_type)
     setFileUrl(preset.file_url)
     setImageUrl(preset.image_url)
+    setUploadedFile(null)
+    setFileSourceMode('link')
     setCreationMode('digital')
     setSuccessMsg(`Loaded preset: "${preset.name}"! You can customize it now.`)
     setTimeout(() => setSuccessMsg(''), 4000)
@@ -173,6 +283,10 @@ export default function ShopTab({ user, profile, products = [], reloadProducts }
     setDeliveryType('whatsapp')
     setHighlightInput('')
     setHighlights([])
+    setUploadedFile(null)
+    setUploadProgress(0)
+    setUploadError('')
+    setFileSourceMode('upload')
     setEditingId(null)
   }
 
@@ -190,6 +304,22 @@ export default function ShopTab({ user, profile, products = [], reloadProducts }
     setDeliveryType(p.delivery_type || (p.is_digital ? 'whatsapp' : 'external'))
     setHighlights(Array.isArray(p.highlights) ? p.highlights : [])
     setCreationMode(p.is_digital || !p.external_url || p.delivery_type === 'whatsapp' ? 'digital' : 'external')
+
+    // Detect if product has a desktop uploaded file
+    if (p.file_url && (p.file_url.startsWith('/uploads/') || p.file_name)) {
+      setFileSourceMode('upload')
+      setUploadedFile({
+        name: p.file_name || p.file_url.split('/').pop().replace(/^\d+_/, ''),
+        size: p.file_size || '',
+        url: p.file_url,
+      })
+    } else if (p.file_url) {
+      setFileSourceMode('link')
+      setUploadedFile(null)
+    } else {
+      setFileSourceMode('upload')
+      setUploadedFile(null)
+    }
 
     // Scroll smoothly to form
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -220,6 +350,8 @@ export default function ShopTab({ user, profile, products = [], reloadProducts }
       image_url: imageUrl.trim() || null,
       external_url: targetExternalUrl,
       file_url: fileUrl.trim() || null,
+      file_name: uploadedFile?.name || null,
+      file_size: uploadedFile?.size || null,
       description: description.trim() || null,
       category: isDigital ? category : 'external',
       delivery_type: isDigital ? deliveryType : 'external',
@@ -639,23 +771,299 @@ export default function ShopTab({ user, profile, products = [], reloadProducts }
                 </div>
               </div>
 
-              {/* Digital File URL / Access Link */}
-              <div>
-                <label style={{ fontSize: 12, fontWeight: 700, color: '#475569', display: 'block', marginBottom: 5 }}>
-                  Digital File Link / Download URL (Google Drive, Mega, Dropbox, Notion, Canva, etc.):
-                </label>
-                <input
-                  placeholder="https://drive.google.com/file/d/... or https://notion.so/..."
-                  value={fileUrl}
-                  onChange={(e) => setFileUrl(e.target.value)}
-                  style={inputStyle}
-                />
+              {/* Digital Product File & Desktop Upload Section */}
+              <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 16, padding: '14px 16px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
+                  <label style={{ fontSize: 12.5, fontWeight: 700, color: '#0F172A', display: 'flex', alignItems: 'center', gap: 6, margin: 0 }}>
+                    <span>📁</span> Digital Product File & Instant Delivery:
+                  </label>
+                  {/* Switcher: Desktop Upload vs Cloud Link */}
+                  <div style={{ display: 'flex', gap: 4, background: '#E2E8F0', padding: 2, borderRadius: 8 }}>
+                    <button
+                      type="button"
+                      onClick={() => setFileSourceMode('upload')}
+                      style={{
+                        background: fileSourceMode === 'upload' ? 'white' : 'transparent',
+                        color: fileSourceMode === 'upload' ? '#0F172A' : '#64748B',
+                        border: 'none',
+                        borderRadius: 6,
+                        padding: '4px 10px',
+                        fontSize: 11,
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        boxShadow: fileSourceMode === 'upload' ? '0 1px 2px rgba(0,0,0,0.06)' : 'none',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 4,
+                      }}
+                    >
+                      <span>💻 Upload from Desktop</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFileSourceMode('link')}
+                      style={{
+                        background: fileSourceMode === 'link' ? 'white' : 'transparent',
+                        color: fileSourceMode === 'link' ? '#0F172A' : '#64748B',
+                        border: 'none',
+                        borderRadius: 6,
+                        padding: '4px 10px',
+                        fontSize: 11,
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        boxShadow: fileSourceMode === 'link' ? '0 1px 2px rgba(0,0,0,0.06)' : 'none',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 4,
+                      }}
+                    >
+                      <span>🔗 Paste Cloud Link</span>
+                    </button>
+                  </div>
+                </div>
+
+                {fileSourceMode === 'upload' ? (
+                  <div>
+                    {uploadedFile ? (
+                      /* File Uploaded Preview Card */
+                      <div
+                        style={{
+                          background: 'white',
+                          border: '1px solid #14B8A6',
+                          borderRadius: 12,
+                          padding: '12px 14px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: 12,
+                          boxShadow: '0 2px 6px rgba(20,184,166,0.08)',
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+                          <div
+                            style={{
+                              width: 40,
+                              height: 40,
+                              borderRadius: 10,
+                              background: '#F0FDFA',
+                              color: '#0D9488',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontSize: 22,
+                              flexShrink: 0,
+                            }}
+                          >
+                            📄
+                          </div>
+                          <div style={{ minWidth: 0 }}>
+                            <div
+                              style={{
+                                fontSize: 13,
+                                fontWeight: 700,
+                                color: '#0F172A',
+                                whiteSpace: 'nowrap',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                              }}
+                              title={uploadedFile.name}
+                            >
+                              {uploadedFile.name}
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 2, flexWrap: 'wrap' }}>
+                              {uploadedFile.size && (
+                                <span style={{ fontSize: 11, color: '#64748B', fontWeight: 600 }}>
+                                  {uploadedFile.size}
+                                </span>
+                              )}
+                              <span style={{ fontSize: 11, color: '#16A34A', fontWeight: 700 }}>
+                                ✓ Ready for customer instant download
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                          {uploadedFile.url && (
+                            <a
+                              href={uploadedFile.url}
+                              target="_blank"
+                              rel="noreferrer"
+                              download
+                              style={{
+                                background: '#F1F5F9',
+                                color: '#0F172A',
+                                textDecoration: 'none',
+                                padding: '6px 10px',
+                                borderRadius: 8,
+                                fontSize: 11.5,
+                                fontWeight: 600,
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 4,
+                              }}
+                              title="Test Download File"
+                            >
+                              <span>📥 Test</span>
+                            </a>
+                          )}
+                          <label
+                            style={{
+                              background: '#0F172A',
+                              color: 'white',
+                              padding: '6px 10px',
+                              borderRadius: 8,
+                              fontSize: 11.5,
+                              fontWeight: 600,
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 4,
+                            }}
+                          >
+                            <span>🔄 Replace</span>
+                            <input
+                              type="file"
+                              onChange={(e) => {
+                                if (e.target.files?.[0]) handleDigitalFileUpload(e.target.files[0])
+                              }}
+                              style={{ display: 'none' }}
+                            />
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setUploadedFile(null)
+                              setFileUrl('')
+                            }}
+                            style={{
+                              background: '#FEE2E2',
+                              color: '#DC2626',
+                              border: 'none',
+                              padding: '6px 8px',
+                              borderRadius: 8,
+                              fontSize: 11.5,
+                              fontWeight: 600,
+                              cursor: 'pointer',
+                            }}
+                            title="Remove File"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      /* Drag & Drop Desktop Zone */
+                      <div
+                        onDragOver={(e) => {
+                          e.preventDefault()
+                          setIsDraggingFile(true)
+                        }}
+                        onDragLeave={() => setIsDraggingFile(false)}
+                        onDrop={(e) => {
+                          e.preventDefault()
+                          setIsDraggingFile(false)
+                          if (e.dataTransfer.files?.[0]) {
+                            handleDigitalFileUpload(e.dataTransfer.files[0])
+                          }
+                        }}
+                        style={{
+                          border: isDraggingFile ? '2px dashed #14B8A6' : '2px dashed #CBD5E1',
+                          background: isDraggingFile ? '#F0FDFA' : 'white',
+                          borderRadius: 12,
+                          padding: '22px 16px',
+                          textAlign: 'center',
+                          transition: 'all 0.15s ease',
+                          cursor: 'pointer',
+                        }}
+                        onClick={() => {
+                          document.getElementById('desktop-digital-file-input')?.click()
+                        }}
+                      >
+                        <input
+                          id="desktop-digital-file-input"
+                          type="file"
+                          onChange={(e) => {
+                            if (e.target.files?.[0]) handleDigitalFileUpload(e.target.files[0])
+                          }}
+                          style={{ display: 'none' }}
+                        />
+
+                        {uploadingFile ? (
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+                            <div style={{ fontSize: 24 }}>⏳</div>
+                            <span style={{ fontSize: 13, fontWeight: 700, color: '#0F172A' }}>
+                              Uploading file from your computer ({uploadProgress}%)...
+                            </span>
+                            <div style={{ width: '80%', maxWidth: 260, height: 6, background: '#E2E8F0', borderRadius: 10, overflow: 'hidden' }}>
+                              <div
+                                style={{
+                                  width: `${uploadProgress}%`,
+                                  height: '100%',
+                                  background: '#14B8A6',
+                                  borderRadius: 10,
+                                  transition: 'width 0.2s ease',
+                                }}
+                              />
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            <div style={{ fontSize: 28, marginBottom: 6 }}>💻</div>
+                            <div style={{ fontSize: 13, fontWeight: 700, color: '#0F172A', marginBottom: 3 }}>
+                              Drag & drop your file from Desktop, or <span style={{ color: '#0D9488', textDecoration: 'underline' }}>Browse from Computer</span>
+                            </div>
+                            <div style={{ fontSize: 11.5, color: '#64748B', marginBottom: 8 }}>
+                              Upload PDF guides, ZIP files, audio beats, videos, presets, or eBooks
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'center', gap: 5, flexWrap: 'wrap' }}>
+                              {['.PDF', '.ZIP', '.RAR', '.EPUB', '.MP3', '.MP4', '.PSD', '.AI', '.DOCX'].map((extTag) => (
+                                <span
+                                  key={extTag}
+                                  style={{
+                                    background: '#F1F5F9',
+                                    color: '#475569',
+                                    fontSize: 10,
+                                    fontWeight: 700,
+                                    padding: '2px 6px',
+                                    borderRadius: 4,
+                                  }}
+                                >
+                                  {extTag}
+                                </span>
+                              ))}
+                            </div>
+                          </>
+                        )}
+
+                        {uploadError && (
+                          <div style={{ marginTop: 8, fontSize: 11.5, color: '#DC2626', fontWeight: 600 }}>
+                            ⚠️ {uploadError}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  /* Cloud Link Input */
+                  <div>
+                    <input
+                      placeholder="e.g. https://drive.google.com/file/d/... or https://notion.so/..."
+                      value={fileUrl}
+                      onChange={(e) => setFileUrl(e.target.value)}
+                      style={{ ...inputStyle, background: 'white' }}
+                    />
+                    <span style={{ fontSize: 11, color: '#64748B', marginTop: 4, display: 'block' }}>
+                      💡 Paste a link from Google Drive, Dropbox, Mega, Canva, or Notion. Buyers will receive direct access.
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* Cover Image */}
               <div>
                 <label style={{ fontSize: 12, fontWeight: 700, color: '#475569', display: 'block', marginBottom: 5 }}>
-                  Product Cover Image:
+                  Product Cover Image (Upload from Desktop or paste URL):
                 </label>
                 <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
                   <input
@@ -679,7 +1087,7 @@ export default function ShopTab({ user, profile, products = [], reloadProducts }
                       gap: 6,
                     }}
                   >
-                    <span>📁 Upload</span>
+                    <span>📁 Upload from Desktop</span>
                     <input type="file" accept="image/*" onChange={handleImageUpload} style={{ display: 'none' }} />
                   </label>
                 </div>
@@ -691,6 +1099,13 @@ export default function ShopTab({ user, profile, products = [], reloadProducts }
                       style={{ width: 44, height: 44, borderRadius: 8, objectFit: 'cover', border: '1px solid #E2E8F0' }}
                     />
                     <span style={{ fontSize: 11.5, color: '#16A34A', fontWeight: 600 }}>✓ Image cover ready</span>
+                    <button
+                      type="button"
+                      onClick={() => setImageUrl('')}
+                      style={{ background: 'transparent', border: 'none', color: '#DC2626', fontSize: 11, cursor: 'pointer', fontWeight: 600 }}
+                    >
+                      Remove
+                    </button>
                   </div>
                 )}
               </div>
@@ -1024,6 +1439,21 @@ export default function ShopTab({ user, profile, products = [], reloadProducts }
                       }}
                     >
                       {categoryObj.icon} {categoryObj.label.split(' / ')[0]}
+                    </span>
+                  )}
+                  {p.file_url && p.file_url.startsWith('/uploads/') && (
+                    <span
+                      style={{
+                        background: '#0F172A',
+                        color: 'white',
+                        fontSize: 10,
+                        fontWeight: 800,
+                        padding: '2px 6px',
+                        borderRadius: 6,
+                      }}
+                      title={p.file_name || 'Uploaded File'}
+                    >
+                      💻 {p.file_size ? `${p.file_size}` : 'File Ready'}
                     </span>
                   )}
                   {p.original_price && (
