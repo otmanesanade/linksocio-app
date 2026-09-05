@@ -122,6 +122,28 @@ export default function PublicProfile({ username }) {
       }
     } catch (e) {}
 
+    // Clean any corrupted URLs and ensure digital assets are ready for customer download
+    finalProducts = finalProducts.map((p) => {
+      let extUrl = p.external_url || ''
+      if (/^https?:\/\/(data:|blob:)/i.test(extUrl)) {
+        extUrl = extUrl.replace(/^https?:\/\//i, '')
+      }
+      let fUrl = p.file_url || ''
+      if (/^https?:\/\/(data:|blob:)/i.test(fUrl)) {
+        fUrl = fUrl.replace(/^https?:\/\//i, '')
+      }
+      if (!fUrl && (extUrl.startsWith('data:') || extUrl.startsWith('/uploads/') || extUrl.startsWith('/api/download'))) {
+        fUrl = extUrl
+      }
+      const isDig = p.is_digital || !!fUrl || extUrl.startsWith('data:') || extUrl.startsWith('/uploads/') || extUrl.startsWith('/api/download') || !!p.category
+      return {
+        ...p,
+        external_url: extUrl,
+        file_url: fUrl || null,
+        is_digital: isDig,
+      }
+    })
+
     setLinks(linksData || [])
     setProducts(finalProducts)
     setLoading(false)

@@ -114,6 +114,31 @@ function apiPlugin() {
         const urlObj = new URL(req.url, `http://${req.headers.host || 'localhost'}`)
         const queryFile = urlObj.searchParams.get('file') || urlObj.searchParams.get('url') || ''
         customDownloadName = urlObj.searchParams.get('name') || ''
+
+        if (queryFile.startsWith('data:')) {
+          try {
+            const commaIdx = queryFile.indexOf(',')
+            const meta = queryFile.slice(5, commaIdx)
+            const mime = meta.split(';')[0] || 'application/pdf'
+            const base64Content = queryFile.slice(commaIdx + 1)
+            const buffer = Buffer.from(base64Content, 'base64')
+            const dlName = customDownloadName || 'digital_product.pdf'
+            const encodedName = encodeURIComponent(dlName)
+
+            res.statusCode = 200
+            res.setHeader('Content-Type', mime)
+            res.setHeader('Content-Length', buffer.length)
+            res.setHeader('Content-Disposition', `attachment; filename="${dlName.replace(/["\r\n]/g, '_')}"; filename*=UTF-8''${encodedName}`)
+            res.end(buffer)
+            return
+          } catch (e) {
+            res.statusCode = 500
+            res.setHeader('Content-Type', 'application/json')
+            res.end(JSON.stringify({ error: 'Failed to decode data URI: ' + e.message }))
+            return
+          }
+        }
+
         fileName = path.basename(decodeURIComponent(queryFile))
       } else {
         const rawUrl = req.url.split('?')[0]

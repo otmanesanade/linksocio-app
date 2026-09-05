@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react'
 import { supabase } from './supabaseClient'
 import CountryPhoneInput from './components/CountryPhoneInput'
+import { downloadFile, sanitizeFileUrl, getCleanDownloadName } from './utils/fileDownload'
 
 function normalizeUrl(url) {
   if (!url) return url
-  if (url.startsWith('data:') || url.startsWith('blob:') || url.startsWith('/uploads/') || url.startsWith('/api/')) return url
-  if (!/^https?:\/\//i.test(url)) return `https://${url}`
-  return url
+  let clean = sanitizeFileUrl(url)
+  if (clean.startsWith('data:') || clean.startsWith('blob:') || clean.startsWith('/uploads/') || clean.startsWith('/api/')) return clean
+  if (!/^https?:\/\//i.test(clean)) return `https://${clean}`
+  return clean
 }
 
 // Digital Product Categories with visual badges
@@ -364,32 +366,15 @@ export default function ShopTab({ user, profile, products = [], reloadProducts }
 
   const downloadUploadedFile = async (url, fileName) => {
     try {
-      if (url.startsWith('data:')) {
-        const link = document.createElement('a')
-        link.href = url
-        link.download = fileName || 'download.pdf'
-        document.body.appendChild(link)
-        link.click()
-        document.body.removeChild(link)
-        return
-      }
-      const res = await fetch(url)
-      if (!res.ok) throw new Error('Download failed')
-      const contentType = res.headers.get('content-type') || ''
-      if (contentType.includes('text/html')) {
-        throw new Error('Server returned HTML')
-      }
-      const blob = await res.blob()
-      const blobUrl = window.URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.href = blobUrl
-      link.download = fileName || 'download.pdf'
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      setTimeout(() => window.URL.revokeObjectURL(blobUrl), 1500)
+      const cleanUrl = sanitizeFileUrl(url)
+      const cleanName = getCleanDownloadName('', fileName)
+      await downloadFile(cleanUrl, cleanName)
     } catch (e) {
-      window.open(url, '_blank')
+      console.error('Download error:', e)
+      const cleanUrl = sanitizeFileUrl(url)
+      if (!cleanUrl.startsWith('data:')) {
+        window.open(cleanUrl, '_blank')
+      }
     }
   }
 
@@ -420,23 +405,25 @@ export default function ShopTab({ user, profile, products = [], reloadProducts }
     setPrice(p.price || '')
     setOriginalPrice(p.original_price || '')
     setImageUrl(p.image_url || '')
-    setExternalUrl(p.external_url || '')
-    setFileUrl(p.file_url || '')
+    const cleanExtUrl = sanitizeFileUrl(p.external_url || '')
+    const cleanFileUrl = sanitizeFileUrl(p.file_url || (cleanExtUrl.startsWith('data:') || cleanExtUrl.startsWith('/uploads/') ? cleanExtUrl : ''))
+    setExternalUrl(cleanExtUrl)
+    setFileUrl(cleanFileUrl)
     setDescription(p.description || '')
     setCategory(p.category || (p.is_digital ? 'ebook' : 'file'))
     setDeliveryType(p.delivery_type || (p.is_digital ? 'whatsapp' : 'external'))
     setHighlights(Array.isArray(p.highlights) ? p.highlights : [])
-    setCreationMode(p.is_digital || !p.external_url || p.delivery_type === 'whatsapp' ? 'digital' : 'external')
+    setCreationMode(p.is_digital || !cleanExtUrl || p.delivery_type === 'whatsapp' ? 'digital' : 'external')
 
     // Detect if product has a desktop uploaded file
-    if (p.file_url && (p.file_url.startsWith('/uploads/') || p.file_name)) {
+    if (cleanFileUrl && (cleanFileUrl.startsWith('/uploads/') || cleanFileUrl.startsWith('data:') || p.file_name)) {
       setFileSourceMode('upload')
       setUploadedFile({
-        name: p.file_name || p.file_url.split('/').pop().replace(/^\d+_/, ''),
+        name: p.file_name || (cleanFileUrl.startsWith('data:') ? 'digital_product.pdf' : cleanFileUrl.split('/').pop().replace(/^\d+_/, '')),
         size: p.file_size || '',
-        url: p.file_url,
+        url: cleanFileUrl,
       })
-    } else if (p.file_url) {
+    } else if (cleanFileUrl) {
       setFileSourceMode('link')
       setUploadedFile(null)
     } else {

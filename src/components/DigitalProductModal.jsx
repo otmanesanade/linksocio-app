@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { DIGITAL_CATEGORIES } from '../ShopTab'
 import confetti from 'canvas-confetti'
+import { downloadFile, sanitizeFileUrl, getCleanDownloadName } from '../utils/fileDownload'
 
 export default function DigitalProductModal({ product, profile, theme, onClose, isEmbedded = false }) {
   const [payTab, setPayTab] = useState('card') // 'card' | 'direct' | 'whatsapp'
@@ -10,6 +11,8 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
   const [processing, setProcessing] = useState(false)
   const [downloading, setDownloading] = useState(false)
   const [downloadError, setDownloadError] = useState(null)
+  const [downloadBlobUrl, setDownloadBlobUrl] = useState(null)
+  const [downloadFileName, setDownloadFileName] = useState('')
   const [orderSuccess, setOrderSuccess] = useState(null)
   const [sellerPayoutSettings, setSellerPayoutSettings] = useState(null)
 
@@ -24,7 +27,16 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
     bg: `${color}15`,
   }
 
-  const isFree = (product.price || '').toLowerCase().includes('free') || (product.price || '').toLowerCase().includes('gratuit') || product.price === '0'
+  const priceStr = String(product.price || '').trim().toLowerCase()
+  const isFree =
+    !priceStr ||
+    priceStr.includes('free') ||
+    priceStr.includes('gratuit') ||
+    priceStr.includes('مجاني') ||
+    priceStr === '0' ||
+    priceStr === '0.00' ||
+    priceStr === '0,00' ||
+    /^0\s*(dh|mad|€|\$|usd|eur)?$/i.test(priceStr)
 
   const username = profile?.username || ''
   const userId = profile?.id || ''
@@ -177,49 +189,10 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
       }),
     }).catch(() => {})
 
-    const targetFile = product.file_url || product.external_url
+    const rawTarget = product.file_url || product.external_url || ''
+    const targetFile = sanitizeFileUrl(rawTarget)
     if (!targetFile) {
       alert('Your digital content is ready! Accessing instant download link.')
-      return
-    }
-
-    // 1. Direct Data URI download (e.g. self-contained PDF/file data)
-    if (targetFile.startsWith('data:')) {
-      setDownloading(true)
-      try {
-        let downloadName = product.file_name || ''
-        if (!downloadName || !downloadName.includes('.')) {
-          downloadName = (product.name ? product.name.replace(/[^a-zA-Z0-9_\-]/g, '_') : 'digital_product') + '.pdf'
-        }
-        const link = document.createElement('a')
-        link.href = targetFile
-        link.download = downloadName
-        document.body.appendChild(link)
-        link.click()
-        document.body.removeChild(link)
-      } catch (err) {
-        console.error('Data URL download fallback to blob:', err)
-        try {
-          const res = await fetch(targetFile)
-          const blob = await res.blob()
-          const blobUrl = window.URL.createObjectURL(blob)
-          const link = document.createElement('a')
-          link.href = blobUrl
-          link.download = product.file_name || 'digital_product.pdf'
-          document.body.appendChild(link)
-          link.click()
-          document.body.removeChild(link)
-          setTimeout(() => window.URL.revokeObjectURL(blobUrl), 1500)
-        } catch (_) {}
-      } finally {
-        setDownloading(false)
-      }
-      return
-    }
-
-    // 2. External Cloud links (Google Drive, Dropbox, Canva, Notion)
-    if (!targetFile.startsWith('/uploads/') && !targetFile.startsWith('/api/download')) {
-      window.open(targetFile, '_blank')
       return
     }
 
@@ -227,40 +200,19 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
     setDownloadError(null)
 
     try {
-      // Determine proper file name with extension
-      let downloadName = product.file_name || ''
-      if (!downloadName) {
-        const rawPart = targetFile.split('/').pop().split('?')[0]
-        downloadName = decodeURIComponent(rawPart).replace(/^\d+_/, '')
+      const fileName = getCleanDownloadName(product.name, product.file_name)
+      const res = await downloadFile(targetFile, fileName)
+      if (res?.blobUrl) {
+        setDownloadBlobUrl(res.blobUrl)
+        setDownloadFileName(res.fileName || fileName)
       }
-      if (!downloadName || !downloadName.includes('.')) {
-        downloadName = (product.name ? product.name.replace(/[^a-zA-Z0-9_\-]/g, '_') : 'digital_product') + '.pdf'
-      }
-
-      // Fetch file directly as a binary Blob: Forces exact binary file download without HTML interference
-      const res = await fetch(targetFile)
-      if (!res.ok) {
-        throw new Error(`Server returned status ${res.status}`)
-      }
-
-      const contentType = res.headers.get('content-type') || ''
-      if (contentType.includes('text/html')) {
-        throw new Error('Server returned an HTML page instead of the binary file.')
-      }
-
-      const blob = await res.blob()
-      const blobUrl = window.URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.href = blobUrl
-      link.download = downloadName
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      setTimeout(() => window.URL.revokeObjectURL(blobUrl), 1500)
     } catch (err) {
-      console.error('Blob download fallback, attempting direct stream:', err)
-      const fallbackUrl = `/api/download?file=${encodeURIComponent(targetFile)}&name=${encodeURIComponent(product.file_name || 'download.pdf')}`
-      window.location.href = fallbackUrl
+      console.error('Download error:', err)
+      setDownloadError(err.message || 'Failed to download file directly')
+      // Fallback: if it's an external link or server endpoint, try direct navigation
+      if (!targetFile.startsWith('data:')) {
+        window.open(targetFile, '_blank')
+      }
     } finally {
       setDownloading(false)
     }
@@ -475,30 +427,55 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
               </p>
 
               {(product.file_url || product.external_url) && (
-                <button
-                  type="button"
-                  onClick={handleDirectDownload}
-                  disabled={downloading}
-                  style={{
-                    width: '100%',
-                    background: '#059669',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: 12,
-                    padding: '12px',
-                    fontSize: 13.5,
-                    fontWeight: 800,
-                    cursor: downloading ? 'wait' : 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: 6,
-                    marginTop: 4,
-                    opacity: downloading ? 0.8 : 1,
-                  }}
-                >
-                  {downloading ? '⏳ Downloading File...' : `⚡ Download ${product.file_name ? `"${product.file_name}"` : 'Files'} Now ↗`}
-                </button>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, width: '100%', marginTop: 4 }}>
+                  <button
+                    type="button"
+                    onClick={handleDirectDownload}
+                    disabled={downloading}
+                    style={{
+                      width: '100%',
+                      background: '#059669',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: 12,
+                      padding: '12px',
+                      fontSize: 13.5,
+                      fontWeight: 800,
+                      cursor: downloading ? 'wait' : 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 6,
+                      opacity: downloading ? 0.8 : 1,
+                    }}
+                  >
+                    {downloading ? '⏳ Downloading File...' : `⚡ Download ${product.file_name ? `"${product.file_name}"` : 'Files'} Now ↗`}
+                  </button>
+
+                  {downloadBlobUrl && (
+                    <a
+                      href={downloadBlobUrl}
+                      download={downloadFileName}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 6,
+                        background: '#047857',
+                        color: '#FFFFFF',
+                        padding: '10px 14px',
+                        borderRadius: 10,
+                        fontWeight: 800,
+                        fontSize: 13,
+                        textDecoration: 'none',
+                      }}
+                    >
+                      📥 Direct Download Link ({downloadFileName})
+                    </a>
+                  )}
+                </div>
               )}
 
               <button
@@ -510,30 +487,81 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
               </button>
             </div>
           ) : isFree || product.delivery_type === 'download' ? (
-            <button
-              type="button"
-              onClick={handleDirectDownload}
-              disabled={downloading}
-              style={{
-                background: color,
-                color: '#FFFFFF',
-                border: 'none',
-                borderRadius: 14,
-                padding: '12px',
-                fontSize: 13.5,
-                fontWeight: 700,
-                cursor: downloading ? 'wait' : 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 8,
-                boxShadow: `0 4px 14px ${color}40`,
-                marginTop: 4,
-                opacity: downloading ? 0.8 : 1,
-              }}
-            >
-              <span>{downloading ? '⏳ Downloading File...' : '⚡ Free Instant Access / Download'}</span>
-            </button>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }}>
+              <button
+                type="button"
+                onClick={handleDirectDownload}
+                disabled={downloading}
+                style={{
+                  background: color,
+                  color: '#FFFFFF',
+                  border: 'none',
+                  borderRadius: 14,
+                  padding: '12px',
+                  fontSize: 13.5,
+                  fontWeight: 700,
+                  cursor: downloading ? 'wait' : 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
+                  boxShadow: `0 4px 14px ${color}40`,
+                  opacity: downloading ? 0.8 : 1,
+                }}
+              >
+                <span>{downloading ? '⏳ Downloading File...' : '⚡ Free Instant Access / Download'}</span>
+              </button>
+
+              {downloadBlobUrl && (
+                <div
+                  style={{
+                    background: '#ECFDF5',
+                    border: '1px solid #10B981',
+                    borderRadius: 14,
+                    padding: '12px 14px',
+                    textAlign: 'center',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 6,
+                  }}
+                >
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#065F46' }}>
+                    ✓ جاهز للتحميل / File Ready!
+                  </div>
+                  <a
+                    href={downloadBlobUrl}
+                    download={downloadFileName}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 8,
+                      background: '#059669',
+                      color: '#FFFFFF',
+                      padding: '10px 14px',
+                      borderRadius: 10,
+                      fontWeight: 800,
+                      fontSize: 13,
+                      textDecoration: 'none',
+                      boxShadow: '0 2px 8px rgba(5, 150, 105, 0.25)',
+                    }}
+                  >
+                    <span>📥 اضغط هنا لتنزيل الملف / Click to Download</span>
+                  </a>
+                  <div style={{ fontSize: 11, color: '#047857' }}>
+                    {downloadFileName}
+                  </div>
+                </div>
+              )}
+
+              {downloadError && (
+                <div style={{ padding: '8px 12px', background: '#FEF2F2', border: '1px solid #FCA5A5', borderRadius: 10, color: '#B91C1C', fontSize: 12 }}>
+                  {downloadError}
+                </div>
+              )}
+            </div>
           ) : (
             /* MULTI-METHOD GLOBAL PAYMENT CHECKOUT */
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 4 }}>

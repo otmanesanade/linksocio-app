@@ -809,13 +809,33 @@ export function LivePagePreview({ profile, links = [], products = [], isEmbedded
             <div style={{ marginTop: isEmbedded ? 14 : 22, display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: isEmbedded ? 8 : 12 }}>
               {products.map((p) => {
                 const categoryObj = DIGITAL_CATEGORIES.find((c) => c.id === p.category)
-                const isDigital = p.is_digital || p.category || p.delivery_type === 'whatsapp' || p.file_url || (p.highlights && p.highlights.length > 0)
+                const extUrl = p.external_url || ''
+                const isDigital =
+                  p.is_digital ||
+                  p.category ||
+                  p.delivery_type === 'whatsapp' ||
+                  p.file_url ||
+                  extUrl.startsWith('data:') ||
+                  extUrl.includes('data:') ||
+                  extUrl.startsWith('/uploads/') ||
+                  (p.highlights && p.highlights.length > 0)
 
                 return (
                   <div
                     key={p.id}
                     onClick={() => {
-                      setSelectedProductModal(p)
+                      let cleanExt = (p.external_url || '').trim()
+                      if (/^https?:\/\/(data:|blob:)/i.test(cleanExt)) {
+                        cleanExt = cleanExt.replace(/^https?:\/\//i, '')
+                      }
+                      let cleanFile = (p.file_url || '').trim()
+                      if (/^https?:\/\/(data:|blob:)/i.test(cleanFile)) {
+                        cleanFile = cleanFile.replace(/^https?:\/\//i, '')
+                      }
+                      if (!cleanFile && (cleanExt.startsWith('data:') || cleanExt.startsWith('/uploads/'))) {
+                        cleanFile = cleanExt
+                      }
+                      setSelectedProductModal({ ...p, external_url: cleanExt, file_url: cleanFile || null, is_digital: isDigital })
                     }}
                     style={{
                       display: 'flex',
