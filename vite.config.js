@@ -876,35 +876,162 @@ function apiPlugin() {
         // Digital Product File Upload API (/api/upload)
         if (urlObj.pathname === '/api/upload') {
           if (req.method === 'POST') {
+            const contentType = (req.headers['content-type'] || '').toLowerCase()
+            const uploadsDir = path.join(process.cwd(), 'public', 'uploads')
+            if (!fs.existsSync(uploadsDir)) {
+              fs.mkdirSync(uploadsDir, { recursive: true })
+            }
+            const distUploadsDir = path.join(process.cwd(), 'dist', 'uploads')
+            if (fs.existsSync(path.join(process.cwd(), 'dist')) && !fs.existsSync(distUploadsDir)) {
+              fs.mkdirSync(distUploadsDir, { recursive: true })
+            }
+
+            // Case 1: Direct Binary Stream Upload (raw file body)
+            if (!contentType.includes('application/json')) {
+              try {
+                const headerFilename = req.headers['x-filename'] || req.headers['x-file-name'] || ''
+                const queryFilename = urlObj.searchParams.get('filename') || urlObj.searchParams.get('name') || ''
+                let rawName = 'file.pdf'
+                try {
+                  rawName = decodeURIComponent(headerFilename || queryFilename || 'file.pdf')
+                } catch (_) {
+                  rawName = headerFilename || queryFilename || 'file.pdf'
+                }
+
+                const ext = (path.extname(rawName) || '.bin').toLowerCase()
+                let cleanBase = path.basename(rawName, ext).replace(/[^a-zA-Z0-9_\-]/g, '_').replace(/_+/g, '_').slice(0, 60)
+                if (!cleanBase || cleanBase === '_') cleanBase = 'product'
+                const uniqueName = `${Date.now()}_${cleanBase}${ext}`
+
+                const filePath = path.join(uploadsDir, uniqueName)
+                const writeStream = fs.createWriteStream(filePath)
+                let bytesWritten = 0
+
+                req.on('data', (chunk) => {
+                  bytesWritten += chunk.length
+                })
+
+                req.pipe(writeStream)
+
+                writeStream.on('finish', () => {
+                  // Also mirror to dist/uploads if it exists
+                  if (fs.existsSync(distUploadsDir)) {
+                    try {
+                      fs.copyFileSync(filePath, path.join(distUploadsDir, uniqueName))
+                    } catch (_) {}
+                  }
+
+                  res.statusCode = 200
+                  res.setHeader('Content-Type', 'application/json')
+                  res.end(
+                    JSON.stringify({
+                      success: true,
+                      url: `/uploads/${uniqueName}`,
+                      filename: rawName,
+                      size: bytesWritten,
+                      type: contentType || MIME_TYPES[ext] || 'application/octet-stream',
+                    })
+                  )
+                })
+
+                writeStream.on('error', (err) => {
+                  console.error('Upload writeStream error:', err)
+                  if (!res.headersSent) {
+                    res.statusCode = 500
+                    res.setHeader('Content-Type', 'application/json')
+                    res.end(JSON.stringify({ error: 'Server write error: ' + err.message }))
+                  }
+                })
+
+                req.on('error', (err) => {
+                  console.error('Upload request stream error:', err)
+                  if (!res.headersSent) {
+                    res.statusCode = 500
+                    res.setHeader('Content-Type', 'application/json')
+                    res.end(JSON.stringify({ error: 'Stream error: ' + err.message }))
+                  }
+                })
+              } catch (err) {
+                console.error('Binary upload init error:', err)
+                res.statusCode = 500
+                res.setHeader('Content-Type', 'application/json')
+                res.end(JSON.stringify({ error: 'Upload failed: ' + err.message }))
+              }
+              return
+            }
+
+            // Case 2: JSON / Base64 Payload Upload
             const chunks = []
-            req.on('data', (chunk) => chunks.push(chunk))
+            let totalBytes = 0
+
+            req.on('data', (chunk) => {
+              chunks.push(chunk)
+              totalBytes += chunk.length
+            })
+
+            req.on('error', (err) => {
+              console.error('JSON upload req error:', err)
+              if (!res.headersSent) {
+                res.statusCode = 500
+                res.setHeader('Content-Type', 'application/json')
+                res.end(JSON.stringify({ error: 'Network error during upload: ' + err.message }))
+              }
+            })
+
             req.on('end', () => {
               try {
                 const bodyStr = Buffer.concat(chunks).toString('utf-8')
-                const payload = JSON.parse(bodyStr || '{}')
-                const { filename, base64, size, type } = payload
-
-                if (!base64) {
+                let payload = {}
+                try {
+                  payload = JSON.parse(bodyStr || '{}')
+                } catch (parseErr) {
                   res.statusCode = 400
                   res.setHeader('Content-Type', 'application/json')
-                  res.end(JSON.stringify({ error: 'No file content provided' }))
+                  res.end(JSON.stringify({ error: 'Malformed JSON payload: ' + parseErr.message }))
                   return
                 }
 
-                const rawName = filename || 'digital_product'
-                const ext = path.extname(rawName) || '.bin'
-                const cleanBase = path.basename(rawName, ext).replace(/[^a-zA-Z0-9_\-]/g, '_')
-                const uniqueName = `${Date.now()}_${cleanBase}${ext}`
+                const { filename, base64, size, type } = payload
 
-                const uploadsDir = path.join(process.cwd(), 'public', 'uploads')
-                if (!fs.existsSync(uploadsDir)) {
-                  fs.mkdirSync(uploadsDir, { recursive: true })
+                if (!base64 || typeof base64 !== 'string') {
+                  res.statusCode = 400
+                  res.setHeader('Content-Type', 'application/json')
+                  res.end(JSON.stringify({ error: 'No valid base64 file content provided' }))
+                  return
                 }
 
-                const base64Data = base64.replace(/^data:[^;]+;base64,/, '')
+                let rawName = 'file.pdf'
+                try {
+                  rawName = decodeURIComponent(filename || 'file.pdf')
+                } catch (_) {
+                  rawName = filename || 'file.pdf'
+                }
+
+                const ext = (path.extname(rawName) || '.bin').toLowerCase()
+                let cleanBase = path.basename(rawName, ext).replace(/[^a-zA-Z0-9_\-]/g, '_').replace(/_+/g, '_').slice(0, 60)
+                if (!cleanBase || cleanBase === '_') cleanBase = 'product'
+                const uniqueName = `${Date.now()}_${cleanBase}${ext}`
+
+                // Robust base64 stripping for any data URI format
+                let base64Data = base64
+                const base64Index = base64.indexOf('base64,')
+                if (base64Index !== -1) {
+                  base64Data = base64.slice(base64Index + 7)
+                } else {
+                  base64Data = base64.replace(/^data:.*?;base64,/, '')
+                }
+                base64Data = base64Data.trim()
+
                 const buffer = Buffer.from(base64Data, 'base64')
                 const filePath = path.join(uploadsDir, uniqueName)
                 fs.writeFileSync(filePath, buffer)
+
+                // Mirror to dist/uploads if it exists
+                if (fs.existsSync(distUploadsDir)) {
+                  try {
+                    fs.copyFileSync(filePath, path.join(distUploadsDir, uniqueName))
+                  } catch (_) {}
+                }
 
                 res.statusCode = 200
                 res.setHeader('Content-Type', 'application/json')
@@ -914,13 +1041,16 @@ function apiPlugin() {
                     url: `/uploads/${uniqueName}`,
                     filename: rawName,
                     size: buffer.length,
-                    type: type || 'application/octet-stream',
+                    type: type || MIME_TYPES[ext] || 'application/octet-stream',
                   })
                 )
               } catch (err) {
-                res.statusCode = 500
-                res.setHeader('Content-Type', 'application/json')
-                res.end(JSON.stringify({ error: 'Upload failed: ' + err.message }))
+                console.error('Base64 upload processing error:', err)
+                if (!res.headersSent) {
+                  res.statusCode = 500
+                  res.setHeader('Content-Type', 'application/json')
+                  res.end(JSON.stringify({ error: 'Upload failed: ' + err.message }))
+                }
               }
             })
             return

@@ -115,6 +115,13 @@ export default function ShopTab({ user, profile, products = [], reloadProducts }
       ? (file.size / (1024 * 1024)).toFixed(1) + ' MB' 
       : Math.max(1, Math.round(file.size / 1024)) + ' KB'
 
+    // Check for extreme file size limit (50MB max for direct web uploads)
+    if (file.size > 50 * 1024 * 1024) {
+      setUploadError(`File is too large (${formattedSize}). The direct upload limit is 50MB. For larger files, please choose "Provide External Download Link" to host via Google Drive, Dropbox, or OneDrive.`)
+      setUploadingFile(false)
+      return
+    }
+
     const ext = (file.name.split('.').pop() || '').toLowerCase()
 
     // Auto-detect digital category based on file extension
@@ -149,49 +156,112 @@ export default function ShopTab({ user, profile, products = [], reloadProducts }
     }
 
     try {
-      setUploadProgress(35)
-      const base64 = await new Promise((resolve, reject) => {
-        const reader = new FileReader()
-        reader.onprogress = (e) => {
-          if (e.lengthComputable) {
-            const percent = Math.min(80, Math.round((e.loaded / e.total) * 45) + 35)
-            setUploadProgress(percent)
+      setUploadProgress(20)
+
+      // Step 1: Direct Binary Stream Upload (fast, low memory, handles binary files cleanly)
+      let uploadResult = null
+      let uploadErrorMsg = ''
+
+      try {
+        uploadResult = await new Promise((resolve, reject) => {
+          const xhr = new XMLHttpRequest()
+          xhr.open('POST', `/api/upload?filename=${encodeURIComponent(file.name)}`, true)
+          xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream')
+          xhr.setRequestHeader('X-Filename', encodeURIComponent(file.name))
+
+          xhr.upload.onprogress = (e) => {
+            if (e.lengthComputable) {
+              const pct = Math.min(92, Math.max(20, Math.round((e.loaded / e.total) * 90)))
+              setUploadProgress(pct)
+            }
           }
-        }
-        reader.onload = () => resolve(reader.result)
-        reader.onerror = reject
-        reader.readAsDataURL(file)
-      })
 
-      setUploadProgress(85)
+          xhr.onload = () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+              try {
+                const data = JSON.parse(xhr.responseText)
+                if (data && data.success && data.url) {
+                  resolve(data)
+                } else {
+                  reject(new Error(data?.error || 'Invalid response from server'))
+                }
+              } catch (e) {
+                reject(new Error('Failed to parse server upload response'))
+              }
+            } else {
+              try {
+                const errData = JSON.parse(xhr.responseText)
+                reject(new Error(errData?.error || `Server returned error ${xhr.status}`))
+              } catch (_) {
+                reject(new Error(`Server returned error ${xhr.status}`))
+              }
+            }
+          }
 
-      const res = await fetch('/api/upload', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          filename: file.name,
-          base64,
-          size: file.size,
-          type: file.type || 'application/octet-stream',
-        }),
-      })
+          xhr.onerror = () => reject(new Error('Network error during file upload'))
+          xhr.ontimeout = () => reject(new Error('Upload connection timed out'))
 
-      if (!res.ok) {
-        throw new Error('Upload failed on server with status ' + res.status)
+          xhr.send(file)
+        })
+      } catch (streamErr) {
+        console.warn('Binary streaming upload failed, trying Base64 fallback:', streamErr)
+        uploadErrorMsg = streamErr.message
       }
 
-      const json = await res.json()
-      if (!json.success || !json.url) {
-        throw new Error(json.error || 'Upload failed')
+      // Step 2: Fallback to Base64 JSON if binary upload failed
+      if (!uploadResult) {
+        setUploadProgress(35)
+        const base64 = await new Promise((resolve, reject) => {
+          const reader = new FileReader()
+          reader.onprogress = (e) => {
+            if (e.lengthComputable) {
+              const percent = Math.min(80, Math.round((e.loaded / e.total) * 45) + 35)
+              setUploadProgress(percent)
+            }
+          }
+          reader.onload = () => resolve(reader.result)
+          reader.onerror = () => reject(new Error('Failed to read file from disk'))
+          reader.readAsDataURL(file)
+        })
+
+        setUploadProgress(85)
+
+        const res = await fetch('/api/upload', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            filename: file.name,
+            base64,
+            size: file.size,
+            type: file.type || 'application/octet-stream',
+          }),
+        })
+
+        if (!res.ok) {
+          let errDetail = `Upload failed with status ${res.status}`
+          try {
+            const errJson = await res.json()
+            if (errJson && errJson.error) {
+              errDetail = errJson.error
+            }
+          } catch (_) {}
+          throw new Error(errDetail)
+        }
+
+        const json = await res.json()
+        if (!json.success || !json.url) {
+          throw new Error(json.error || 'Upload failed')
+        }
+        uploadResult = json
       }
 
       setUploadProgress(100)
-      setFileUrl(json.url)
+      setFileUrl(uploadResult.url)
       setUploadedFile({
         name: file.name,
         size: formattedSize,
         type: file.type || ext,
-        url: json.url,
+        url: uploadResult.url,
       })
       setSuccessMsg(`✓ File "${file.name}" uploaded successfully from your desktop!`)
       setTimeout(() => setSuccessMsg(''), 4000)
