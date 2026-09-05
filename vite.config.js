@@ -61,19 +61,106 @@ function apiPlugin() {
     } catch (e) {}
   }
 
+  const MIME_TYPES = {
+    '.pdf': 'application/pdf',
+    '.zip': 'application/zip',
+    '.rar': 'application/x-rar-compressed',
+    '.7z': 'application/x-7z-compressed',
+    '.tar': 'application/x-tar',
+    '.gz': 'application/gzip',
+    '.epub': 'application/epub+zip',
+    '.mobi': 'application/x-mobipocket-ebook',
+    '.mp3': 'audio/mpeg',
+    '.wav': 'audio/wav',
+    '.m4a': 'audio/mp4',
+    '.ogg': 'audio/ogg',
+    '.flac': 'audio/flac',
+    '.mp4': 'video/mp4',
+    '.mov': 'video/quicktime',
+    '.webm': 'video/webm',
+    '.png': 'image/png',
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.webp': 'image/webp',
+    '.gif': 'image/gif',
+    '.svg': 'image/svg+xml',
+    '.doc': 'application/msword',
+    '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    '.xls': 'application/vnd.ms-excel',
+    '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    '.ppt': 'application/vnd.ms-powerpoint',
+    '.pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    '.txt': 'text/plain',
+    '.csv': 'text/csv',
+  }
+
   const apiMiddleware = async (req, res, next) => {
     // Direct uploaded digital product file download handler
-    if (req.url && req.url.startsWith('/uploads/')) {
-      const rawUrl = req.url.split('?')[0]
-      const fileName = path.basename(decodeURIComponent(rawUrl))
-      const filePath = path.join(process.cwd(), 'public', 'uploads', fileName)
-      if (fs.existsSync(filePath)) {
-        const stat = fs.statSync(filePath)
+    if (req.url && (req.url.startsWith('/uploads/') || req.url.startsWith('/api/download'))) {
+      res.setHeader('Access-Control-Allow-Origin', '*')
+      res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS')
+      res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition, Content-Length, Content-Type')
+
+      if (req.method === 'OPTIONS') {
         res.statusCode = 200
+        res.end()
+        return
+      }
+
+      let fileName = ''
+      let customDownloadName = ''
+
+      if (req.url.startsWith('/api/download')) {
+        const urlObj = new URL(req.url, `http://${req.headers.host || 'localhost'}`)
+        const queryFile = urlObj.searchParams.get('file') || urlObj.searchParams.get('url') || ''
+        customDownloadName = urlObj.searchParams.get('name') || ''
+        fileName = path.basename(decodeURIComponent(queryFile))
+      } else {
+        const rawUrl = req.url.split('?')[0]
+        fileName = path.basename(decodeURIComponent(rawUrl))
+      }
+
+      if (!fileName || fileName === '.' || fileName === '/') {
+        res.statusCode = 400
+        res.setHeader('Content-Type', 'application/json')
+        res.end(JSON.stringify({ error: 'Missing file name' }))
+        return
+      }
+
+      // Check multiple possible storage locations
+      const possibleDirs = [
+        path.join(process.cwd(), 'public', 'uploads'),
+        path.join(process.cwd(), 'uploads'),
+        path.join(process.cwd(), 'dist', 'uploads'),
+      ]
+
+      let targetPath = null
+      for (const dir of possibleDirs) {
+        const candidate = path.join(dir, fileName)
+        if (fs.existsSync(candidate)) {
+          targetPath = candidate
+          break
+        }
+      }
+
+      if (targetPath) {
+        const stat = fs.statSync(targetPath)
+        const ext = path.extname(fileName).toLowerCase()
+        const contentType = MIME_TYPES[ext] || 'application/octet-stream'
+        const cleanDownloadName = customDownloadName || fileName.replace(/^\d+_/, '')
+
+        res.statusCode = 200
+        res.setHeader('Content-Type', contentType)
         res.setHeader('Content-Length', stat.size)
-        const cleanDownloadName = fileName.replace(/^\d+_/, '')
-        res.setHeader('Content-Disposition', `attachment; filename="${cleanDownloadName}"`)
-        fs.createReadStream(filePath).pipe(res)
+        res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(cleanDownloadName)}"; filename*=UTF-8''${encodeURIComponent(cleanDownloadName)}"`)
+        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable')
+        fs.createReadStream(targetPath).pipe(res)
+        return
+      } else {
+        // Crucial: Return 404 instead of calling next() so Vite does NOT serve index.html
+        res.statusCode = 404
+        res.setHeader('Content-Type', 'application/json')
+        res.end(JSON.stringify({ error: 'File not found on server' }))
         return
       }
     }

@@ -57,6 +57,8 @@ export default function App() {
     'terms',
     'forgot-password',
     'reset-password',
+    'uploads',
+    'api',
   ]
 
   if (path === 'privacy') return <PrivacyPolicy goBack={() => goTo('')} />

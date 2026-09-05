@@ -270,6 +270,28 @@ export default function ShopTab({ user, profile, products = [], reloadProducts }
     setHighlights(highlights.filter((_, i) => i !== idx))
   }
 
+  const downloadUploadedFile = async (url, fileName) => {
+    try {
+      const res = await fetch(url)
+      if (!res.ok) throw new Error('Download failed')
+      const contentType = res.headers.get('content-type') || ''
+      if (contentType.includes('text/html')) {
+        throw new Error('Server returned HTML')
+      }
+      const blob = await res.blob()
+      const blobUrl = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = blobUrl
+      link.download = fileName || 'download.pdf'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      setTimeout(() => window.URL.revokeObjectURL(blobUrl), 1500)
+    } catch (e) {
+      window.open(url, '_blank')
+    }
+  }
+
   // Reset form
   const resetForm = () => {
     setName('')
@@ -885,15 +907,13 @@ export default function ShopTab({ user, profile, products = [], reloadProducts }
 
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
                           {uploadedFile.url && (
-                            <a
-                              href={uploadedFile.url}
-                              target="_blank"
-                              rel="noreferrer"
-                              download
+                            <button
+                              type="button"
+                              onClick={() => downloadUploadedFile(uploadedFile.url, uploadedFile.name)}
                               style={{
                                 background: '#F1F5F9',
                                 color: '#0F172A',
-                                textDecoration: 'none',
+                                border: 'none',
                                 padding: '6px 10px',
                                 borderRadius: 8,
                                 fontSize: 11.5,
@@ -901,11 +921,12 @@ export default function ShopTab({ user, profile, products = [], reloadProducts }
                                 display: 'flex',
                                 alignItems: 'center',
                                 gap: 4,
+                                cursor: 'pointer',
                               }}
                               title="Test Download File"
                             >
                               <span>📥 Test</span>
-                            </a>
+                            </button>
                           )}
                           <label
                             style={{
