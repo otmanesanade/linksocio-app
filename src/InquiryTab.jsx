@@ -26,8 +26,9 @@ export function getInquirySettings(profile) {
   }
 
   try {
+    const cleanUser = (profile.username || '').toLowerCase().trim().replace(/^@+/, '')
     const idKey = profile.id ? `linksocio_inquiry_${profile.id}` : null
-    const userKey = profile.username ? `linksocio_inquiry_${profile.username}` : null
+    const userKey = cleanUser ? `linksocio_inquiry_${cleanUser}` : null
 
     let parsed = null
     const stored = (idKey && localStorage.getItem(idKey)) || (userKey && localStorage.getItem(userKey))
@@ -39,13 +40,15 @@ export function getInquirySettings(profile) {
 
     // Explicit check for enabled status:
     let isEnabled = false
-    if (parsed && parsed.enabled !== undefined) {
-      isEnabled = Boolean(parsed.enabled)
-    } else if (profile.inquiry_enabled !== undefined && profile.inquiry_enabled !== null) {
+    if (profile.inquiry_enabled !== undefined && profile.inquiry_enabled !== null) {
       isEnabled = Boolean(profile.inquiry_enabled)
+    } else if (parsed && parsed.enabled !== undefined) {
+      isEnabled = Boolean(parsed.enabled)
     }
 
     return {
+      ...DEFAULT_SETTINGS,
+      ...(parsed || {}),
       enabled: isEnabled,
       whatsapp_number: (parsed && parsed.whatsapp_number !== undefined) ? parsed.whatsapp_number : (profile.whatsapp_number || ''),
       title: (parsed && parsed.title) || profile.inquiry_title || DEFAULT_SETTINGS.title,
@@ -62,7 +65,8 @@ export function getInquirySettings(profile) {
 export async function fetchServerInquirySettings(username, userId) {
   if (!username && !userId) return null
   try {
-    const query = username ? `username=${encodeURIComponent(username)}` : `userId=${encodeURIComponent(userId)}`
+    const cleanUser = (username || '').toLowerCase().trim().replace(/^@+/, '')
+    const query = cleanUser ? `username=${encodeURIComponent(cleanUser)}` : `userId=${encodeURIComponent(userId)}`
     const res = await fetch(`/api/inquiry-settings?${query}`)
     if (res.ok) {
       const data = await res.json()
@@ -74,29 +78,31 @@ export async function fetchServerInquirySettings(username, userId) {
   return null
 }
 
-export function saveInquirySettingsLocally(profile, settings) {
+export async function saveInquirySettingsLocally(profile, settings) {
   if (!profile) return
+  const cleanUser = (profile.username || '').toLowerCase().trim().replace(/^@+/, '')
+  const userId = profile.id || ''
   try {
     const dataStr = JSON.stringify(settings)
-    if (profile.id) {
-      localStorage.setItem(`linksocio_inquiry_${profile.id}`, dataStr)
+    if (userId) {
+      localStorage.setItem(`linksocio_inquiry_${userId}`, dataStr)
     }
-    if (profile.username) {
-      localStorage.setItem(`linksocio_inquiry_${profile.username}`, dataStr)
+    if (cleanUser) {
+      localStorage.setItem(`linksocio_inquiry_${cleanUser}`, dataStr)
     }
   } catch (e) {}
 
   // Sync with server API
   try {
-    fetch('/api/inquiry-settings', {
+    await fetch('/api/inquiry-settings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        username: profile.username || '',
-        userId: profile.id || '',
+        username: cleanUser,
+        userId: userId,
         settings,
       }),
-    }).catch(() => {})
+    })
   } catch (e) {}
 }
 
@@ -273,7 +279,15 @@ export default function InquiryTab({ profile, onUpdated }) {
   async function handleToggleEnabled(newVal) {
     const updated = { ...settings, enabled: newVal }
     setSettings(updated)
-    saveInquirySettingsLocally(profile, updated)
+    if (profile) {
+      profile._inquirySettings = updated
+      profile.inquiry_enabled = newVal
+    }
+    await saveInquirySettingsLocally(profile, updated)
+
+    try {
+      window.dispatchEvent(new CustomEvent('linksocio_settings_updated', { detail: { type: 'inquiry', enabled: newVal } }))
+    } catch (e) {}
 
     try {
       await supabase.from('profiles').update({
@@ -289,7 +303,17 @@ export default function InquiryTab({ profile, onUpdated }) {
   async function handleSaveSettings(e) {
     e?.preventDefault()
     setSaving(true)
-    saveInquirySettingsLocally(profile, settings)
+
+    if (profile) {
+      profile._inquirySettings = settings
+      profile.inquiry_enabled = settings.enabled
+    }
+
+    await saveInquirySettingsLocally(profile, settings)
+
+    try {
+      window.dispatchEvent(new CustomEvent('linksocio_settings_updated', { detail: { type: 'inquiry', enabled: settings.enabled } }))
+    } catch (e) {}
 
     try {
       await supabase.from('profiles').update({

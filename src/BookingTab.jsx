@@ -19,7 +19,7 @@ export const CURRENCIES = [
 ]
 
 export const DEFAULT_BOOKING_SETTINGS = {
-  enabled: true,
+  enabled: false,
   title: 'Book a Consultation',
   subtitle: 'Select a suitable date & time for a 1-on-1 meeting with me.',
   whatsapp_number: '',
@@ -61,8 +61,9 @@ export function getBookingSettings(profile) {
   }
 
   try {
+    const cleanUser = (profile.username || '').toLowerCase().trim().replace(/^@+/, '')
     const idKey = profile.id ? `linksocio_booking_${profile.id}` : null
-    const userKey = profile.username ? `linksocio_booking_${profile.username}` : null
+    const userKey = cleanUser ? `linksocio_booking_${cleanUser}` : null
     let parsed = null
     const stored = (idKey && localStorage.getItem(idKey)) || (userKey && localStorage.getItem(userKey))
     if (stored) {
@@ -71,11 +72,11 @@ export function getBookingSettings(profile) {
       } catch (e) {}
     }
 
-    let isEnabled = true
-    if (parsed && parsed.enabled !== undefined) {
-      isEnabled = Boolean(parsed.enabled)
-    } else if (profile.booking_enabled !== undefined && profile.booking_enabled !== null) {
+    let isEnabled = false
+    if (profile.booking_enabled !== undefined && profile.booking_enabled !== null) {
       isEnabled = Boolean(profile.booking_enabled)
+    } else if (parsed && parsed.enabled !== undefined) {
+      isEnabled = Boolean(parsed.enabled)
     }
 
     return {
@@ -95,7 +96,8 @@ export function getBookingSettings(profile) {
 export async function fetchServerBookingSettings(username, userId) {
   if (!username && !userId) return null
   try {
-    const query = username ? `username=${encodeURIComponent(username)}` : `userId=${encodeURIComponent(userId)}`
+    const cleanUser = (username || '').toLowerCase().trim().replace(/^@+/, '')
+    const query = cleanUser ? `username=${encodeURIComponent(cleanUser)}` : `userId=${encodeURIComponent(userId)}`
     const res = await fetch(`/api/booking-settings?${query}`)
     if (res.ok) {
       const data = await res.json()
@@ -107,25 +109,27 @@ export async function fetchServerBookingSettings(username, userId) {
   return null
 }
 
-export function saveBookingSettingsLocally(profile, settings) {
+export async function saveBookingSettingsLocally(profile, settings) {
   if (!profile) return
+  const cleanUser = (profile.username || '').toLowerCase().trim().replace(/^@+/, '')
+  const userId = profile.id || ''
   try {
     const dataStr = JSON.stringify(settings)
-    if (profile.id) localStorage.setItem(`linksocio_booking_${profile.id}`, dataStr)
-    if (profile.username) localStorage.setItem(`linksocio_booking_${profile.username}`, dataStr)
+    if (userId) localStorage.setItem(`linksocio_booking_${userId}`, dataStr)
+    if (cleanUser) localStorage.setItem(`linksocio_booking_${cleanUser}`, dataStr)
   } catch (e) {}
 
   // Sync with server API
   try {
-    fetch('/api/booking-settings', {
+    await fetch('/api/booking-settings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        username: profile.username || '',
-        userId: profile.id || '',
+        username: cleanUser,
+        userId: userId,
         settings,
       }),
-    }).catch(() => {})
+    })
   } catch (e) {}
 }
 
@@ -315,7 +319,15 @@ export default function BookingTab({ profile, onUpdated }) {
   async function handleToggleEnabled(newVal) {
     const updated = { ...settings, enabled: newVal }
     setSettings(updated)
-    saveBookingSettingsLocally(profile, updated)
+    if (profile) {
+      profile._bookingSettings = updated
+      profile.booking_enabled = newVal
+    }
+    await saveBookingSettingsLocally(profile, updated)
+
+    try {
+      window.dispatchEvent(new CustomEvent('linksocio_settings_updated', { detail: { type: 'booking', enabled: newVal } }))
+    } catch (e) {}
 
     try {
       await supabase.from('profiles').update({
@@ -337,6 +349,9 @@ export default function BookingTab({ profile, onUpdated }) {
     }
     const updated = { ...settings, working_days: updatedDays }
     setSettings(updated)
+    if (profile) {
+      profile._bookingSettings = updated
+    }
     saveBookingSettingsLocally(profile, updated)
   }
 
@@ -344,7 +359,16 @@ export default function BookingTab({ profile, onUpdated }) {
     e?.preventDefault()
     setSaving(true)
 
-    saveBookingSettingsLocally(profile, settings)
+    if (profile) {
+      profile._bookingSettings = settings
+      profile.booking_enabled = settings.enabled
+    }
+
+    await saveBookingSettingsLocally(profile, settings)
+
+    try {
+      window.dispatchEvent(new CustomEvent('linksocio_settings_updated', { detail: { type: 'booking', enabled: settings.enabled } }))
+    } catch (e) {}
 
     try {
       await supabase.from('profiles').update({

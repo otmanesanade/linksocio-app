@@ -369,23 +369,28 @@ export default function Dashboard({ user, initialTab }) {
       }
     }
 
+    const cleanUser = (data.username || '').toLowerCase().trim().replace(/^@+/, '')
     const [serverInquiry, serverBooking] = await Promise.all([
-      fetchServerInquirySettings(data.username, data.id),
-      fetchServerBookingSettings(data.username, data.id),
+      fetchServerInquirySettings(cleanUser, data.id),
+      fetchServerBookingSettings(cleanUser, data.id),
     ])
 
     if (serverInquiry) {
       data._inquirySettings = serverInquiry
-      if (serverInquiry.enabled !== undefined) {
-        data.inquiry_enabled = serverInquiry.enabled
-      }
+      data.inquiry_enabled = Boolean(serverInquiry.enabled)
+    } else {
+      const localInq = getInquirySettings(data)
+      data._inquirySettings = localInq
+      data.inquiry_enabled = Boolean(localInq.enabled)
     }
 
     if (serverBooking) {
       data._bookingSettings = serverBooking
-      if (serverBooking.enabled !== undefined) {
-        data.booking_enabled = serverBooking.enabled
-      }
+      data.booking_enabled = Boolean(serverBooking.enabled)
+    } else {
+      const localBook = getBookingSettings(data)
+      data._bookingSettings = localBook
+      data.booking_enabled = Boolean(localBook.enabled)
     }
 
     if (!data.location) {

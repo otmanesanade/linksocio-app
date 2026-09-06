@@ -5,7 +5,27 @@ import CountryPhoneInput from './CountryPhoneInput'
 import confetti from 'canvas-confetti'
 
 export default function BookingCard({ profile, links = [], theme, isEmbedded = false }) {
-  const settings = getBookingSettings(profile)
+  const [currentSettings, setCurrentSettings] = useState(() => getBookingSettings(profile))
+
+  useEffect(() => {
+    setCurrentSettings(getBookingSettings(profile))
+  }, [profile, profile?._bookingSettings, profile?.booking_enabled, profile?._ts])
+
+  useEffect(() => {
+    function handleUpdate(e) {
+      if (!e?.detail || e.detail.type === 'booking') {
+        setCurrentSettings(getBookingSettings(profile))
+      }
+    }
+    window.addEventListener('linksocio_settings_updated', handleUpdate)
+    window.addEventListener('storage', handleUpdate)
+    return () => {
+      window.removeEventListener('linksocio_settings_updated', handleUpdate)
+      window.removeEventListener('storage', handleUpdate)
+    }
+  }, [profile])
+
+  const settings = currentSettings
 
   const [isOpen, setIsOpen] = useState(false)
   const [selectedService, setSelectedService] = useState(null)

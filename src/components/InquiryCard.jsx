@@ -1,11 +1,31 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { getInquirySettings, recordLeadLocally } from '../InquiryTab'
 import { dispatchServerAlert } from '../notificationService'
 import CountryPhoneInput from './CountryPhoneInput'
 import confetti from 'canvas-confetti'
 
 export default function InquiryCard({ profile, links = [], theme, isEmbedded = false }) {
-  const settings = getInquirySettings(profile)
+  const [currentSettings, setCurrentSettings] = useState(() => getInquirySettings(profile))
+
+  useEffect(() => {
+    setCurrentSettings(getInquirySettings(profile))
+  }, [profile, profile?._inquirySettings, profile?.inquiry_enabled, profile?._ts])
+
+  useEffect(() => {
+    function handleUpdate(e) {
+      if (!e?.detail || e.detail.type === 'inquiry') {
+        setCurrentSettings(getInquirySettings(profile))
+      }
+    }
+    window.addEventListener('linksocio_settings_updated', handleUpdate)
+    window.addEventListener('storage', handleUpdate)
+    return () => {
+      window.removeEventListener('linksocio_settings_updated', handleUpdate)
+      window.removeEventListener('storage', handleUpdate)
+    }
+  }, [profile])
+
+  const settings = currentSettings
   const [isOpen, setIsOpen] = useState(false)
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')

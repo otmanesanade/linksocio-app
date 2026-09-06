@@ -52,24 +52,27 @@ export default function PublicProfile({ username }) {
     }
 
     // Fetch server inquiry, booking & restaurant menu settings in parallel
+    const cleanU = (username || profileData.username || '').toLowerCase().trim().replace(/^@+/, '')
     const [inquirySettings, bookingSettings, restaurantMenu] = await Promise.all([
-      fetchServerInquirySettings(username, profileData.id),
-      fetchServerBookingSettings(username, profileData.id),
-      fetchServerRestaurantMenu(username, profileData.id),
+      fetchServerInquirySettings(cleanU, profileData.id),
+      fetchServerBookingSettings(cleanU, profileData.id),
+      fetchServerRestaurantMenu(cleanU, profileData.id),
     ])
 
     if (inquirySettings) {
       profileData._inquirySettings = inquirySettings
-      if (inquirySettings.enabled !== undefined) {
-        profileData.inquiry_enabled = inquirySettings.enabled
-      }
+      profileData.inquiry_enabled = Boolean(inquirySettings.enabled)
+    } else {
+      profileData._inquirySettings = { enabled: false }
+      profileData.inquiry_enabled = false
     }
 
     if (bookingSettings) {
       profileData._bookingSettings = bookingSettings
-      if (bookingSettings.enabled !== undefined) {
-        profileData.booking_enabled = bookingSettings.enabled
-      }
+      profileData.booking_enabled = Boolean(bookingSettings.enabled)
+    } else {
+      profileData._bookingSettings = { enabled: false }
+      profileData.booking_enabled = false
     }
 
     if (restaurantMenu) {
