@@ -270,3 +270,28 @@ export function saveStoredLinksMeta(username, userId, meta) {
     }).catch(() => {})
   } catch (e) {}
 }
+
+export function inferIconFromLink(url = '', label = '') {
+  const lowUrl = String(url || '').toLowerCase()
+  const lowLabel = String(label || '').toLowerCase()
+
+  if (lowUrl.includes('instagram.com') || lowUrl.includes('instagr.am') || lowLabel.includes('instagram') || lowLabel.includes('insta')) return 'instagram'
+  if (lowUrl.includes('wa.me') || lowUrl.includes('whatsapp.com') || lowLabel.includes('whatsapp') || lowLabel.includes('واتساب') || lowLabel.includes('واتس')) return 'whatsapp'
+  if (lowUrl.includes('tiktok.com') || lowLabel.includes('tiktok') || lowLabel.includes('تيك توك')) return 'tiktok'
+  if (lowUrl.includes('youtube.com') || lowUrl.includes('youtu.be') || lowLabel.includes('youtube') || lowLabel.includes('يوتيوب')) return 'youtube'
+  if (lowUrl.includes('twitter.com') || lowUrl.includes('x.com') || lowLabel.includes('twitter') || lowLabel.includes('تويتر')) return 'twitter'
+  if (lowUrl.includes('facebook.com') || lowUrl.includes('fb.me') || lowLabel.includes('facebook') || lowLabel.includes('فيسبوك')) return 'facebook'
+  if (lowUrl.includes('linkedin.com') || lowLabel.includes('linkedin')) return 'linkedin'
+  if (lowUrl.includes('snapchat.com') || lowLabel.includes('snapchat') || lowLabel.includes('سناب')) return 'snapchat'
+  if (lowUrl.includes('spotify.com') || lowLabel.includes('spotify')) return 'spotify'
+  if (lowUrl.includes('t.me') || lowUrl.includes('telegram') || lowLabel.includes('telegram')) return 'telegram'
+  if (lowUrl.startsWith('mailto:') || lowUrl.includes('@') || lowLabel.includes('email') || lowLabel.includes('mail') || lowLabel.includes('gmail')) return 'email'
+  if (lowUrl.startsWith('tel:') || lowLabel.includes('phone') || lowLabel.includes('call') || lowLabel.includes('tel') || lowLabel.includes('هاتف')) return 'phone'
+  if (lowUrl.includes('maps.google') || lowUrl.includes('google.com/maps') || lowLabel.includes('map') || lowLabel.includes('location') || lowLabel.includes('خريطة')) return 'map'
+  if (lowLabel.includes('store') || lowLabel.includes('shop') || lowLabel.includes('boutique') || lowLabel.includes('متجر')) return 'store'
+  if (lowUrl.includes('github.com') || lowLabel.includes('github')) return 'github'
+  if (lowUrl.includes('discord') || lowLabel.includes('discord')) return 'discord'
+  if (lowUrl.includes('pinterest') || lowLabel.includes('pinterest')) return 'pinterest'
+  if (lowLabel.includes('music') || lowLabel.includes('musique') || lowLabel.includes('موسيقى')) return 'music'
+  return 'globe'
+}

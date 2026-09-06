@@ -4,7 +4,7 @@ import { getSocialIcon } from './LivePagePreview'
 import { getMediaEmbedInfo } from '../utils/mediaEmbed'
 import SocialBarManager from './SocialBarManager'
 import ShareModal from './ShareModal'
-import { getStoredLinksMeta, saveStoredLinksMeta } from '../utils/socialPlatforms'
+import { getStoredLinksMeta, saveStoredLinksMeta, inferIconFromLink } from '../utils/socialPlatforms'
 
 const QUICK_PRESETS = [
   { label: 'Instagram', prefix: 'https://instagram.com/', placeholder: 'username', icon: 'Instagram' },
@@ -84,6 +84,7 @@ export default function LinksManager({
       position: links.length,
       active: true,
       style: initialStyle,
+      icon: inferIconFromLink(normalized, label),
     }
 
     let { error } = await supabase.from('links').insert(insertData)
@@ -197,7 +198,8 @@ export default function LinksManager({
   async function saveEdit(id) {
     if (!editLabel || !editUrl) return
     const normalized = /^https?:\/\//i.test(editUrl) ? editUrl : `https://${editUrl}`
-    await supabase.from('links').update({ label: editLabel, url: normalized }).eq('id', id)
+    const inferred = inferIconFromLink(normalized, editLabel)
+    await supabase.from('links').update({ label: editLabel, url: normalized, icon: inferred }).eq('id', id)
     setEditingId(null)
     onLinksChanged()
   }

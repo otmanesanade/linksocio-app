@@ -162,40 +162,39 @@ export const getSocialIcon = (itemOrLabel = '', color = 'currentColor', size = 1
   let customIcon = ''
 
   if (typeof itemOrLabel === 'object' && itemOrLabel !== null) {
-    label = String(itemOrLabel.label || itemOrLabel.name || '').toLowerCase()
-    url = String(itemOrLabel.url || '').toLowerCase()
-    platformId = String(itemOrLabel.platformId || itemOrLabel.platform || '').toLowerCase()
-    customIcon = String(itemOrLabel.custom_icon || itemOrLabel.icon || '').toLowerCase()
+    label = String(itemOrLabel.label || itemOrLabel.name || '').toLowerCase().trim()
+    url = String(itemOrLabel.url || '').toLowerCase().trim()
+    platformId = String(itemOrLabel.platformId || itemOrLabel.platform || '').toLowerCase().trim()
+    customIcon = String(itemOrLabel.custom_icon || itemOrLabel.icon || '').toLowerCase().trim()
   } else {
-    label = String(itemOrLabel || '').toLowerCase()
-    url = String(overrideUrl || '').toLowerCase()
+    label = String(itemOrLabel || '').toLowerCase().trim()
+    url = String(overrideUrl || '').toLowerCase().trim()
   }
 
-  // 1. Explicit Icon / Platform Key Match
-  const key = customIcon || platformId
-  if (key === 'instagram' || key === 'insta') return <IconInstagram color={color} size={size} />
-  if (key === 'whatsapp' || key === 'wa') return <IconWhatsapp color={color} size={size} />
-  if (key === 'tiktok') return <IconTiktok color={color} size={size} />
-  if (key === 'youtube' || key === 'yt') return <IconYoutube color={color} size={size} />
-  if (key === 'twitter' || key === 'x') return <IconTwitter color={color} size={size} />
-  if (key === 'linkedin') return <IconLinkedin color={color} size={size} />
-  if (key === 'facebook' || key === 'fb') return <IconFacebook color={color} size={size} />
-  if (key === 'snapchat' || key === 'snap') return <IconSnapchat color={color} size={size} />
-  if (key === 'spotify') return <IconSpotify color={color} size={size} />
-  if (key === 'telegram' || key === 'tg') return <IconTelegram color={color} size={size} />
-  if (key === 'email' || key === 'mail') return <IconMail color={color} size={size} />
-  if (key === 'phone' || key === 'call' || key === 'tel') return <IconPhone color={color} size={size} />
-  if (key === 'map' || key === 'location' || key === 'gps') return <IconMapPin color={color} size={size} />
-  if (key === 'store' || key === 'shop') return <IconShoppingBag color={color} size={size} />
-  if (key === 'music') return <IconMusic color={color} size={size} />
-  if (key === 'video' || key === 'play') return <IconPlay color={color} size={size} />
-  if (key === 'document' || key === 'cv') return <IconDocument color={color} size={size} />
-  if (key === 'discord') return <IconDiscord color={color} size={size} />
-  if (key === 'pinterest') return <IconPinterest color={color} size={size} />
-  if (key === 'github' || key === 'git') return <IconGithub color={color} size={size} />
-  if (key === 'website' || key === 'globe') return <IconGlobe color={color} size={size} />
+  // 1. Explicit Specific Icon / Platform Key Match (Skip generic 'globe', 'website', 'link' to allow URL domain check)
+  const explicitKey = platformId || (customIcon && customIcon !== 'globe' && customIcon !== 'website' && customIcon !== 'link' ? customIcon : '')
+  if (explicitKey === 'instagram' || explicitKey === 'insta') return <IconInstagram color={color} size={size} />
+  if (explicitKey === 'whatsapp' || explicitKey === 'wa') return <IconWhatsapp color={color} size={size} />
+  if (explicitKey === 'tiktok') return <IconTiktok color={color} size={size} />
+  if (explicitKey === 'youtube' || explicitKey === 'yt') return <IconYoutube color={color} size={size} />
+  if (explicitKey === 'twitter' || explicitKey === 'x') return <IconTwitter color={color} size={size} />
+  if (explicitKey === 'linkedin') return <IconLinkedin color={color} size={size} />
+  if (explicitKey === 'facebook' || explicitKey === 'fb') return <IconFacebook color={color} size={size} />
+  if (explicitKey === 'snapchat' || explicitKey === 'snap') return <IconSnapchat color={color} size={size} />
+  if (explicitKey === 'spotify') return <IconSpotify color={color} size={size} />
+  if (explicitKey === 'telegram' || explicitKey === 'tg') return <IconTelegram color={color} size={size} />
+  if (explicitKey === 'email' || explicitKey === 'mail') return <IconMail color={color} size={size} />
+  if (explicitKey === 'phone' || explicitKey === 'call' || explicitKey === 'tel') return <IconPhone color={color} size={size} />
+  if (explicitKey === 'map' || explicitKey === 'location' || explicitKey === 'gps') return <IconMapPin color={color} size={size} />
+  if (explicitKey === 'store' || explicitKey === 'shop') return <IconShoppingBag color={color} size={size} />
+  if (explicitKey === 'music') return <IconMusic color={color} size={size} />
+  if (explicitKey === 'video' || explicitKey === 'play') return <IconPlay color={color} size={size} />
+  if (explicitKey === 'document' || explicitKey === 'cv') return <IconDocument color={color} size={size} />
+  if (explicitKey === 'discord') return <IconDiscord color={color} size={size} />
+  if (explicitKey === 'pinterest') return <IconPinterest color={color} size={size} />
+  if (explicitKey === 'github' || explicitKey === 'git') return <IconGithub color={color} size={size} />
 
-  // 2. URL Domain Match (Most accurate detection regardless of user label)
+  // 2. URL Domain Match (Most authoritative detection regardless of user label or default db icons)
   if (url.includes('instagram.com') || url.includes('instagr.am')) return <IconInstagram color={color} size={size} />
   if (url.includes('wa.me') || url.includes('whatsapp.com') || url.includes('api.whatsapp.com')) return <IconWhatsapp color={color} size={size} />
   if (url.includes('tiktok.com')) return <IconTiktok color={color} size={size} />
@@ -237,7 +236,10 @@ export const getSocialIcon = (itemOrLabel = '', color = 'currentColor', size = 1
   if (label.includes('github') || label.includes('git')) return <IconGithub color={color} size={size} />
   if (label.includes('website') || label.includes('site') || label.includes('web') || label.includes('lien') || label.includes('link')) return <IconGlobe color={color} size={size} />
 
-  return <IconLink color={color} size={size} />
+  // 4. Default to Globe if key is website/globe, else IconGlobe as dependable default
+  if (customIcon === 'website' || customIcon === 'globe' || platformId === 'website' || platformId === 'globe') return <IconGlobe color={color} size={size} />
+
+  return <IconGlobe color={color} size={size} />
 }
 
 export function LivePagePreview({ profile, links = [], products = [], socials = null, isEmbedded = false, activeTabOverride = null }) {
@@ -356,16 +358,28 @@ export function LivePagePreview({ profile, links = [], products = [], socials = 
 
   // Merge dedicated social platforms from SocialBarManager with custom icon links
   const activeSocialPlatforms = (storedSocials || []).filter((s) => s && s.active !== false)
-  const combinedTopIcons = [
-    ...activeSocialPlatforms.map((s) => ({
+  const seenUrls = new Set()
+  const combinedTopIcons = []
+
+  for (const s of activeSocialPlatforms) {
+    const norm = (s.url || '').toLowerCase().trim().replace(/\/$/, '')
+    if (norm) seenUrls.add(norm)
+    combinedTopIcons.push({
       id: `social_platform_${s.platformId}`,
       label: s.name,
       url: s.url,
       isPlatform: true,
       platformId: s.platformId,
-    })),
-    ...topIcons,
-  ]
+    })
+  }
+
+  for (const t of topIcons) {
+    const norm = (t.url || '').toLowerCase().trim().replace(/\/$/, '')
+    if (!norm || !seenUrls.has(norm)) {
+      if (norm) seenUrls.add(norm)
+      combinedTopIcons.push(t)
+    }
+  }
 
   const handleLinkClick = (link, e) => {
     if (isEmbedded) return

@@ -20,6 +20,9 @@ export default function SocialBarManager({ profile, user, onSocialsChanged }) {
     fetchServerSocials(username, userId).then((serverList) => {
       if (Array.isArray(serverList) && serverList.length > 0) {
         setSocials(serverList)
+        saveStoredSocials(username, userId, serverList)
+      } else if (loaded && loaded.length > 0) {
+        saveStoredSocials(username, userId, loaded)
       }
     })
   }, [username, userId])

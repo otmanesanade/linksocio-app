@@ -18,7 +18,7 @@ import { LivePagePreview } from './components/LivePagePreview'
 import confetti from 'canvas-confetti'
 import { getTrialStatus, checkIsOwnerOrVip } from './utils/trialHelper'
 import TrialExpiredPaywall from './components/TrialExpiredPaywall'
-import { getStoredLinksMeta, fetchServerLinksMeta } from './utils/socialPlatforms'
+import { getStoredLinksMeta, fetchServerLinksMeta, getStoredSocials, fetchServerSocials } from './utils/socialPlatforms'
 
 function ProfileCard({ user, profile, onSaved }) {
   const [displayName, setDisplayName] = useState(profile?.display_name || '')
@@ -210,9 +210,19 @@ export default function Dashboard({ user, initialTab }) {
   const [bookingCount, setBookingCount] = useState(0)
   const [leadsCount, setLeadsCount] = useState(0)
   const [floatingToast, setFloatingToast] = useState(null)
+  const [socials, setSocials] = useState([])
 
   // 14-Day Free Trial Computation
   const trial = getTrialStatus(user, profile)
+
+  useEffect(() => {
+    const handleSocialUpdate = (e) => {
+      if (e?.detail?.socials) setSocials(e.detail.socials)
+      else if (profile?.username) setSocials(getStoredSocials(profile.username, user?.id))
+    }
+    window.addEventListener('linksocio_socials_updated', handleSocialUpdate)
+    return () => window.removeEventListener('linksocio_socials_updated', handleSocialUpdate)
+  }, [profile?.username, user?.id])
 
   useEffect(() => {
     try {
@@ -426,6 +436,16 @@ export default function Dashboard({ user, initialTab }) {
     }
 
     setProfile({ ...data, _ts: Date.now() })
+
+    const uName = data.username || user?.user_metadata?.username || ''
+    const uId = user?.id || ''
+    const localSoc = getStoredSocials(uName, uId)
+    if (localSoc && localSoc.length > 0) setSocials(localSoc)
+    fetchServerSocials(uName, uId).then((sList) => {
+      if (Array.isArray(sList) && sList.length > 0) {
+        setSocials(sList)
+      }
+    })
   }
 
   async function loadLinks() {
@@ -1304,6 +1324,7 @@ export default function Dashboard({ user, initialTab }) {
                 profile={profile}
                 links={links}
                 products={products}
+                socials={socials}
                 isEmbedded={true}
                 activeTabOverride={tab === 'shop' ? 'shop' : 'links'}
               />
@@ -1334,7 +1355,7 @@ export default function Dashboard({ user, initialTab }) {
             ✕
           </button>
           <div style={{ width: '100%', maxWidth: 360, maxHeight: '85vh', overflowY: 'auto', borderRadius: 28 }}>
-            <LivePagePreview profile={profile} links={links} products={products} isEmbedded={true} />
+            <LivePagePreview profile={profile} links={links} products={products} socials={socials} isEmbedded={true} />
           </div>
         </div>
       )}
