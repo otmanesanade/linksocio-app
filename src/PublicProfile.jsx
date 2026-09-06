@@ -4,11 +4,13 @@ import { LivePagePreview } from './components/LivePagePreview'
 import { fetchServerInquirySettings } from './InquiryTab'
 import { fetchServerBookingSettings } from './BookingTab'
 import { fetchServerRestaurantMenu } from './RestaurantTab'
+import { fetchServerSocials, fetchServerLinksMeta } from './utils/socialPlatforms'
 
 export default function PublicProfile({ username }) {
   const [profile, setProfile] = useState(null)
   const [links, setLinks] = useState([])
   const [products, setProducts] = useState([])
+  const [socials, setSocials] = useState([])
   const [notFound, setNotFound] = useState(false)
   const [loading, setLoading] = useState(true)
 
@@ -51,13 +53,19 @@ export default function PublicProfile({ username }) {
       return
     }
 
-    // Fetch server inquiry, booking & restaurant menu settings in parallel
+    // Fetch server inquiry, booking, restaurant menu, socials & links metadata in parallel
     const cleanU = (username || profileData.username || '').toLowerCase().trim().replace(/^@+/, '')
-    const [inquirySettings, bookingSettings, restaurantMenu] = await Promise.all([
+    const [inquirySettings, bookingSettings, restaurantMenu, serverSocials, serverLinksMeta] = await Promise.all([
       fetchServerInquirySettings(cleanU, profileData.id),
       fetchServerBookingSettings(cleanU, profileData.id),
       fetchServerRestaurantMenu(cleanU, profileData.id),
+      fetchServerSocials(cleanU, profileData.id),
+      fetchServerLinksMeta(cleanU, profileData.id),
     ])
+
+    if (Array.isArray(serverSocials) && serverSocials.length > 0) {
+      setSocials(serverSocials)
+    }
 
     if (inquirySettings) {
       profileData._inquirySettings = inquirySettings
@@ -147,7 +155,17 @@ export default function PublicProfile({ username }) {
       }
     })
 
-    setLinks(linksData || [])
+    const enrichedLinks = (linksData || []).map((l) => {
+      const m = (serverLinksMeta && serverLinksMeta[l.id]) || {}
+      return {
+        ...l,
+        style: l.style || m.style || 'button',
+        icon_position: l.icon_position || m.icon_position || 'top',
+        custom_icon: l.custom_icon || m.icon || null,
+      }
+    })
+
+    setLinks(enrichedLinks)
     setProducts(finalProducts)
     setLoading(false)
   }
@@ -197,5 +215,5 @@ export default function PublicProfile({ username }) {
     )
   }
 
-  return <LivePagePreview profile={profile} links={links} products={products} isEmbedded={false} />
+  return <LivePagePreview profile={profile} links={links} products={products} socials={socials} isEmbedded={false} />
 }

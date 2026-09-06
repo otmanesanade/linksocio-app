@@ -18,6 +18,7 @@ import { LivePagePreview } from './components/LivePagePreview'
 import confetti from 'canvas-confetti'
 import { getTrialStatus, checkIsOwnerOrVip } from './utils/trialHelper'
 import TrialExpiredPaywall from './components/TrialExpiredPaywall'
+import { getStoredLinksMeta, fetchServerLinksMeta } from './utils/socialPlatforms'
 
 function ProfileCard({ user, profile, onSaved }) {
   const [displayName, setDisplayName] = useState(profile?.display_name || '')
@@ -433,7 +434,15 @@ export default function Dashboard({ user, initialTab }) {
       .select('*')
       .eq('user_id', user.id)
       .order('position', { ascending: true })
-    setLinks(data || [])
+    const username = profile?.username || user?.user_metadata?.username || ''
+    const meta = getStoredLinksMeta(username, user.id)
+    const enriched = (data || []).map((l) => ({
+      ...l,
+      style: l.style || meta[l.id]?.style || 'button',
+      icon_position: l.icon_position || meta[l.id]?.icon_position || 'top',
+      custom_icon: l.custom_icon || meta[l.id]?.icon || null,
+    }))
+    setLinks(enriched)
   }
 
   async function loadProducts() {

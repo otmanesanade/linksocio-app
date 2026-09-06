@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { SOCIAL_PLATFORMS, getStoredSocials, saveStoredSocials } from '../utils/socialPlatforms'
+import { SOCIAL_PLATFORMS, getStoredSocials, saveStoredSocials, fetchServerSocials } from '../utils/socialPlatforms'
 import { getSocialIcon } from './LivePagePreview'
 import confetti from 'canvas-confetti'
 
@@ -14,7 +14,14 @@ export default function SocialBarManager({ profile, user, onSocialsChanged }) {
 
   useEffect(() => {
     const loaded = getStoredSocials(username, userId)
-    setSocials(loaded)
+    if (loaded && loaded.length > 0) {
+      setSocials(loaded)
+    }
+    fetchServerSocials(username, userId).then((serverList) => {
+      if (Array.isArray(serverList) && serverList.length > 0) {
+        setSocials(serverList)
+      }
+    })
   }, [username, userId])
 
   function persist(newSocials) {

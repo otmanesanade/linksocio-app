@@ -158,6 +158,28 @@ export const SOCIAL_PLATFORMS = [
   },
 ]
 
+export async function fetchServerSocials(username, userId) {
+  const clean = username ? String(username).toLowerCase().trim().replace(/^@/, '') : ''
+  try {
+    const params = new URLSearchParams()
+    if (clean) params.set('username', clean)
+    if (userId) params.set('userId', userId)
+    const res = await fetch(`/api/socials?${params.toString()}`)
+    if (res.ok) {
+      const data = await res.json()
+      if (Array.isArray(data.socials)) {
+        if (typeof window !== 'undefined') {
+          const jsonStr = JSON.stringify(data.socials)
+          if (clean) localStorage.setItem(`linksocio_socials_${clean}`, jsonStr)
+          if (userId) localStorage.setItem(`linksocio_socials_${userId}`, jsonStr)
+        }
+        return data.socials
+      }
+    }
+  } catch (e) {}
+  return getStoredSocials(username, userId)
+}
+
 export function getStoredSocials(username, userId) {
   if (typeof window === 'undefined') return []
   const clean = username ? String(username).toLowerCase().trim().replace(/^@/, '') : ''
@@ -181,4 +203,70 @@ export function saveStoredSocials(username, userId, socials) {
   if (clean) localStorage.setItem(`linksocio_socials_${clean}`, jsonStr)
   if (userId) localStorage.setItem(`linksocio_socials_${userId}`, jsonStr)
   window.dispatchEvent(new CustomEvent('linksocio_socials_updated', { detail: { socials, username: clean } }))
+
+  // Persistent server sync so mobile phones and all visitors see the icons
+  try {
+    fetch('/api/socials', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: clean, userId, socials }),
+    }).catch(() => {})
+  } catch (e) {}
+}
+
+export async function fetchServerLinksMeta(username, userId) {
+  const clean = username ? String(username).toLowerCase().trim().replace(/^@/, '') : ''
+  try {
+    const params = new URLSearchParams()
+    if (clean) params.set('username', clean)
+    if (userId) params.set('userId', userId)
+    const res = await fetch(`/api/links-meta?${params.toString()}`)
+    if (res.ok) {
+      const data = await res.json()
+      if (data.meta) {
+        if (typeof window !== 'undefined') {
+          const jsonStr = JSON.stringify(data.meta)
+          if (clean) localStorage.setItem(`linksocio_meta_${clean}`, jsonStr)
+          if (userId) localStorage.setItem(`linksocio_meta_${userId}`, jsonStr)
+        }
+        return data.meta
+      }
+    }
+  } catch (e) {}
+  return getStoredLinksMeta(username, userId)
+}
+
+export function getStoredLinksMeta(username, userId) {
+  if (typeof window === 'undefined') return {}
+  const clean = username ? String(username).toLowerCase().trim().replace(/^@/, '') : ''
+  const k1 = clean ? `linksocio_meta_${clean}` : null
+  const k2 = userId ? `linksocio_meta_${userId}` : null
+
+  let raw = (k1 && localStorage.getItem(k1)) || (k2 && localStorage.getItem(k2))
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw)
+      if (parsed && typeof parsed === 'object') return parsed
+    } catch (e) {}
+  }
+  return {}
+}
+
+export function saveStoredLinksMeta(username, userId, meta) {
+  if (typeof window === 'undefined') return
+  const clean = username ? String(username).toLowerCase().trim().replace(/^@/, '') : ''
+  const current = getStoredLinksMeta(username, userId)
+  const updated = { ...current, ...meta }
+  const jsonStr = JSON.stringify(updated)
+  if (clean) localStorage.setItem(`linksocio_meta_${clean}`, jsonStr)
+  if (userId) localStorage.setItem(`linksocio_meta_${userId}`, jsonStr)
+  window.dispatchEvent(new CustomEvent('linksocio_meta_updated', { detail: { meta: updated, username: clean } }))
+
+  try {
+    fetch('/api/links-meta', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: clean, userId, meta: updated }),
+    }).catch(() => {})
+  } catch (e) {}
 }

@@ -1,0 +1,10 @@
+{
+  "otman": [
+    {
+      "platformId": "instagram",
+      "name": "Instagram",
+      "url": "https://instagram.com/otman",
+      "active": true
+    }
+  ]
+}

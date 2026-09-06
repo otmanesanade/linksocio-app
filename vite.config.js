@@ -26,6 +26,8 @@ function apiPlugin() {
   const PAYOUT_SETTINGS_PATH = path.join(process.cwd(), '.payout_settings.json')
   const TRANSACTIONS_PATH = path.join(process.cwd(), '.transactions_store.json')
   const PAYOUT_REQUESTS_PATH = path.join(process.cwd(), '.payout_requests.json')
+  const SOCIALS_STORE_PATH = path.join(process.cwd(), '.socials_store.json')
+  const LINKS_META_PATH = path.join(process.cwd(), '.links_meta_store.json')
 
   function readJson(filePath) {
     try {
@@ -244,6 +246,92 @@ function apiPlugin() {
             res.end(JSON.stringify({ error: 'Failed to fetch product info' }))
           }
           return
+        }
+
+        // Social Media Icons API
+        if (urlObj.pathname === '/api/socials') {
+          const store = readJson(SOCIALS_STORE_PATH)
+
+          if (req.method === 'GET') {
+            const username = (urlObj.searchParams.get('username') || '').toLowerCase().trim().replace(/^@/, '')
+            const userId = (urlObj.searchParams.get('userId') || '').trim()
+            const userSocials = (username && store[username]) || (userId && store[userId]) || []
+
+            res.statusCode = 200
+            res.setHeader('Content-Type', 'application/json')
+            res.end(JSON.stringify({ socials: Array.isArray(userSocials) ? userSocials : [] }))
+            return
+          }
+
+          if (req.method === 'POST') {
+            let body = ''
+            req.on('data', (chunk) => { body += chunk })
+            req.on('end', () => {
+              try {
+                const payload = JSON.parse(body || '{}')
+                const username = (payload.username || '').toLowerCase().trim().replace(/^@/, '')
+                const userId = (payload.userId || '').trim()
+                const socials = Array.isArray(payload.socials) ? payload.socials : []
+
+                if (username) store[username] = socials
+                if (userId) store[userId] = socials
+
+                writeJson(SOCIALS_STORE_PATH, store)
+
+                res.statusCode = 200
+                res.setHeader('Content-Type', 'application/json')
+                res.end(JSON.stringify({ success: true, socials }))
+              } catch (e) {
+                res.statusCode = 400
+                res.setHeader('Content-Type', 'application/json')
+                res.end(JSON.stringify({ error: 'Invalid JSON' }))
+              }
+            })
+            return
+          }
+        }
+
+        // Links Metadata API (styles, icon positions, custom icons)
+        if (urlObj.pathname === '/api/links-meta') {
+          const store = readJson(LINKS_META_PATH)
+
+          if (req.method === 'GET') {
+            const username = (urlObj.searchParams.get('username') || '').toLowerCase().trim().replace(/^@/, '')
+            const userId = (urlObj.searchParams.get('userId') || '').trim()
+            const meta = (username && store[username]) || (userId && store[userId]) || {}
+
+            res.statusCode = 200
+            res.setHeader('Content-Type', 'application/json')
+            res.end(JSON.stringify({ meta }))
+            return
+          }
+
+          if (req.method === 'POST') {
+            let body = ''
+            req.on('data', (chunk) => { body += chunk })
+            req.on('end', () => {
+              try {
+                const payload = JSON.parse(body || '{}')
+                const username = (payload.username || '').toLowerCase().trim().replace(/^@/, '')
+                const userId = (payload.userId || '').trim()
+                const meta = payload.meta || {}
+
+                if (username) store[username] = { ...(store[username] || {}), ...meta }
+                if (userId) store[userId] = { ...(store[userId] || {}), ...meta }
+
+                writeJson(LINKS_META_PATH, store)
+
+                res.statusCode = 200
+                res.setHeader('Content-Type', 'application/json')
+                res.end(JSON.stringify({ success: true, meta: (username ? store[username] : store[userId]) }))
+              } catch (e) {
+                res.statusCode = 400
+                res.setHeader('Content-Type', 'application/json')
+                res.end(JSON.stringify({ error: 'Invalid JSON' }))
+              }
+            })
+            return
+          }
         }
 
         // 2. Inquiry Settings API

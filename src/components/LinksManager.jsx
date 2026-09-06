@@ -4,6 +4,7 @@ import { getSocialIcon } from './LivePagePreview'
 import { getMediaEmbedInfo } from '../utils/mediaEmbed'
 import SocialBarManager from './SocialBarManager'
 import ShareModal from './ShareModal'
+import { getStoredLinksMeta, saveStoredLinksMeta } from '../utils/socialPlatforms'
 
 const QUICK_PRESETS = [
   { label: 'Instagram', prefix: 'https://instagram.com/', placeholder: 'username', icon: 'Instagram' },
@@ -160,12 +161,30 @@ export default function LinksManager({
   }
 
   async function setStyle(link, style) {
-    await supabase.from('links').update({ style }).eq('id', link.id)
+    try {
+      await supabase.from('links').update({ style }).eq('id', link.id)
+    } catch (e) {}
+    const username = profile?.username || ''
+    const userId = profile?.id || user?.id || ''
+    const current = getStoredLinksMeta(username, userId)
+    saveStoredLinksMeta(username, userId, {
+      ...current,
+      [link.id]: { ...(current[link.id] || {}), style },
+    })
     onLinksChanged()
   }
 
   async function setIconPosition(link, icon_position) {
-    await supabase.from('links').update({ icon_position }).eq('id', link.id)
+    try {
+      await supabase.from('links').update({ icon_position }).eq('id', link.id)
+    } catch (e) {}
+    const username = profile?.username || ''
+    const userId = profile?.id || user?.id || ''
+    const current = getStoredLinksMeta(username, userId)
+    saveStoredLinksMeta(username, userId, {
+      ...current,
+      [link.id]: { ...(current[link.id] || {}), icon_position },
+    })
     onLinksChanged()
   }
 
@@ -722,7 +741,7 @@ export default function LinksManager({
                           color: '#14B8A6',
                         }}
                       >
-                        {getSocialIcon(link.label, '#14B8A6', 18)}
+                        {getSocialIcon(link, '#14B8A6', 18)}
                       </span>
 
                       {/* Info */}

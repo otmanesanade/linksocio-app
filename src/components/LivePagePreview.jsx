@@ -11,9 +11,9 @@ import { getMediaEmbedInfo } from '../utils/mediaEmbed'
 import DigitalProductModal from './DigitalProductModal'
 import { DIGITAL_CATEGORIES } from '../ShopTab'
 import ShareModal from './ShareModal'
-import { getStoredSocials } from '../utils/socialPlatforms'
+import { getStoredSocials, fetchServerSocials, getStoredLinksMeta, fetchServerLinksMeta } from '../utils/socialPlatforms'
 
-// SVG Social Icons
+// SVG Social & Functional Icons
 const IconShare = ({ color = 'currentColor', size = 18 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <circle cx="18" cy="5" r="3" />
@@ -102,6 +102,52 @@ const IconMapPin = ({ color = 'currentColor', size = 18 }) => (
     <circle cx="12" cy="10" r="3" />
   </svg>
 )
+const IconPhone = ({ color = 'currentColor', size = 18 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
+  </svg>
+)
+const IconShoppingBag = ({ color = 'currentColor', size = 18 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
+    <line x1="3" y1="6" x2="21" y2="6" />
+    <path d="M16 10a4 4 0 0 1-8 0" />
+  </svg>
+)
+const IconMusic = ({ color = 'currentColor', size = 18 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M9 18V5l12-2v13" />
+    <circle cx="6" cy="18" r="3" />
+    <circle cx="18" cy="16" r="3" />
+  </svg>
+)
+const IconPlay = ({ color = 'currentColor', size = 18 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polygon points="5 3 19 12 5 21 5 3" />
+  </svg>
+)
+const IconDocument = ({ color = 'currentColor', size = 18 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+    <polyline points="14 2 14 8 20 8" />
+    <line x1="16" y1="13" x2="8" y2="13" />
+    <line x1="16" y1="17" x2="8" y2="17" />
+  </svg>
+)
+const IconDiscord = ({ color = 'currentColor', size = 18 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M18 6h0a14.5 14.5 0 0 0-4-1.2 1 1 0 0 0-1 .5 10 10 0 0 0-.5 1 14 14 0 0 0-5 0 10 10 0 0 0-.5-1 1 1 0 0 0-1-.5A14.5 14.5 0 0 0 2 6a17.4 17.4 0 0 0 3 13 1 1 0 0 0 1 .5 14 14 0 0 0 4-2 1 1 0 0 0 0-1 9 9 0 0 1-1.5-.7 1 1 0 0 1 1-1.5c.3.2.6.4.9.5a11 11 0 0 0 7.2 0c.3-.1.6-.3.9-.5a1 1 0 0 1 1 1.5 9 9 0 0 1-1.5.7 1 1 0 0 0 0 1 14 14 0 0 0 4 2 1 1 0 0 0 1-.5 17.4 17.4 0 0 0 3-13z" />
+    <circle cx="8.5" cy="12" r="1.5" fill={color} stroke="none" />
+    <circle cx="15.5" cy="12" r="1.5" fill={color} stroke="none" />
+  </svg>
+)
+const IconPinterest = ({ color = 'currentColor', size = 18 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <line x1="12" y1="9" x2="12" y2="21" />
+    <path d="M8 12a4 4 0 1 1 8 0c0 3-2 5-5 5a3 3 0 0 1-3-2" />
+    <circle cx="12" cy="12" r="10" />
+  </svg>
+)
 const IconLink = ({ color = 'currentColor', size = 18 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M10 13a5 5 0 0 0 7.5.5l2-2a5 5 0 0 0-7-7l-1.5 1.5" />
@@ -109,26 +155,92 @@ const IconLink = ({ color = 'currentColor', size = 18 }) => (
   </svg>
 )
 
-export const getSocialIcon = (label = '', color, size = 18) => {
-  const l = label.toLowerCase()
-  if (l.includes('instagram') || l.includes('insta')) return <IconInstagram color={color} size={size} />
-  if (l.includes('whatsapp') || l.includes('wa.me')) return <IconWhatsapp color={color} size={size} />
-  if (l.includes('tiktok')) return <IconTiktok color={color} size={size} />
-  if (l.includes('youtube')) return <IconYoutube color={color} size={size} />
-  if (l.includes('twitter') || l.includes('x.com')) return <IconTwitter color={color} size={size} />
-  if (l.includes('linkedin')) return <IconLinkedin color={color} size={size} />
-  if (l.includes('facebook') || l.includes('fb.me')) return <IconFacebook color={color} size={size} />
-  if (l.includes('snapchat')) return <IconSnapchat color={color} size={size} />
-  if (l.includes('spotify')) return <IconSpotify color={color} size={size} />
-  if (l.includes('telegram') || l.includes('t.me')) return <IconTelegram color={color} size={size} />
-  if (l.includes('email') || l.includes('mail') || l.includes('contact') || l.includes('@')) return <IconMail color={color} size={size} />
-  if (l.includes('github') || l.includes('git')) return <IconGithub color={color} size={size} />
-  if (l.includes('map') || l.includes('location') || l.includes('gps') || l.includes('address') || l.includes('localiser')) return <IconMapPin color={color} size={size} />
-  if (l.includes('website') || l.includes('store') || l.includes('shop')) return <IconGlobe color={color} size={size} />
+export const getSocialIcon = (itemOrLabel = '', color = 'currentColor', size = 18, overrideUrl = '') => {
+  let label = ''
+  let url = ''
+  let platformId = ''
+  let customIcon = ''
+
+  if (typeof itemOrLabel === 'object' && itemOrLabel !== null) {
+    label = String(itemOrLabel.label || itemOrLabel.name || '').toLowerCase()
+    url = String(itemOrLabel.url || '').toLowerCase()
+    platformId = String(itemOrLabel.platformId || itemOrLabel.platform || '').toLowerCase()
+    customIcon = String(itemOrLabel.custom_icon || itemOrLabel.icon || '').toLowerCase()
+  } else {
+    label = String(itemOrLabel || '').toLowerCase()
+    url = String(overrideUrl || '').toLowerCase()
+  }
+
+  // 1. Explicit Icon / Platform Key Match
+  const key = customIcon || platformId
+  if (key === 'instagram' || key === 'insta') return <IconInstagram color={color} size={size} />
+  if (key === 'whatsapp' || key === 'wa') return <IconWhatsapp color={color} size={size} />
+  if (key === 'tiktok') return <IconTiktok color={color} size={size} />
+  if (key === 'youtube' || key === 'yt') return <IconYoutube color={color} size={size} />
+  if (key === 'twitter' || key === 'x') return <IconTwitter color={color} size={size} />
+  if (key === 'linkedin') return <IconLinkedin color={color} size={size} />
+  if (key === 'facebook' || key === 'fb') return <IconFacebook color={color} size={size} />
+  if (key === 'snapchat' || key === 'snap') return <IconSnapchat color={color} size={size} />
+  if (key === 'spotify') return <IconSpotify color={color} size={size} />
+  if (key === 'telegram' || key === 'tg') return <IconTelegram color={color} size={size} />
+  if (key === 'email' || key === 'mail') return <IconMail color={color} size={size} />
+  if (key === 'phone' || key === 'call' || key === 'tel') return <IconPhone color={color} size={size} />
+  if (key === 'map' || key === 'location' || key === 'gps') return <IconMapPin color={color} size={size} />
+  if (key === 'store' || key === 'shop') return <IconShoppingBag color={color} size={size} />
+  if (key === 'music') return <IconMusic color={color} size={size} />
+  if (key === 'video' || key === 'play') return <IconPlay color={color} size={size} />
+  if (key === 'document' || key === 'cv') return <IconDocument color={color} size={size} />
+  if (key === 'discord') return <IconDiscord color={color} size={size} />
+  if (key === 'pinterest') return <IconPinterest color={color} size={size} />
+  if (key === 'github' || key === 'git') return <IconGithub color={color} size={size} />
+  if (key === 'website' || key === 'globe') return <IconGlobe color={color} size={size} />
+
+  // 2. URL Domain Match (Most accurate detection regardless of user label)
+  if (url.includes('instagram.com') || url.includes('instagr.am')) return <IconInstagram color={color} size={size} />
+  if (url.includes('wa.me') || url.includes('whatsapp.com') || url.includes('api.whatsapp.com')) return <IconWhatsapp color={color} size={size} />
+  if (url.includes('tiktok.com')) return <IconTiktok color={color} size={size} />
+  if (url.includes('youtube.com') || url.includes('youtu.be')) return <IconYoutube color={color} size={size} />
+  if (url.includes('twitter.com') || url.includes('x.com')) return <IconTwitter color={color} size={size} />
+  if (url.includes('linkedin.com')) return <IconLinkedin color={color} size={size} />
+  if (url.includes('facebook.com') || url.includes('fb.me') || url.includes('fb.com')) return <IconFacebook color={color} size={size} />
+  if (url.includes('snapchat.com')) return <IconSnapchat color={color} size={size} />
+  if (url.includes('spotify.com')) return <IconSpotify color={color} size={size} />
+  if (url.includes('t.me') || url.includes('telegram.me')) return <IconTelegram color={color} size={size} />
+  if (url.startsWith('mailto:') || (url.includes('@') && !url.includes('/'))) return <IconMail color={color} size={size} />
+  if (url.startsWith('tel:') || url.includes('tel=')) return <IconPhone color={color} size={size} />
+  if (url.includes('maps.google') || url.includes('goo.gl/maps') || url.includes('google.com/maps') || url.includes('waze.com')) return <IconMapPin color={color} size={size} />
+  if (url.includes('github.com')) return <IconGithub color={color} size={size} />
+  if (url.includes('discord.gg') || url.includes('discord.com')) return <IconDiscord color={color} size={size} />
+  if (url.includes('pinterest.com') || url.includes('pin.it')) return <IconPinterest color={color} size={size} />
+  if (url.includes('soundcloud.com') || url.includes('music.apple.com') || url.includes('deezer.com')) return <IconMusic color={color} size={size} />
+
+  // 3. Label Keywords Match (English, French, Arabic/Darija)
+  if (label.includes('instagram') || label.includes('insta') || label.includes('انستغرام') || label.includes('انستقرام')) return <IconInstagram color={color} size={size} />
+  if (label.includes('whatsapp') || label.includes('wa.me') || label.includes('واتساب') || label.includes('واتس')) return <IconWhatsapp color={color} size={size} />
+  if (label.includes('tiktok') || label.includes('tik tok') || label.includes('تيك توك')) return <IconTiktok color={color} size={size} />
+  if (label.includes('youtube') || label.includes('yt') || label.includes('يوتيوب')) return <IconYoutube color={color} size={size} />
+  if (label.includes('twitter') || label.includes('x.com') || label.includes('تويتر')) return <IconTwitter color={color} size={size} />
+  if (label.includes('linkedin') || label.includes('لينكد')) return <IconLinkedin color={color} size={size} />
+  if (label.includes('facebook') || label.includes('fb.me') || label.includes('فيسبوك')) return <IconFacebook color={color} size={size} />
+  if (label.includes('snapchat') || label.includes('snap') || label.includes('سناب')) return <IconSnapchat color={color} size={size} />
+  if (label.includes('spotify') || label.includes('سبوتيفاي')) return <IconSpotify color={color} size={size} />
+  if (label.includes('telegram') || label.includes('t.me') || label.includes('تلغرام') || label.includes('تيليجرام')) return <IconTelegram color={color} size={size} />
+  if (label.includes('email') || label.includes('mail') || label.includes('contact') || label.includes('gmail') || label.includes('ايميل') || label.includes('بريد')) return <IconMail color={color} size={size} />
+  if (label.includes('phone') || label.includes('call') || label.includes('tel') || label.includes('appeler') || label.includes('هاتف') || label.includes('اتصال') || label.includes('نمرة')) return <IconPhone color={color} size={size} />
+  if (label.includes('map') || label.includes('location') || label.includes('gps') || label.includes('address') || label.includes('localiser') || label.includes('localisation') || label.includes('خريطة') || label.includes('موقع')) return <IconMapPin color={color} size={size} />
+  if (label.includes('store') || label.includes('shop') || label.includes('boutique') || label.includes('magasin') || label.includes('متجر') || label.includes('شراء')) return <IconShoppingBag color={color} size={size} />
+  if (label.includes('music') || label.includes('musique') || label.includes('chanson') || label.includes('موسيقى') || label.includes('اغنية')) return <IconMusic color={color} size={size} />
+  if (label.includes('video') || label.includes('play') || label.includes('reels') || label.includes('فيديو')) return <IconPlay color={color} size={size} />
+  if (label.includes('cv') || label.includes('resume') || label.includes('portfolio') || label.includes('document')) return <IconDocument color={color} size={size} />
+  if (label.includes('discord')) return <IconDiscord color={color} size={size} />
+  if (label.includes('pinterest')) return <IconPinterest color={color} size={size} />
+  if (label.includes('github') || label.includes('git')) return <IconGithub color={color} size={size} />
+  if (label.includes('website') || label.includes('site') || label.includes('web') || label.includes('lien') || label.includes('link')) return <IconGlobe color={color} size={size} />
+
   return <IconLink color={color} size={size} />
 }
 
-export function LivePagePreview({ profile, links = [], products = [], isEmbedded = false, activeTabOverride = null }) {
+export function LivePagePreview({ profile, links = [], products = [], socials = null, isEmbedded = false, activeTabOverride = null }) {
   const [tab, setTab] = useState(activeTabOverride || 'links')
   const [pressedId, setPressedId] = useState(null)
   const [copiedContact, setCopiedContact] = useState(false)
@@ -136,10 +248,32 @@ export function LivePagePreview({ profile, links = [], products = [], isEmbedded
   const [showShareModal, setShowShareModal] = useState(false)
   const [publicQrUrl, setPublicQrUrl] = useState(null)
   const [selectedProductModal, setSelectedProductModal] = useState(null)
-  const [storedSocials, setStoredSocials] = useState(() => getStoredSocials(profile?.username, profile?.id))
+  const [storedSocials, setStoredSocials] = useState(() => (Array.isArray(socials) ? socials : getStoredSocials(profile?.username, profile?.id)))
+  const [linksMeta, setLinksMeta] = useState(() => getStoredLinksMeta(profile?.username, profile?.id))
 
   useEffect(() => {
-    setStoredSocials(getStoredSocials(profile?.username, profile?.id))
+    if (Array.isArray(socials) && socials.length > 0) {
+      setStoredSocials(socials)
+    } else {
+      const initial = getStoredSocials(profile?.username, profile?.id)
+      if (initial && initial.length > 0) {
+        setStoredSocials(initial)
+      }
+      // Guarantee icons load on any mobile phone or external device
+      fetchServerSocials(profile?.username, profile?.id).then((serverList) => {
+        if (Array.isArray(serverList) && serverList.length > 0) {
+          setStoredSocials(serverList)
+        }
+      })
+    }
+
+    // Fetch server link styles/icons metadata
+    fetchServerLinksMeta(profile?.username, profile?.id).then((meta) => {
+      if (meta && Object.keys(meta).length > 0) {
+        setLinksMeta((prev) => ({ ...prev, ...meta }))
+      }
+    })
+
     const handleSocialUpdate = (e) => {
       if (e?.detail?.socials) {
         setStoredSocials(e.detail.socials)
@@ -147,9 +281,18 @@ export function LivePagePreview({ profile, links = [], products = [], isEmbedded
         setStoredSocials(getStoredSocials(profile?.username, profile?.id))
       }
     }
+    const handleMetaUpdate = (e) => {
+      if (e?.detail?.meta) {
+        setLinksMeta(e.detail.meta)
+      }
+    }
     window.addEventListener('linksocio_socials_updated', handleSocialUpdate)
-    return () => window.removeEventListener('linksocio_socials_updated', handleSocialUpdate)
-  }, [profile?.username, profile?.id])
+    window.addEventListener('linksocio_meta_updated', handleMetaUpdate)
+    return () => {
+      window.removeEventListener('linksocio_socials_updated', handleSocialUpdate)
+      window.removeEventListener('linksocio_meta_updated', handleMetaUpdate)
+    }
+  }, [profile?.username, profile?.id, socials])
 
   useEffect(() => {
     if (activeTabOverride) setTab(activeTabOverride)
@@ -195,14 +338,24 @@ export function LivePagePreview({ profile, links = [], products = [], isEmbedded
   const color = theme.accent || '#14B8A6'
   const tint = theme.buttonBg || `${color}1A`
 
-  const activeLinks = links.filter((l) => l.active !== false)
+  const enrichedLinks = (links || []).map((l) => {
+    const m = (linksMeta && linksMeta[l.id]) || {}
+    return {
+      ...l,
+      style: l.style || m.style || 'button',
+      icon_position: l.icon_position || m.icon_position || 'top',
+      custom_icon: l.custom_icon || m.icon || null,
+    }
+  })
+
+  const activeLinks = enrichedLinks.filter((l) => l && l.active !== false)
   const buttonLinks = activeLinks.filter((l) => l.style !== 'icon')
   const topIcons = activeLinks.filter((l) => l.style === 'icon' && l.icon_position !== 'bottom')
   const bottomIcons = activeLinks.filter((l) => l.style === 'icon' && l.icon_position === 'bottom')
   const hasShop = products.length > 0
 
   // Merge dedicated social platforms from SocialBarManager with custom icon links
-  const activeSocialPlatforms = storedSocials.filter((s) => s.active !== false)
+  const activeSocialPlatforms = (storedSocials || []).filter((s) => s && s.active !== false)
   const combinedTopIcons = [
     ...activeSocialPlatforms.map((s) => ({
       id: `social_platform_${s.platformId}`,
@@ -647,7 +800,7 @@ export function LivePagePreview({ profile, links = [], products = [], isEmbedded
                       e.currentTarget.style.transform = 'none'
                     }}
                   >
-                    {getSocialIcon(link.label, color, isEmbedded ? 16 : 19)}
+                    {getSocialIcon(link, color, isEmbedded ? 16 : 19)}
                   </a>
                 ))}
               </div>
@@ -774,7 +927,7 @@ export function LivePagePreview({ profile, links = [], products = [], isEmbedded
                         color: color,
                       }}
                     >
-                      {getSocialIcon(link.label, color, isEmbedded ? 15 : 18)}
+                      {getSocialIcon(link, color, isEmbedded ? 15 : 18)}
                     </span>
                     <span style={{ flex: 1, minWidth: 0 }}>
                       <span
@@ -1000,7 +1153,7 @@ export function LivePagePreview({ profile, links = [], products = [], isEmbedded
                     textDecoration: 'none',
                   }}
                 >
-                  {getSocialIcon(link.label, color, isEmbedded ? 15 : 18)}
+                  {getSocialIcon(link, color, isEmbedded ? 15 : 18)}
                 </a>
               ))}
             </div>
