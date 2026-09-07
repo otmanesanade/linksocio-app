@@ -295,3 +295,93 @@ export function inferIconFromLink(url = '', label = '') {
   if (lowLabel.includes('music') || lowLabel.includes('musique') || lowLabel.includes('موسيقى')) return 'music'
   return 'globe'
 }
+
+export async function fetchServerProfileMeta(username, userId) {
+  const clean = username ? String(username).toLowerCase().trim().replace(/^@/, '') : ''
+  try {
+    const params = new URLSearchParams()
+    if (clean) params.set('username', clean)
+    if (userId) params.set('userId', userId)
+    const res = await fetch(`/api/profile-meta?${params.toString()}`)
+    if (res.ok) {
+      const data = await res.json()
+      if (data.meta) {
+        if (typeof window !== 'undefined') {
+          if (clean) {
+            if (data.meta.email) localStorage.setItem(`linksocio_contact_email_${clean}`, data.meta.email)
+            if (data.meta.whatsapp) {
+              localStorage.setItem(`linksocio_contact_whatsapp_${clean}`, data.meta.whatsapp)
+              localStorage.setItem(`linksocio_contact_phone_${clean}`, data.meta.whatsapp)
+            }
+            if (data.meta.location) localStorage.setItem(`linksocio_profile_location_${clean}`, data.meta.location)
+          }
+          if (userId) {
+            if (data.meta.email) localStorage.setItem(`linksocio_contact_email_${userId}`, data.meta.email)
+            if (data.meta.whatsapp) {
+              localStorage.setItem(`linksocio_contact_whatsapp_${userId}`, data.meta.whatsapp)
+              localStorage.setItem(`linksocio_contact_phone_${userId}`, data.meta.whatsapp)
+            }
+            if (data.meta.location) localStorage.setItem(`linksocio_profile_location_${userId}`, data.meta.location)
+          }
+        }
+        return data.meta
+      }
+    }
+  } catch (e) {}
+  return getStoredProfileMeta(username, userId)
+}
+
+export function getStoredProfileMeta(username, userId) {
+  if (typeof window === 'undefined') return { email: '', whatsapp: '', location: '' }
+  const clean = username ? String(username).toLowerCase().trim().replace(/^@/, '') : ''
+  const email = (clean && localStorage.getItem(`linksocio_contact_email_${clean}`)) || (userId && localStorage.getItem(`linksocio_contact_email_${userId}`)) || ''
+  const whatsapp = (clean && (localStorage.getItem(`linksocio_contact_whatsapp_${clean}`) || localStorage.getItem(`linksocio_contact_phone_${clean}`))) || (userId && (localStorage.getItem(`linksocio_contact_whatsapp_${userId}`) || localStorage.getItem(`linksocio_contact_phone_${userId}`))) || ''
+  const location = (clean && localStorage.getItem(`linksocio_profile_location_${clean}`)) || (userId && localStorage.getItem(`linksocio_profile_location_${userId}`)) || ''
+  return { email, whatsapp, location }
+}
+
+export function saveServerProfileMeta(username, userId, meta) {
+  if (typeof window === 'undefined') return
+  const clean = username ? String(username).toLowerCase().trim().replace(/^@/, '') : ''
+  const email = meta?.email ? String(meta.email).trim() : ''
+  const whatsapp = meta?.whatsapp ? String(meta.whatsapp).trim() : ''
+  const location = meta?.location ? String(meta.location).trim() : ''
+
+  if (clean) {
+    if (email) localStorage.setItem(`linksocio_contact_email_${clean}`, email)
+    else localStorage.removeItem(`linksocio_contact_email_${clean}`)
+    if (whatsapp) {
+      localStorage.setItem(`linksocio_contact_whatsapp_${clean}`, whatsapp)
+      localStorage.setItem(`linksocio_contact_phone_${clean}`, whatsapp)
+    } else {
+      localStorage.removeItem(`linksocio_contact_whatsapp_${clean}`)
+      localStorage.removeItem(`linksocio_contact_phone_${clean}`)
+    }
+    if (location) localStorage.setItem(`linksocio_profile_location_${clean}`, location)
+    else localStorage.removeItem(`linksocio_profile_location_${clean}`)
+  }
+  if (userId) {
+    if (email) localStorage.setItem(`linksocio_contact_email_${userId}`, email)
+    else localStorage.removeItem(`linksocio_contact_email_${userId}`)
+    if (whatsapp) {
+      localStorage.setItem(`linksocio_contact_whatsapp_${userId}`, whatsapp)
+      localStorage.setItem(`linksocio_contact_phone_${userId}`, whatsapp)
+    } else {
+      localStorage.removeItem(`linksocio_contact_whatsapp_${userId}`)
+      localStorage.removeItem(`linksocio_contact_phone_${userId}`)
+    }
+    if (location) localStorage.setItem(`linksocio_profile_location_${userId}`, location)
+    else localStorage.removeItem(`linksocio_profile_location_${userId}`)
+  }
+
+  window.dispatchEvent(new CustomEvent('linksocio_profile_meta_updated', { detail: { meta: { email, whatsapp, location }, username: clean, userId } }))
+
+  try {
+    fetch('/api/profile-meta', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: clean, userId, email, whatsapp, location }),
+    }).catch(() => {})
+  } catch (e) {}
+}
+

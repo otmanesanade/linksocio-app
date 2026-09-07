@@ -11,7 +11,7 @@ import { getMediaEmbedInfo } from '../utils/mediaEmbed'
 import DigitalProductModal from './DigitalProductModal'
 import { DIGITAL_CATEGORIES } from '../ShopTab'
 import ShareModal from './ShareModal'
-import { getStoredSocials, fetchServerSocials, getStoredLinksMeta, fetchServerLinksMeta } from '../utils/socialPlatforms'
+import { getStoredSocials, fetchServerSocials, getStoredLinksMeta, fetchServerLinksMeta, getStoredProfileMeta, fetchServerProfileMeta } from '../utils/socialPlatforms'
 
 // SVG Social & Functional Icons
 const IconShare = ({ color = 'currentColor', size = 18 }) => (
@@ -252,6 +252,7 @@ export function LivePagePreview({ profile, links = [], products = [], socials = 
   const [selectedProductModal, setSelectedProductModal] = useState(null)
   const [storedSocials, setStoredSocials] = useState(() => (Array.isArray(socials) ? socials : getStoredSocials(profile?.username, profile?.id)))
   const [linksMeta, setLinksMeta] = useState(() => getStoredLinksMeta(profile?.username, profile?.id))
+  const [profileMeta, setProfileMeta] = useState(() => getStoredProfileMeta(profile?.username, profile?.id))
 
   useEffect(() => {
     if (Array.isArray(socials) && socials.length > 0) {
@@ -276,6 +277,13 @@ export function LivePagePreview({ profile, links = [], products = [], socials = 
       }
     })
 
+    // Fetch server contact profile metadata (email, whatsapp, location)
+    fetchServerProfileMeta(profile?.username, profile?.id).then((meta) => {
+      if (meta && (meta.email || meta.whatsapp || meta.location)) {
+        setProfileMeta(meta)
+      }
+    })
+
     const handleSocialUpdate = (e) => {
       if (e?.detail?.socials) {
         setStoredSocials(e.detail.socials)
@@ -288,11 +296,18 @@ export function LivePagePreview({ profile, links = [], products = [], socials = 
         setLinksMeta(e.detail.meta)
       }
     }
+    const handleProfileMetaUpdate = (e) => {
+      if (e?.detail?.meta) {
+        setProfileMeta(e.detail.meta)
+      }
+    }
     window.addEventListener('linksocio_socials_updated', handleSocialUpdate)
     window.addEventListener('linksocio_meta_updated', handleMetaUpdate)
+    window.addEventListener('linksocio_profile_meta_updated', handleProfileMetaUpdate)
     return () => {
       window.removeEventListener('linksocio_socials_updated', handleSocialUpdate)
       window.removeEventListener('linksocio_meta_updated', handleMetaUpdate)
+      window.removeEventListener('linksocio_profile_meta_updated', handleProfileMetaUpdate)
     }
   }, [profile?.username, profile?.id, socials])
 
@@ -381,6 +396,25 @@ export function LivePagePreview({ profile, links = [], products = [], socials = 
     }
   }
 
+  // Ensure contact email from profile / server meta is represented in top social icons
+  const resolvedEmail =
+    profile?.contact_email ||
+    profileMeta?.email ||
+    profile?.email ||
+    (typeof window !== 'undefined' && profile?.username && localStorage.getItem(`linksocio_contact_email_${profile.username}`)) ||
+    (typeof window !== 'undefined' && profile?.id && localStorage.getItem(`linksocio_contact_email_${profile.id}`))
+
+  const hasEmailInIcons = combinedTopIcons.some((icon) => icon.platformId === 'email' || (icon.url && icon.url.startsWith('mailto:')))
+  if (resolvedEmail && !hasEmailInIcons) {
+    combinedTopIcons.push({
+      id: 'social_platform_email_resolved',
+      label: 'Email',
+      url: `mailto:${resolvedEmail}`,
+      isPlatform: true,
+      platformId: 'email',
+    })
+  }
+
   const handleLinkClick = (link, e) => {
     if (isEmbedded) return
     const key = `linksocio_clicked_${link.id}`
@@ -410,10 +444,10 @@ export function LivePagePreview({ profile, links = [], products = [], socials = 
     const phoneMatch = whatsappLink?.url.match(/(\d{6,15})/)
     const socialWa = storedSocials.find((s) => s.platformId === 'whatsapp' && s.active !== false)
     const waPhone = socialWa?.rawHandle?.replace(/[^0-9]/g, '') || ''
-    const phone = profile?.contact_phone || profile?.whatsapp || storedPhone || waPhone || (phoneMatch ? phoneMatch[1] : '')
+    const phone = profile?.contact_phone || profile?.whatsapp || profileMeta?.whatsapp || storedPhone || waPhone || (phoneMatch ? phoneMatch[1] : '')
 
     const socialEmail = storedSocials.find((s) => s.platformId === 'email' && s.active !== false)
-    const email = profile?.contact_email || profile?.email || storedEmail || (socialEmail ? (socialEmail.rawHandle || socialEmail.url.replace(/^mailto:/, '')) : '')
+    const email = profile?.contact_email || profileMeta?.email || profile?.email || storedEmail || (socialEmail ? (socialEmail.rawHandle || socialEmail.url.replace(/^mailto:/, '')) : '')
 
     const fullName = profile?.display_name || profile?.username || 'Contact'
     const nameParts = fullName.trim().split(/\s+/)

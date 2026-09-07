@@ -5,9 +5,22 @@
       "name": "Instagram",
       "url": "https://instagram.com/otman",
       "active": true
+    },
+    {
+      "platformId": "email",
+      "name": "Email",
+      "url": "mailto:OtmanK514@gmail.com",
+      "rawHandle": "OtmanK514@gmail.com",
+      "active": true
     }
   ],
   "otmank514": [
+    {
+      "platformId": "instagram",
+      "name": "Instagram",
+      "url": "https://instagram.com/otman",
+      "active": true
+    },
     {
       "platformId": "email",
       "name": "Email",
@@ -17,6 +30,27 @@
     }
   ],
   "33373cca-beb6-43c8-ac2f-8ad4e8f54b85": [
+    {
+      "platformId": "instagram",
+      "name": "Instagram",
+      "url": "https://instagram.com/otman",
+      "active": true
+    },
+    {
+      "platformId": "email",
+      "name": "Email",
+      "url": "mailto:OtmanK514@gmail.com",
+      "rawHandle": "OtmanK514@gmail.com",
+      "active": true
+    }
+  ],
+  "6469fbfe-a86d-4952-bbf7-e160e1d8ba02": [
+    {
+      "platformId": "instagram",
+      "name": "Instagram",
+      "url": "https://instagram.com/otman",
+      "active": true
+    },
     {
       "platformId": "email",
       "name": "Email",

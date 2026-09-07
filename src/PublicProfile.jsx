@@ -4,7 +4,7 @@ import { LivePagePreview } from './components/LivePagePreview'
 import { fetchServerInquirySettings } from './InquiryTab'
 import { fetchServerBookingSettings } from './BookingTab'
 import { fetchServerRestaurantMenu } from './RestaurantTab'
-import { fetchServerSocials, fetchServerLinksMeta } from './utils/socialPlatforms'
+import { fetchServerSocials, fetchServerLinksMeta, fetchServerProfileMeta } from './utils/socialPlatforms'
 
 export default function PublicProfile({ username }) {
   const [profile, setProfile] = useState(null)
@@ -53,19 +53,53 @@ export default function PublicProfile({ username }) {
       return
     }
 
-    // Fetch server inquiry, booking, restaurant menu, socials & links metadata in parallel
+    // Fetch server inquiry, booking, restaurant menu, socials, links & profile metadata in parallel
     const cleanU = (username || profileData.username || '').toLowerCase().trim().replace(/^@+/, '')
-    const [inquirySettings, bookingSettings, restaurantMenu, serverSocials, serverLinksMeta] = await Promise.all([
+    const [inquirySettings, bookingSettings, restaurantMenu, serverSocials, serverLinksMeta, serverProfileMeta] = await Promise.all([
       fetchServerInquirySettings(cleanU, profileData.id),
       fetchServerBookingSettings(cleanU, profileData.id),
       fetchServerRestaurantMenu(cleanU, profileData.id),
       fetchServerSocials(cleanU, profileData.id),
       fetchServerLinksMeta(cleanU, profileData.id),
+      fetchServerProfileMeta(cleanU, profileData.id),
     ])
 
-    if (Array.isArray(serverSocials) && serverSocials.length > 0) {
-      setSocials(serverSocials)
+    if (serverProfileMeta) {
+      if (serverProfileMeta.email) profileData.contact_email = serverProfileMeta.email
+      if (serverProfileMeta.whatsapp) profileData.whatsapp = serverProfileMeta.whatsapp
+      if (serverProfileMeta.location) profileData.location = serverProfileMeta.location
     }
+
+    if (!profileData.location) {
+      const storedLoc = (profileData.username && localStorage.getItem(`linksocio_profile_location_${profileData.username}`)) ||
+                        (profileData.id && localStorage.getItem(`linksocio_profile_location_${profileData.id}`))
+      if (storedLoc) profileData.location = storedLoc
+    }
+
+    if (!profileData.whatsapp) {
+      const storedWa = (profileData.username && localStorage.getItem(`linksocio_contact_whatsapp_${profileData.username}`)) ||
+                       (profileData.id && localStorage.getItem(`linksocio_contact_whatsapp_${profileData.id}`))
+      if (storedWa) profileData.whatsapp = storedWa
+    }
+
+    if (!profileData.contact_email) {
+      const storedEmail = (profileData.username && localStorage.getItem(`linksocio_contact_email_${profileData.username}`)) ||
+                          (profileData.id && localStorage.getItem(`linksocio_contact_email_${profileData.id}`))
+      if (storedEmail) profileData.contact_email = storedEmail
+    }
+
+    let finalSocials = Array.isArray(serverSocials) ? [...serverSocials] : []
+    const contactEmail = profileData.contact_email || profileData.email
+    if (contactEmail && !finalSocials.some((s) => s.platformId === 'email')) {
+      finalSocials.push({
+        platformId: 'email',
+        name: 'Email',
+        url: `mailto:${contactEmail}`,
+        rawHandle: contactEmail,
+        active: true,
+      })
+    }
+    setSocials(finalSocials)
 
     if (inquirySettings) {
       profileData._inquirySettings = inquirySettings
@@ -85,18 +119,6 @@ export default function PublicProfile({ username }) {
 
     if (restaurantMenu) {
       profileData._restaurantMenu = restaurantMenu
-    }
-
-    if (!profileData.location) {
-      const storedLoc = (profileData.username && localStorage.getItem(`linksocio_profile_location_${profileData.username}`)) ||
-                        (profileData.id && localStorage.getItem(`linksocio_profile_location_${profileData.id}`))
-      if (storedLoc) profileData.location = storedLoc
-    }
-
-    if (!profileData.whatsapp) {
-      const storedWa = (profileData.username && localStorage.getItem(`linksocio_contact_whatsapp_${profileData.username}`)) ||
-                       (profileData.id && localStorage.getItem(`linksocio_contact_whatsapp_${profileData.id}`))
-      if (storedWa) profileData.whatsapp = storedWa
     }
 
     setProfile(profileData)

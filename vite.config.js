@@ -28,6 +28,7 @@ function apiPlugin() {
   const PAYOUT_REQUESTS_PATH = path.join(process.cwd(), '.payout_requests.json')
   const SOCIALS_STORE_PATH = path.join(process.cwd(), '.socials_store.json')
   const LINKS_META_PATH = path.join(process.cwd(), '.links_meta_store.json')
+  const PROFILE_META_PATH = path.join(process.cwd(), '.profile_meta_store.json')
 
   function readJson(filePath) {
     try {
@@ -255,11 +256,32 @@ function apiPlugin() {
           if (req.method === 'GET') {
             const username = (urlObj.searchParams.get('username') || '').toLowerCase().trim().replace(/^@/, '')
             const userId = (urlObj.searchParams.get('userId') || '').trim()
-            const userSocials = (username && store[username]) || (userId && store[userId]) || []
+
+            const uSocials = username && Array.isArray(store[username]) ? store[username] : []
+            const idSocials = userId && Array.isArray(store[userId]) ? store[userId] : []
+
+            const merged = [...uSocials]
+            for (const item of idSocials) {
+              const exists = merged.some((m) => m.platformId === item.platformId || (m.url && item.url && m.url === item.url))
+              if (!exists) {
+                merged.push(item)
+              }
+            }
+
+            // Sync aliases for otman / otmank514
+            if (username === 'otman' && Array.isArray(store['otmank514'])) {
+              for (const item of store['otmank514']) {
+                if (!merged.some((m) => m.platformId === item.platformId)) merged.push(item)
+              }
+            } else if (username === 'otmank514' && Array.isArray(store['otman'])) {
+              for (const item of store['otman']) {
+                if (!merged.some((m) => m.platformId === item.platformId)) merged.push(item)
+              }
+            }
 
             res.statusCode = 200
             res.setHeader('Content-Type', 'application/json')
-            res.end(JSON.stringify({ socials: Array.isArray(userSocials) ? userSocials : [] }))
+            res.end(JSON.stringify({ socials: merged }))
             return
           }
 
@@ -275,12 +297,75 @@ function apiPlugin() {
 
                 if (username) store[username] = socials
                 if (userId) store[userId] = socials
+                if (username === 'otman') store['otmank514'] = socials
+                if (username === 'otmank514') store['otman'] = socials
 
                 writeJson(SOCIALS_STORE_PATH, store)
 
                 res.statusCode = 200
                 res.setHeader('Content-Type', 'application/json')
                 res.end(JSON.stringify({ success: true, socials }))
+              } catch (e) {
+                res.statusCode = 400
+                res.setHeader('Content-Type', 'application/json')
+                res.end(JSON.stringify({ error: 'Invalid JSON' }))
+              }
+            })
+            return
+          }
+        }
+
+        // Profile Metadata API (contact email, whatsapp, location persisted across devices)
+        if (urlObj.pathname === '/api/profile-meta') {
+          const store = readJson(PROFILE_META_PATH)
+
+          if (req.method === 'GET') {
+            const username = (urlObj.searchParams.get('username') || '').toLowerCase().trim().replace(/^@/, '')
+            const userId = (urlObj.searchParams.get('userId') || '').trim()
+
+            const metaU = (username && store[username]) || {}
+            const metaId = (userId && store[userId]) || {}
+            let metaAlias = {}
+            if (username === 'otman' && store['otmank514']) metaAlias = store['otmank514']
+            if (username === 'otmank514' && store['otman']) metaAlias = store['otman']
+
+            const mergedMeta = {
+              email: metaU.email || metaId.email || metaAlias.email || '',
+              whatsapp: metaU.whatsapp || metaId.whatsapp || metaAlias.whatsapp || '',
+              location: metaU.location || metaId.location || metaAlias.location || '',
+            }
+
+            res.statusCode = 200
+            res.setHeader('Content-Type', 'application/json')
+            res.end(JSON.stringify({ meta: mergedMeta }))
+            return
+          }
+
+          if (req.method === 'POST') {
+            let body = ''
+            req.on('data', (chunk) => { body += chunk })
+            req.on('end', () => {
+              try {
+                const payload = JSON.parse(body || '{}')
+                const username = (payload.username || '').toLowerCase().trim().replace(/^@/, '')
+                const userId = (payload.userId || '').trim()
+                const newMeta = {
+                  email: (payload.email || '').trim(),
+                  whatsapp: (payload.whatsapp || '').trim(),
+                  location: (payload.location || '').trim(),
+                  updatedAt: new Date().toISOString(),
+                }
+
+                if (username) store[username] = newMeta
+                if (userId) store[userId] = newMeta
+                if (username === 'otman') store['otmank514'] = newMeta
+                if (username === 'otmank514') store['otman'] = newMeta
+
+                writeJson(PROFILE_META_PATH, store)
+
+                res.statusCode = 200
+                res.setHeader('Content-Type', 'application/json')
+                res.end(JSON.stringify({ success: true, meta: newMeta }))
               } catch (e) {
                 res.statusCode = 400
                 res.setHeader('Content-Type', 'application/json')

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from './supabaseClient'
 import AvatarUpload from './components/AvatarUpload'
 import BillingSettings from './components/BillingSettings'
+import { fetchServerProfileMeta, saveServerProfileMeta, getStoredSocials, saveStoredSocials } from './utils/socialPlatforms'
 
 export default function SettingsTab({ user, profile, onSaved, initialSubTab = 'profile' }) {
   const [activeSubTab, setActiveSubTab] = useState(initialSubTab)
@@ -18,6 +19,9 @@ export default function SettingsTab({ user, profile, onSaved, initialSubTab = 'p
   const [location, setLocation] = useState(profile?.location || '')
   const [username, setUsername] = useState(profile?.username || '')
   const [whatsapp, setWhatsapp] = useState(profile?.whatsapp || '')
+  const [email, setEmail] = useState(() => {
+    return profile?.contact_email || profile?.email || user?.email || (typeof window !== 'undefined' && profile?.username && localStorage.getItem(`linksocio_contact_email_${profile.username}`)) || ''
+  })
 
   // Password Update
   const [newPassword, setNewPassword] = useState('')
@@ -40,7 +44,20 @@ export default function SettingsTab({ user, profile, onSaved, initialSubTab = 'p
     setLocation(profile?.location || '')
     setUsername(profile?.username || '')
     setWhatsapp(profile?.whatsapp || '')
-  }, [profile])
+    if (profile?.contact_email || profile?.email || user?.email) {
+      setEmail(profile?.contact_email || profile?.email || user?.email || '')
+    }
+
+    // Load server-persisted profile metadata across devices
+    const cleanU = (profile?.username || '').toLowerCase().trim().replace(/^@/, '')
+    fetchServerProfileMeta(cleanU, user?.id).then((meta) => {
+      if (meta) {
+        if (meta.email) setEmail(meta.email)
+        if (meta.whatsapp) setWhatsapp(meta.whatsapp)
+        if (meta.location) setLocation(meta.location)
+      }
+    })
+  }, [profile, user])
 
   const originalUsername = profile?.username || ''
   const isUsernameChanged = username.trim().toLowerCase() !== originalUsername.toLowerCase()
@@ -98,6 +115,7 @@ export default function SettingsTab({ user, profile, onSaved, initialSubTab = 'p
     const cleanLocation = location.trim()
     const cleanUsername = username.trim().toLowerCase()
     const cleanWhatsapp = whatsapp.trim()
+    const cleanEmail = email.trim()
 
     if (!cleanName) {
       setProfileError('Display Name is required.')
@@ -141,23 +159,42 @@ export default function SettingsTab({ user, profile, onSaved, initialSubTab = 'p
         return
       }
 
-      // Local storage sync for Location & WhatsApp (since they are client-handled metadata)
-      try {
-        if (cleanLocation) {
-          localStorage.setItem(`linksocio_profile_location_${cleanUsername}`, cleanLocation)
-          localStorage.setItem(`linksocio_profile_location_${user.id}`, cleanLocation)
-        } else {
-          localStorage.removeItem(`linksocio_profile_location_${cleanUsername}`)
-          localStorage.removeItem(`linksocio_profile_location_${user.id}`)
-        }
-        if (cleanWhatsapp) {
-          localStorage.setItem(`linksocio_contact_whatsapp_${cleanUsername}`, cleanWhatsapp)
-          localStorage.setItem(`linksocio_contact_whatsapp_${user.id}`, cleanWhatsapp)
-        } else {
-          localStorage.removeItem(`linksocio_contact_whatsapp_${cleanUsername}`)
-          localStorage.removeItem(`linksocio_contact_whatsapp_${user.id}`)
-        }
-      } catch (e) {}
+      // Persist Location, WhatsApp & Contact Email across devices via server & localStorage
+      saveServerProfileMeta(cleanUsername, user.id, {
+        email: cleanEmail,
+        whatsapp: cleanWhatsapp,
+        location: cleanLocation,
+      })
+
+      // Sync with Social Icons Top Bar so visitors & mobile users immediately see Email
+      if (cleanEmail) {
+        try {
+          const curSocials = getStoredSocials(cleanUsername, user.id)
+          const hasEmailSocial = curSocials.some((s) => s.platformId === 'email')
+          if (!hasEmailSocial) {
+            const updated = [
+              ...curSocials,
+              {
+                platformId: 'email',
+                name: 'Email',
+                url: `mailto:${cleanEmail}`,
+                rawHandle: cleanEmail,
+                active: true,
+              },
+            ]
+            saveStoredSocials(cleanUsername, user.id, updated)
+          } else {
+            // Update email address in existing social icon if needed
+            const updated = curSocials.map((s) => {
+              if (s.platformId === 'email') {
+                return { ...s, url: `mailto:${cleanEmail}`, rawHandle: cleanEmail, active: true }
+              }
+              return s
+            })
+            saveStoredSocials(cleanUsername, user.id, updated)
+          }
+        } catch (e) {}
+      }
 
       setProfileSaved(true)
       await onSaved()
@@ -381,8 +418,8 @@ export default function SettingsTab({ user, profile, onSaved, initialSubTab = 'p
               />
             </div>
 
-            {/* Location & WhatsApp Grid */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 14 }}>
+            {/* Location, WhatsApp & Contact Email Grid */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
                   <label htmlFor="settings-location" style={{ fontSize: 12, color: '#475569', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4, margin: 0 }}>
@@ -398,7 +435,7 @@ export default function SettingsTab({ user, profile, onSaved, initialSubTab = 'p
                   value={location}
                   maxLength={80}
                   onChange={(e) => { setLocation(e.target.value); setProfileError('') }}
-                  placeholder="Optional — leave empty if not needed (e.g. Casablanca, Morocco)"
+                  placeholder="Optional (e.g. Casablanca, Morocco)"
                   style={inputStyle}
                 />
               </div>
@@ -413,6 +450,25 @@ export default function SettingsTab({ user, profile, onSaved, initialSubTab = 'p
                   value={whatsapp}
                   onChange={(e) => { setWhatsapp(e.target.value); setProfileError('') }}
                   placeholder="e.g. +212612345678"
+                  style={inputStyle}
+                />
+              </div>
+
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <label htmlFor="settings-email" style={{ fontSize: 12, color: '#475569', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4, margin: 0 }}>
+                    <span>✉️</span> Public / Contact Email
+                  </label>
+                  <span style={{ fontSize: 10.5, color: '#0D9488', fontWeight: 600, background: '#F0FDFA', padding: '1px 7px', borderRadius: 10 }}>
+                    Contact card & icons
+                  </span>
+                </div>
+                <input
+                  id="settings-email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => { setEmail(e.target.value); setProfileError('') }}
+                  placeholder="e.g. OtmanK514@gmail.com"
                   style={inputStyle}
                 />
               </div>
