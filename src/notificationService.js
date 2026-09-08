@@ -7,11 +7,20 @@ export const DEFAULT_NOTIFICATION_SETTINGS = {
   notification_email: '',
   alert_on_booking: true,
   alert_on_inquiry: true,
+  alert_on_order: true,
+  telegram_enabled: false,
+  telegram_bot_token: '',
+  telegram_chat_id: '',
+  smtp_host: 'smtp.gmail.com',
+  smtp_port: '465',
+  smtp_user: '',
+  smtp_pass: '',
   sound_enabled: true,
   client_email_receipt: true,
   whatsapp_templates: {
     booking_alert: '🚨 *New Booking Alert on LinkSocio!* 🗓️\n\n👤 *Client:* {client_name}\n📧 *Email:* {client_email}\n📞 *Phone:* {client_phone}\n🏷️ *Service:* {service_title} ({service_duration} min)\n📅 *Date & Time:* {date} at {time_slot}\n💬 *Notes:* {notes}',
     inquiry_alert: '💬 *New Inquiry on LinkSocio!* 📩\n\n👤 *From:* {client_name}\n📞 *Contact:* {client_phone}\n📝 *Message:* {message}',
+    order_alert: '🛍️ *New Digital Product Sale on LinkSocio!* 📖\n\n📖 *Product:* {product_name}\n💰 *Price:* {price} {currency}\n👤 *Buyer:* {client_name}\n✉️ *Email:* {client_email}\n📱 *Phone:* {client_phone}\n💳 *Payment:* {payment_method}\n⏰ *Time:* {date}',
     booking_confirmation_client: '✅ *Appointment Confirmed!*\n\nHello {client_name}, your consultation for *{service_title}* has been confirmed for *{date}* at *{time_slot}*.\n📹 Platform: {service_platform}\n👤 Host: {host_name}\nLooking forward to speaking with you!',
     booking_reminder_client: '⏰ *Meeting Reminder:*\n\nHi {client_name}, this is a reminder for your upcoming session *{service_title}* on *{date}* at *{time_slot}*.\nSee you soon!',
     inquiry_reply_client: '👋 Hello {client_name}!\n\nThank you for reaching out via LinkSocio regarding: "{message}".\n\nI would be delighted to assist you with your project!',
@@ -153,7 +162,7 @@ export async function dispatchServerAlert(type, payload, targetUsername, targetU
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        type, // 'booking' | 'inquiry' | 'test'
+        type, // 'booking' | 'inquiry' | 'order' | 'test'
         username: targetUsername,
         userId: targetUserId,
         data: payload,
@@ -164,3 +173,43 @@ export async function dispatchServerAlert(type, payload, targetUsername, targetU
     return { success: false, error: e.message }
   }
 }
+
+// Test Telegram Bot integration directly to user's phone
+export async function testTelegramNotification({ botToken, chatId, username }) {
+  try {
+    const res = await fetch('/api/notifications/test-telegram', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        botToken,
+        chatId,
+        username,
+      }),
+    })
+    return await res.json()
+  } catch (e) {
+    return { success: false, error: e.message }
+  }
+}
+
+// Test Email dispatch via SMTP / Gmail
+export async function testEmailNotification({ toEmail, smtpHost, smtpPort, smtpUser, smtpPass, username }) {
+  try {
+    const res = await fetch('/api/notifications/test-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        toEmail,
+        smtpHost,
+        smtpPort,
+        smtpUser,
+        smtpPass,
+        username,
+      }),
+    })
+    return await res.json()
+  } catch (e) {
+    return { success: false, error: e.message }
+  }
+}
+

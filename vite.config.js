@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react'
 import fs from 'fs'
 import path from 'path'
 import Stripe from 'stripe'
+import nodemailer from 'nodemailer'
 
 let stripeInstance = null
 function getStripe() {
@@ -62,6 +63,156 @@ function apiPlugin() {
       }
       writeJson(NOTIF_LOGS_PATH, logsStore)
     } catch (e) {}
+  }
+
+  async function dispatchLiveAlert(username, userId, logItem) {
+    appendNotifLog(username, userId, logItem)
+
+    try {
+      const nStore = readJson(NOTIF_SETTINGS_PATH)
+      const primaryKey = (username || userId || 'default').toLowerCase().trim().replace(/^@/, '')
+      const settings = nStore[primaryKey] || (userId && nStore[userId]) || {}
+
+      const type = logItem.type // 'order' | 'booking' | 'inquiry' | 'test'
+      if (type === 'order' && settings.alert_on_order === false) return
+      if (type === 'booking' && settings.alert_on_booking === false) return
+      if (type === 'inquiry' && settings.alert_on_inquiry === false) return
+
+      // 1. Telegram Dispatch to User Phone
+      const tgBotToken = (settings.telegram_bot_token || process.env.TELEGRAM_BOT_TOKEN || '').trim()
+      const tgChatId = (settings.telegram_chat_id || process.env.TELEGRAM_CHAT_ID || '').trim()
+      const tgEnabled = settings.telegram_enabled !== false && Boolean(tgBotToken && tgChatId)
+
+      if (tgEnabled) {
+        let msg = ''
+        if (type === 'order') {
+          const tx = logItem.data || {}
+          msg = `🛍️ <b>Nouvelle Vente sur LinkSocio!</b>\n\n` +
+                `📖 <b>Produit:</b> ${tx.productName || 'Livre / PDF'}\n` +
+                `💰 <b>Prix:</b> ${tx.grossAmount || 0} ${tx.currency || 'DH'} (Net 91%: ${tx.sellerNet || 0} ${tx.currency || 'DH'})\n` +
+                `👤 <b>Client:</b> ${tx.buyerName || 'Client'}\n` +
+                `✉️ <b>Email:</b> ${tx.buyerEmail || 'Non spécifié'}\n` +
+                `📱 <b>Tél:</b> ${tx.buyerPhone || 'Non spécifié'}\n` +
+                `💳 <b>Méthode:</b> ${tx.paymentMethod || 'En ligne'}\n` +
+                `⏰ <b>Date:</b> ${new Date().toLocaleString()}`
+        } else if (type === 'booking') {
+          const bk = logItem.data || {}
+          msg = `🗓️ <b>Nouveau Rendez-vous sur LinkSocio!</b>\n\n` +
+                `🏷️ <b>Service:</b> ${bk.service_title || 'Consultation'}\n` +
+                `👤 <b>Client:</b> ${bk.client_name || 'Client'}\n` +
+                `📅 <b>Date:</b> ${bk.date || ''} à ${bk.time_slot || ''}\n` +
+                `📞 <b>Téléphone:</b> ${bk.client_phone || 'N/A'}\n` +
+                `✉️ <b>Email:</b> ${bk.client_email || 'N/A'}`
+        } else if (type === 'inquiry') {
+          const inq = logItem.data || {}
+          msg = `💬 <b>Nouveau Message / Lead LinkSocio!</b>\n\n` +
+                `👤 <b>Nom:</b> ${inq.name || 'Visiteur'}\n` +
+                `📞 <b>Contact:</b> ${inq.phone || inq.email || 'N/A'}\n` +
+                `📝 <b>Message:</b> ${inq.message || ''}`
+        } else {
+          msg = `🔔 <b>Test Notification LinkSocio</b>\n\nVotre système de notification fonctionne avec succès!`
+        }
+
+        fetch(`https://api.telegram.org/bot${tgBotToken}/sendMessage`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chat_id: tgChatId,
+            text: msg,
+            parse_mode: 'HTML',
+          }),
+        }).catch((err) => console.error('Telegram dispatch error:', err.message))
+      }
+
+      // 2. Email / Gmail Dispatch
+      const emailEnabled = settings.email_enabled !== false
+      const metaStore = readJson(PROFILE_META_PATH)
+      const userMeta = metaStore[primaryKey] || (userId && metaStore[userId]) || {}
+      const targetEmail = settings.notification_email || userMeta.email || process.env.SMTP_USER || 'OtmanK514@gmail.com'
+
+      const smtpUser = (settings.smtp_user || process.env.SMTP_USER || '').trim()
+      const smtpPass = (settings.smtp_pass || process.env.SMTP_PASS || '').trim()
+      const smtpHost = (settings.smtp_host || process.env.SMTP_HOST || 'smtp.gmail.com').trim()
+      const smtpPort = parseInt(settings.smtp_port || process.env.SMTP_PORT || '465')
+
+      if (emailEnabled && targetEmail && smtpUser && smtpPass) {
+        const transporter = nodemailer.createTransport({
+          host: smtpHost,
+          port: smtpPort,
+          secure: smtpPort === 465,
+          auth: { user: smtpUser, pass: smtpPass },
+        })
+
+        let emailSubject = logItem.title || 'LinkSocio Alert'
+        let emailHtml = ''
+
+        if (type === 'order') {
+          const tx = logItem.data || {}
+          emailSubject = `🛍️ Nouvelle Vente de Produit: ${tx.productName || 'Livre / PDF'} (+${tx.sellerNet || tx.grossAmount} ${tx.currency || 'DH'})`
+          emailHtml = `
+            <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #E2E8F0; border-radius: 16px; background: #ffffff;">
+              <div style="text-align: center; margin-bottom: 20px;">
+                <span style="font-size: 40px;">🛍️</span>
+                <h2 style="color: #0F172A; margin: 8px 0 4px; font-size: 22px;">Nouvelle Vente Réussie!</h2>
+                <p style="color: #0D9488; font-weight: 700; font-size: 16px; margin: 0;">+${tx.sellerNet || tx.grossAmount} ${tx.currency || 'DH'} vers vos gains</p>
+              </div>
+              <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; padding: 18px; margin: 20px 0;">
+                <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+                  <tr><td style="padding: 6px 0; color: #64748B;">📖 Produit / Fichier:</td><td style="padding: 6px 0; font-weight: 700; color: #0F172A; text-align: right;">${tx.productName || 'Livre / PDF'}</td></tr>
+                  <tr><td style="padding: 6px 0; color: #64748B;">💰 Montant Brut:</td><td style="padding: 6px 0; font-weight: 700; color: #0F172A; text-align: right;">${tx.grossAmount || 0} ${tx.currency || 'DH'}</td></tr>
+                  <tr><td style="padding: 6px 0; color: #64748B;">💵 Gains Vendeur (91%):</td><td style="padding: 6px 0; font-weight: 700; color: #0D9488; text-align: right;">${tx.sellerNet || 0} ${tx.currency || 'DH'}</td></tr>
+                  <tr><td style="padding: 6px 0; color: #64748B;">👤 Nom du Client:</td><td style="padding: 6px 0; font-weight: 600; color: #0F172A; text-align: right;">${tx.buyerName || 'Client'}</td></tr>
+                  <tr><td style="padding: 6px 0; color: #64748B;">✉️ Email Client:</td><td style="padding: 6px 0; color: #2563EB; text-align: right;">${tx.buyerEmail || 'Non spécifié'}</td></tr>
+                  <tr><td style="padding: 6px 0; color: #64748B;">📱 Téléphone Client:</td><td style="padding: 6px 0; color: #0F172A; text-align: right;">${tx.buyerPhone || 'Non spécifié'}</td></tr>
+                  <tr><td style="padding: 6px 0; color: #64748B;">💳 Méthode:</td><td style="padding: 6px 0; color: #64748B; text-align: right;">${tx.paymentMethod || 'Carte / En ligne'}</td></tr>
+                  <tr><td style="padding: 6px 0; color: #64748B;">⏰ Date & Heure:</td><td style="padding: 6px 0; color: #64748B; text-align: right;">${new Date().toLocaleString()}</td></tr>
+                </table>
+              </div>
+              <p style="font-size: 13px; color: #94A3B8; text-align: center; margin-top: 24px;">
+                LinkSocio Automated Notification System · Tous droits réservés
+              </p>
+            </div>
+          `
+        } else if (type === 'booking') {
+          const bk = logItem.data || {}
+          emailSubject = `🗓️ Nouveau Rendez-vous: ${bk.service_title || 'Consultation'}`
+          emailHtml = `
+            <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #E2E8F0; border-radius: 12px;">
+              <h2 style="color: #2563EB;">🗓️ Nouvelle Réservation LinkSocio</h2>
+              <p><strong>Service:</strong> ${bk.service_title}</p>
+              <p><strong>Client:</strong> ${bk.client_name}</p>
+              <p><strong>Date & Heure:</strong> ${bk.date} à ${bk.time_slot}</p>
+              <p><strong>Email:</strong> ${bk.client_email}</p>
+              <p><strong>Téléphone:</strong> ${bk.client_phone}</p>
+            </div>
+          `
+        } else if (type === 'inquiry') {
+          const inq = logItem.data || {}
+          emailSubject = `💬 Nouveau Message de ${inq.name || 'Visiteur'}`
+          emailHtml = `
+            <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #E2E8F0; border-radius: 12px;">
+              <h2 style="color: #D97706;">💬 Nouveau Message / Lead</h2>
+              <p><strong>De:</strong> ${inq.name}</p>
+              <p><strong>Contact:</strong> ${inq.phone || inq.email || 'N/A'}</p>
+              <p><strong>Message:</strong></p>
+              <div style="background: #F8FAFC; padding: 12px; border-radius: 8px;">${inq.message || ''}</div>
+            </div>
+          `
+        } else {
+          emailSubject = logItem.title || 'Test Notification LinkSocio'
+          emailHtml = `<p>${logItem.details || 'Test réussi!'}</p>`
+        }
+
+        transporter.sendMail({
+          from: `"LinkSocio" <${smtpUser}>`,
+          to: targetEmail,
+          subject: emailSubject,
+          html: emailHtml,
+        }).catch((err) => console.error('Email sendMail error:', err.message))
+      }
+    } catch (dispatchErr) {
+      console.error('dispatchLiveAlert error:', dispatchErr.message)
+    }
   }
 
   const MIME_TYPES = {
@@ -1367,7 +1518,7 @@ function apiPlugin() {
                     ? `Contact: ${data.phone || 'N/A'} | "${(data.message || '').slice(0, 60)}"`
                     : data.message || `Dispatched to ${data.recipient || 'recipient'}`
 
-                appendNotifLog(username, userId, {
+                dispatchLiveAlert(username, userId, {
                   type,
                   title: logTitle,
                   details: logDetails,
@@ -1379,7 +1530,7 @@ function apiPlugin() {
                 res.end(
                   JSON.stringify({
                     success: true,
-                    message: 'Alert logged and notification dispatched successfully',
+                    message: 'Alert dispatched live to Telegram, Email, and dashboard',
                     type,
                     timestamp: new Date().toISOString(),
                   })
@@ -1388,6 +1539,117 @@ function apiPlugin() {
                 res.statusCode = 400
                 res.setHeader('Content-Type', 'application/json')
                 res.end(JSON.stringify({ error: 'Invalid payload' }))
+              }
+            })
+            return
+          }
+        }
+
+        // Test Telegram Route
+        if (urlObj.pathname === '/api/notifications/test-telegram') {
+          if (req.method === 'POST') {
+            let body = ''
+            req.on('data', (chunk) => { body += chunk })
+            req.on('end', async () => {
+              try {
+                const payload = JSON.parse(body || '{}')
+                const botToken = (payload.botToken || '').trim()
+                const chatId = (payload.chatId || '').trim()
+                if (!botToken || !chatId) {
+                  res.statusCode = 400
+                  res.setHeader('Content-Type', 'application/json')
+                  res.end(JSON.stringify({ success: false, error: 'Bot Token and Chat ID are required' }))
+                  return
+                }
+                const testMsg = `🔔 <b>Test Notification LinkSocio!</b>\n\n✅ <b>Connexion Telegram Réussie!</b>\nVos alertes pour les ventes de livres, PDF et rendez-vous arriveront instantanément sur ce compte.`
+                const tgRes = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ chat_id: chatId, text: testMsg, parse_mode: 'HTML' }),
+                })
+                const tgJson = await tgRes.json()
+                if (tgJson.ok) {
+                  res.statusCode = 200
+                  res.setHeader('Content-Type', 'application/json')
+                  res.end(JSON.stringify({ success: true, message: 'Message test envoyé avec succès sur Telegram!' }))
+                } else {
+                  res.statusCode = 400
+                  res.setHeader('Content-Type', 'application/json')
+                  res.end(JSON.stringify({ success: false, error: tgJson.description || 'Erreur Telegram Bot API' }))
+                }
+              } catch (e) {
+                res.statusCode = 500
+                res.setHeader('Content-Type', 'application/json')
+                res.end(JSON.stringify({ success: false, error: e.message }))
+              }
+            })
+            return
+          }
+        }
+
+        // Test Email Route
+        if (urlObj.pathname === '/api/notifications/test-email') {
+          if (req.method === 'POST') {
+            let body = ''
+            req.on('data', (chunk) => { body += chunk })
+            req.on('end', async () => {
+              try {
+                const payload = JSON.parse(body || '{}')
+                const toEmail = (payload.toEmail || '').trim()
+                const smtpUser = (payload.smtpUser || process.env.SMTP_USER || '').trim()
+                const smtpPass = (payload.smtpPass || process.env.SMTP_PASS || '').trim()
+                const smtpHost = (payload.smtpHost || process.env.SMTP_HOST || 'smtp.gmail.com').trim()
+                const smtpPort = parseInt(payload.smtpPort || process.env.SMTP_PORT || '465')
+
+                if (!toEmail) {
+                  res.statusCode = 400
+                  res.setHeader('Content-Type', 'application/json')
+                  res.end(JSON.stringify({ success: false, error: 'Adresse email destinataire requise' }))
+                  return
+                }
+
+                if (!smtpUser || !smtpPass) {
+                  res.statusCode = 200
+                  res.setHeader('Content-Type', 'application/json')
+                  res.end(JSON.stringify({
+                    success: false,
+                    needsCredentials: true,
+                    message: 'Pour envoyer un email réel vers Gmail, veuillez renseigner votre email Gmail et votre mot de passe d\'application (Gmail App Password).',
+                  }))
+                  return
+                }
+
+                const transporter = nodemailer.createTransport({
+                  host: smtpHost,
+                  port: smtpPort,
+                  secure: smtpPort === 465,
+                  auth: { user: smtpUser, pass: smtpPass },
+                })
+
+                await transporter.sendMail({
+                  from: `"LinkSocio Alerts" <${smtpUser}>`,
+                  to: toEmail,
+                  subject: '🔔 Test Email LinkSocio - Configuration Réussie',
+                  html: `
+                    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 540px; margin: 0 auto; padding: 24px; border: 1px solid #E2E8F0; border-radius: 16px; background: #ffffff;">
+                      <h2 style="color: #0D9488; margin: 0 0 12px;">✓ Test Réussi!</h2>
+                      <p style="color: #334155; font-size: 14px; line-height: 1.6;">
+                        Votre boîte Gmail est maintenant connectée à <strong>LinkSocio</strong>. Vous recevrez instantanément des alertes par email à chaque vente de livre, PDF ou nouvelle réservation.
+                      </p>
+                      <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 12px; margin-top: 16px; font-size: 12px; color: #64748B;">
+                        Envoyé le: ${new Date().toLocaleString()} à ${toEmail}
+                      </div>
+                    </div>
+                  `,
+                })
+
+                res.statusCode = 200
+                res.setHeader('Content-Type', 'application/json')
+                res.end(JSON.stringify({ success: true, message: `Email de test envoyé avec succès à ${toEmail}!` }))
+              } catch (e) {
+                res.statusCode = 400
+                res.setHeader('Content-Type', 'application/json')
+                res.end(JSON.stringify({ success: false, error: e.message }))
               }
             })
             return
@@ -1584,8 +1846,8 @@ function apiPlugin() {
 
                 writeJson(TRANSACTIONS_PATH, txStore)
 
-                // Trigger Notification to Seller
-                appendNotifLog(username, userId, {
+                // Trigger Live Notification to Seller (Telegram Phone + Gmail + Dashboard)
+                dispatchLiveAlert(username, userId, {
                   type: 'order',
                   title: `🛍️ New Sale: ${product.name} (+${sellerNet} DH)`,
                   details: `Gross: ${grossAmount} DH | Net (91%): ${sellerNet} DH | Fee (9%): ${platformFee} DH | Buyer: ${buyer.name || 'Online Customer'}`,
