@@ -1029,34 +1029,77 @@ export function LivePagePreview({ profile, links = [], products = [], socials = 
             <div style={{ marginTop: isEmbedded ? 14 : 22, display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: isEmbedded ? 8 : 12 }}>
               {products.map((p) => {
                 const categoryObj = DIGITAL_CATEGORIES.find((c) => c.id === p.category)
-                const extUrl = p.external_url || ''
-                const isDigital =
-                  p.is_digital ||
-                  p.category ||
-                  p.delivery_type === 'whatsapp' ||
+                const extUrl = (p.external_url || '').trim()
+
+                // Check digital status strictly: external store products must never be forced to digital
+                const isExplicitStore =
+                  p.is_digital === false ||
+                  p.category === 'external' ||
+                  p.category === 'store' ||
+                  p.category === 'shop' ||
+                  p.category === 'link' ||
+                  p.delivery_type === 'external'
+
+                const hasDigitalFile = Boolean(
                   p.file_url ||
                   extUrl.startsWith('data:') ||
-                  extUrl.includes('data:') ||
                   extUrl.startsWith('/uploads/') ||
-                  (p.highlights && p.highlights.length > 0)
+                  extUrl.startsWith('/api/download') ||
+                  extUrl.startsWith('blob:')
+                )
+                const isExplicitDigitalCategory = Boolean(
+                  p.category &&
+                  p.category !== 'external' &&
+                  p.category !== 'store' &&
+                  p.category !== 'shop' &&
+                  p.category !== 'link'
+                )
+
+                const isDigital = !isExplicitStore && (
+                  p.is_digital === true ||
+                  hasDigitalFile ||
+                  (isExplicitDigitalCategory && p.delivery_type !== 'external')
+                )
+
+                let safeStoreUrl = extUrl
+                if (safeStoreUrl && !safeStoreUrl.startsWith('http://') && !safeStoreUrl.startsWith('https://') && !safeStoreUrl.startsWith('data:') && !safeStoreUrl.startsWith('/')) {
+                  safeStoreUrl = 'https://' + safeStoreUrl
+                }
+
+                let storeDomain = 'Store'
+                try {
+                  if (safeStoreUrl && /^https?:\/\//i.test(safeStoreUrl)) {
+                    const parsed = new URL(safeStoreUrl)
+                    storeDomain = parsed.hostname.replace(/^www\./, '')
+                  }
+                } catch (e) {}
+
+                const handleProductCardClick = () => {
+                  if (isDigital) {
+                    let cleanExt = (p.external_url || '').trim()
+                    if (/^https?:\/\/(data:|blob:)/i.test(cleanExt)) {
+                      cleanExt = cleanExt.replace(/^https?:\/\//i, '')
+                    }
+                    let cleanFile = (p.file_url || '').trim()
+                    if (/^https?:\/\/(data:|blob:)/i.test(cleanFile)) {
+                      cleanFile = cleanFile.replace(/^https?:\/\//i, '')
+                    }
+                    if (!cleanFile && (cleanExt.startsWith('data:') || cleanExt.startsWith('/uploads/'))) {
+                      cleanFile = cleanExt
+                    }
+                    setSelectedProductModal({ ...p, external_url: cleanExt, file_url: cleanFile || null, is_digital: true })
+                  } else {
+                    // External Store Product / Link: opens client's store directly in new tab
+                    if (safeStoreUrl) {
+                      window.open(safeStoreUrl, '_blank', 'noopener,noreferrer')
+                    }
+                  }
+                }
 
                 return (
                   <div
                     key={p.id}
-                    onClick={() => {
-                      let cleanExt = (p.external_url || '').trim()
-                      if (/^https?:\/\/(data:|blob:)/i.test(cleanExt)) {
-                        cleanExt = cleanExt.replace(/^https?:\/\//i, '')
-                      }
-                      let cleanFile = (p.file_url || '').trim()
-                      if (/^https?:\/\/(data:|blob:)/i.test(cleanFile)) {
-                        cleanFile = cleanFile.replace(/^https?:\/\//i, '')
-                      }
-                      if (!cleanFile && (cleanExt.startsWith('data:') || cleanExt.startsWith('/uploads/'))) {
-                        cleanFile = cleanExt
-                      }
-                      setSelectedProductModal({ ...p, external_url: cleanExt, file_url: cleanFile || null, is_digital: isDigital })
-                    }}
+                    onClick={handleProductCardClick}
                     style={{
                       display: 'flex',
                       flexDirection: 'column',
@@ -1071,9 +1114,9 @@ export function LivePagePreview({ profile, links = [], products = [], socials = 
                       position: 'relative',
                     }}
                   >
-                    {/* Badge Pill for Digital Category & Discount */}
+                    {/* Badge Pill for Digital Category or External Store & Discount */}
                     <div style={{ position: 'absolute', top: 6, left: 6, zIndex: 2, display: 'flex', gap: 3, flexWrap: 'wrap' }}>
-                      {categoryObj && (
+                      {isDigital && categoryObj && (
                         <span
                           style={{
                             background: categoryObj.color,
@@ -1086,6 +1129,26 @@ export function LivePagePreview({ profile, links = [], products = [], socials = 
                           }}
                         >
                           {categoryObj.icon} {categoryObj.label.split(' / ')[0]}
+                        </span>
+                      )}
+                      {!isDigital && (
+                        <span
+                          style={{
+                            background: '#0F172A',
+                            color: '#FFFFFF',
+                            fontSize: 8.5,
+                            fontWeight: 800,
+                            padding: '2px 6px',
+                            borderRadius: 5,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 3,
+                          }}
+                        >
+                          <span>🛍️</span>
+                          <span style={{ maxWidth: 85, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {storeDomain}
+                          </span>
                         </span>
                       )}
                       {p.original_price && (
@@ -1118,7 +1181,7 @@ export function LivePagePreview({ profile, links = [], products = [], socials = 
                       {p.image_url ? (
                         <img src={p.image_url} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                       ) : (
-                        <span style={{ fontSize: isEmbedded ? 24 : 32 }}>{categoryObj?.icon || '🛍️'}</span>
+                        <span style={{ fontSize: isEmbedded ? 24 : 32 }}>{isDigital ? (categoryObj?.icon || '📦') : '🛍️'}</span>
                       )}
                     </div>
                     <div style={{ padding: isEmbedded ? '7px 8px' : '10px 12px', flex: 1, display: 'flex', flexDirection: 'column' }}>
@@ -1172,9 +1235,12 @@ export function LivePagePreview({ profile, links = [], products = [], socials = 
                             borderRadius: 100,
                             padding: '2px 8px',
                             fontWeight: 700,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 3,
                           }}
                         >
-                          {isDigital ? 'Get' : 'Buy'}
+                          {isDigital ? 'Get' : 'Buy ↗'}
                         </span>
                       </div>
                     </div>

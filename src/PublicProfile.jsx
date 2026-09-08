@@ -182,11 +182,21 @@ export default function PublicProfile({ username }) {
       if (!fUrl && (extUrl.startsWith('data:') || extUrl.startsWith('/uploads/') || extUrl.startsWith('/api/download'))) {
         fUrl = extUrl
       }
-      const isDig = p.is_digital || !!fUrl || extUrl.startsWith('data:') || extUrl.startsWith('/uploads/') || extUrl.startsWith('/api/download') || !!p.category
+      // Only treat as digital if explicitly true, or not explicitly false and has a downloadable file or digital category with digital delivery
+      const isExternalStore =
+        p.is_digital === false ||
+        p.category === 'external' ||
+        p.category === 'store' ||
+        p.category === 'shop' ||
+        p.delivery_type === 'external'
+
+      const hasFile = !!fUrl || extUrl.startsWith('data:') || extUrl.startsWith('/uploads/') || extUrl.startsWith('/api/download')
+      const isDig = !isExternalStore && (p.is_digital === true || hasFile || (Boolean(p.category) && p.category !== 'external'))
+
       return {
         ...p,
         external_url: extUrl,
-        file_url: fUrl || null,
+        file_url: isDig ? (fUrl || null) : null,
         is_digital: isDig,
       }
     })

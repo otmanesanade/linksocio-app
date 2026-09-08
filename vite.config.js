@@ -984,6 +984,9 @@ function apiPlugin() {
             const userId = (urlObj.searchParams.get('userId') || '').trim()
 
             let productsList = (username && productsStore[username]) || (userId && productsStore[userId]) || []
+            if ((!productsList || productsList.length === 0) && (username === 'otman' || username === 'otmank514')) {
+              productsList = productsStore['otman'] || productsStore['otmank514'] || []
+            }
             if (!Array.isArray(productsList)) productsList = []
 
             res.statusCode = 200
@@ -1031,6 +1034,10 @@ function apiPlugin() {
 
                 if (username) productsStore[username] = current
                 if (userId) productsStore[userId] = current
+                if (username === 'otman' || username === 'otmank514') {
+                  productsStore['otman'] = current
+                  productsStore['otmank514'] = current
+                }
 
                 writeJson(PRODUCTS_STORE_PATH, productsStore)
 

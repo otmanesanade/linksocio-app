@@ -11,6 +11,23 @@ function normalizeUrl(url) {
   return clean
 }
 
+// Helper to accurately determine if a product is a digital download item
+export const isProductDigitalItem = (p) => {
+  if (!p) return false
+  if (p.is_digital === false) return false
+  if (p.category === 'external' || p.category === 'store' || p.category === 'shop' || p.category === 'link' || p.delivery_type === 'external') {
+    return false
+  }
+  const extUrl = (p.external_url || '').trim()
+  const hasFile = Boolean(p.file_url || extUrl.startsWith('data:') || extUrl.startsWith('/uploads/') || extUrl.startsWith('/api/download'))
+  if (p.is_digital === true) return true
+  if (hasFile) return true
+  if (p.category && p.category !== 'external' && p.category !== 'store' && p.category !== 'shop' && p.category !== 'link') {
+    return true
+  }
+  return false
+}
+
 // Digital Product Categories with visual badges
 export const DIGITAL_CATEGORIES = [
   { id: 'ebook', label: 'E-Book / PDF Guide', icon: '📄', color: '#3B82F6', bg: '#EFF6FF' },
@@ -410,20 +427,22 @@ export default function ShopTab({ user, profile, products = [], reloadProducts }
     setExternalUrl(cleanExtUrl)
     setFileUrl(cleanFileUrl)
     setDescription(p.description || '')
-    setCategory(p.category || (p.is_digital ? 'ebook' : 'file'))
-    setDeliveryType(p.delivery_type || (p.is_digital ? 'whatsapp' : 'external'))
+
+    const isDigitalItem = isProductDigitalItem(p)
+    setCategory(p.category && p.category !== 'external' ? p.category : 'ebook')
+    setDeliveryType(p.delivery_type && p.delivery_type !== 'external' ? p.delivery_type : 'whatsapp')
     setHighlights(Array.isArray(p.highlights) ? p.highlights : [])
-    setCreationMode(p.is_digital || !cleanExtUrl || p.delivery_type === 'whatsapp' ? 'digital' : 'external')
+    setCreationMode(isDigitalItem ? 'digital' : 'external')
 
     // Detect if product has a desktop uploaded file
-    if (cleanFileUrl && (cleanFileUrl.startsWith('/uploads/') || cleanFileUrl.startsWith('data:') || p.file_name)) {
+    if (isDigitalItem && cleanFileUrl && (cleanFileUrl.startsWith('/uploads/') || cleanFileUrl.startsWith('data:') || p.file_name)) {
       setFileSourceMode('upload')
       setUploadedFile({
         name: p.file_name || (cleanFileUrl.startsWith('data:') ? 'digital_product.pdf' : cleanFileUrl.split('/').pop().replace(/^\d+_/, '')),
         size: p.file_size || '',
         url: cleanFileUrl,
       })
-    } else if (cleanFileUrl) {
+    } else if (isDigitalItem && cleanFileUrl) {
       setFileSourceMode('link')
       setUploadedFile(null)
     } else {
@@ -459,13 +478,13 @@ export default function ShopTab({ user, profile, products = [], reloadProducts }
       original_price: originalPrice.trim() || null,
       image_url: imageUrl.trim() || null,
       external_url: targetExternalUrl,
-      file_url: fileUrl.trim() || null,
-      file_name: uploadedFile?.name || null,
-      file_size: uploadedFile?.size || null,
+      file_url: isDigital ? (fileUrl.trim() || null) : null,
+      file_name: isDigital ? (uploadedFile?.name || null) : null,
+      file_size: isDigital ? (uploadedFile?.size || null) : null,
       description: description.trim() || null,
       category: isDigital ? category : 'external',
       delivery_type: isDigital ? deliveryType : 'external',
-      highlights: highlights,
+      highlights: isDigital ? highlights : [],
       is_digital: isDigital,
       position: editingId ? undefined : products.length,
     }
@@ -580,12 +599,13 @@ export default function ShopTab({ user, profile, products = [], reloadProducts }
 
   // Filtered products list
   const filteredProducts = products.filter((p) => {
-    if (activeFilter === 'digital') return p.is_digital || p.category || p.delivery_type === 'whatsapp' || p.file_url
-    if (activeFilter === 'external') return !p.is_digital && p.category !== 'ebook' && p.category !== 'notion' && p.category !== 'template'
+    const isDig = isProductDigitalItem(p)
+    if (activeFilter === 'digital') return isDig
+    if (activeFilter === 'external') return !isDig
     return true
   })
 
-  const digitalCount = products.filter((p) => p.is_digital || p.category || p.delivery_type === 'whatsapp' || p.file_url).length
+  const digitalCount = products.filter((p) => isProductDigitalItem(p)).length
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -617,9 +637,9 @@ export default function ShopTab({ user, profile, products = [], reloadProducts }
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 18, flexWrap: 'wrap', gap: 10 }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ fontSize: 20 }}>📦</span>
+              <span style={{ fontSize: 20 }}>🛍️</span>
               <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: '#0F172A' }}>
-                {editingId ? 'Edit Product' : 'Digital Products & Storefront'}
+                {editingId ? 'Edit Product' : 'Store & Digital Products'}
               </h2>
               <span
                 style={{
@@ -636,7 +656,7 @@ export default function ShopTab({ user, profile, products = [], reloadProducts }
               </span>
             </div>
             <p style={{ margin: '4px 0 0', fontSize: 13, color: '#64748B' }}>
-              Sell E-Books, Canva templates, Notion systems, courses, presets, or direct file downloads.
+              Add links to your online store (YouCan, Shopify, Amazon, Etsy...) or sell downloadable digital products (PDFs, templates, courses...).
             </p>
           </div>
 
@@ -660,79 +680,8 @@ export default function ShopTab({ user, profile, products = [], reloadProducts }
           )}
         </div>
 
-        {/* 1-Click Starter Presets Bar */}
-        {!editingId && (
-          <div style={{ marginBottom: 20, background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 16, padding: 14 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-              <span style={{ fontSize: 12, fontWeight: 700, color: '#334155', display: 'flex', alignItems: 'center', gap: 5 }}>
-                <span>⚡</span> Quick Starter Presets (Click to autofill):
-              </span>
-              <span style={{ fontSize: 11, color: '#94A3B8' }}>Instant 1-Click Setup</span>
-            </div>
-            <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4, WebkitOverflowScrolling: 'touch' }}>
-              {STARTER_PRESETS.map((preset, i) => (
-                <button
-                  key={i}
-                  type="button"
-                  onClick={() => applyPreset(preset)}
-                  style={{
-                    flexShrink: 0,
-                    background: 'white',
-                    border: '1px solid #CBD5E1',
-                    borderRadius: 10,
-                    padding: '7px 12px',
-                    fontSize: 11.5,
-                    fontWeight: 600,
-                    color: '#1E293B',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 6,
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.borderColor = '#14B8A6'
-                    e.currentTarget.style.background = '#F0FDFA'
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.borderColor = '#CBD5E1'
-                    e.currentTarget.style.background = 'white'
-                  }}
-                >
-                  <span>{DIGITAL_CATEGORIES.find((c) => c.id === preset.category)?.icon || '📦'}</span>
-                  <span>{preset.name.split(' (')[0]}</span>
-                  <span style={{ background: '#14B8A6', color: 'white', fontSize: 10, padding: '1px 5px', borderRadius: 4, fontWeight: 700 }}>
-                    {preset.price}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
         {/* Mode Switcher */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 18, background: '#F1F5F9', padding: 4, borderRadius: 14 }}>
-          <button
-            type="button"
-            onClick={() => setCreationMode('digital')}
-            style={{
-              background: creationMode === 'digital' ? 'white' : 'transparent',
-              color: creationMode === 'digital' ? '#0F172A' : '#64748B',
-              border: 'none',
-              borderRadius: 10,
-              padding: '9px 12px',
-              fontSize: 13,
-              fontWeight: 700,
-              cursor: 'pointer',
-              boxShadow: creationMode === 'digital' ? '0 1px 3px rgba(0,0,0,0.06)' : 'none',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 6,
-            }}
-          >
-            <span>📦</span> Digital Product (E-Book, Course, Template)
-          </button>
           <button
             type="button"
             onClick={() => setCreationMode('external')}
@@ -752,9 +701,111 @@ export default function ShopTab({ user, profile, products = [], reloadProducts }
               gap: 6,
             }}
           >
-            <span>🔗</span> External Link (Amazon, Shopify, Etsy)
+            <span>🛍️</span> Store / External Product Link
+          </button>
+          <button
+            type="button"
+            onClick={() => setCreationMode('digital')}
+            style={{
+              background: creationMode === 'digital' ? 'white' : 'transparent',
+              color: creationMode === 'digital' ? '#0F172A' : '#64748B',
+              border: 'none',
+              borderRadius: 10,
+              padding: '9px 12px',
+              fontSize: 13,
+              fontWeight: 700,
+              cursor: 'pointer',
+              boxShadow: creationMode === 'digital' ? '0 1px 3px rgba(0,0,0,0.06)' : 'none',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 6,
+            }}
+          >
+            <span>📦</span> Digital Product (Download / WhatsApp)
           </button>
         </div>
+
+        {/* Quick Presets / Supported Stores Bar */}
+        {!editingId && (
+          <div style={{ marginBottom: 20, background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 16, padding: 14 }}>
+            {creationMode === 'digital' ? (
+              <>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: '#334155', display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <span>⚡</span> Quick Digital Presets (Click to autofill):
+                  </span>
+                  <span style={{ fontSize: 11, color: '#94A3B8' }}>Instant 1-Click Setup</span>
+                </div>
+                <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4, WebkitOverflowScrolling: 'touch' }}>
+                  {STARTER_PRESETS.map((preset, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => applyPreset(preset)}
+                      style={{
+                        flexShrink: 0,
+                        background: 'white',
+                        border: '1px solid #CBD5E1',
+                        borderRadius: 10,
+                        padding: '7px 12px',
+                        fontSize: 11.5,
+                        fontWeight: 600,
+                        color: '#1E293B',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease',
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.borderColor = '#14B8A6'
+                        e.currentTarget.style.background = '#F0FDFA'
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.borderColor = '#CBD5E1'
+                        e.currentTarget.style.background = 'white'
+                      }}
+                    >
+                      <span>{DIGITAL_CATEGORIES.find((c) => c.id === preset.category)?.icon || '📦'}</span>
+                      <span>{preset.name.split(' (')[0]}</span>
+                      <span style={{ background: '#14B8A6', color: 'white', fontSize: 10, padding: '1px 5px', borderRadius: 4, fontWeight: 700 }}>
+                        {preset.price}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, flexWrap: 'wrap', gap: 6 }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: '#334155', display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <span>🛍️</span> Add any store link or product page:
+                  </span>
+                  <span style={{ fontSize: 11, color: '#0D9488', fontWeight: 700 }}>✓ Direct Redirect (Not converted to digital)</span>
+                </div>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  {['🛍️ YouCan Shop', '🛒 Shopify', '📦 Amazon', '🎨 Etsy', '🌐 WooCommerce', '🏷️ AliExpress', '🔗 Custom Store Link'].map((platform) => (
+                    <span
+                      key={platform}
+                      style={{
+                        background: 'white',
+                        border: '1px solid #E2E8F0',
+                        borderRadius: 8,
+                        padding: '4px 9px',
+                        fontSize: 11,
+                        fontWeight: 600,
+                        color: '#334155',
+                      }}
+                    >
+                      {platform}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Digital Product Form */}
         <form onSubmit={saveProduct} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -1314,11 +1365,11 @@ export default function ShopTab({ user, profile, products = [], reloadProducts }
               {/* External Link Form */}
               <div>
                 <label style={{ fontSize: 12, fontWeight: 700, color: '#475569', display: 'block', marginBottom: 5 }}>
-                  Product External URL (Amazon, Shopify, Etsy, Gumroad...):
+                  Store / Product External URL (YouCan, Shopify, Amazon, Etsy, WooCommerce...): *
                 </label>
                 <div style={{ display: 'flex', gap: 8 }}>
                   <input
-                    placeholder="https://amazon.com/... or https://etsy.com/..."
+                    placeholder="https://yourstore.youcan.shop/... or https://amazon.com/..."
                     value={externalUrl}
                     onChange={(e) => setExternalUrl(e.target.value)}
                     required
@@ -1343,28 +1394,105 @@ export default function ShopTab({ user, profile, products = [], reloadProducts }
                     {fetching ? 'Auto Fetching...' : '⚡ Auto-Fetch'}
                   </button>
                 </div>
+                <span style={{ fontSize: 11.5, color: '#64748B', marginTop: 4, display: 'block' }}>
+                  💡 Paste your store or product link. When buyers click on your profile, they will be redirected directly to your store to complete their purchase.
+                </span>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.4fr) minmax(0, 1fr)', gap: 10 }}>
+                <div>
+                  <label style={{ fontSize: 12, fontWeight: 700, color: '#475569', display: 'block', marginBottom: 5 }}>
+                    Product Title *
+                  </label>
+                  <input placeholder="e.g. Wireless Bluetooth Headphones" value={name} onChange={(e) => setName(e.target.value)} required style={inputStyle} />
+                </div>
+                <div>
+                  <label style={{ fontSize: 12, fontWeight: 700, color: '#475569', display: 'block', marginBottom: 5 }}>
+                    Price (Selling Price)
+                  </label>
+                  <input placeholder="e.g. 199 DH, $29, 29 €" value={price} onChange={(e) => setPrice(e.target.value)} style={inputStyle} />
+                </div>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                 <div>
                   <label style={{ fontSize: 12, fontWeight: 700, color: '#475569', display: 'block', marginBottom: 5 }}>
-                    Product Title *
+                    Original Price (Optional Discount)
                   </label>
-                  <input placeholder="Product Title" value={name} onChange={(e) => setName(e.target.value)} required style={inputStyle} />
+                  <input
+                    placeholder="e.g. 299 DH, $49 (shows SALE badge)"
+                    value={originalPrice}
+                    onChange={(e) => setOriginalPrice(e.target.value)}
+                    style={inputStyle}
+                  />
                 </div>
                 <div>
                   <label style={{ fontSize: 12, fontWeight: 700, color: '#475569', display: 'block', marginBottom: 5 }}>
-                    Price
+                    Product Image (URL or Upload)
                   </label>
-                  <input placeholder="e.g. $29, 29 €, 199 DH" value={price} onChange={(e) => setPrice(e.target.value)} style={inputStyle} />
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                    <input placeholder="Image URL (https://...)" value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} style={{ ...inputStyle, flex: 1 }} />
+                    <label
+                      style={{
+                        background: '#0F172A',
+                        color: 'white',
+                        borderRadius: 12,
+                        padding: '10px 12px',
+                        fontSize: 12,
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        flexShrink: 0,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 4,
+                      }}
+                      title="Upload image from computer"
+                    >
+                      <span>📁 Upload</span>
+                      <input type="file" accept="image/*" onChange={handleImageUpload} style={{ display: 'none' }} />
+                    </label>
+                  </div>
                 </div>
               </div>
 
+              {imageUrl && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <img
+                    src={imageUrl}
+                    alt="Cover Preview"
+                    style={{ width: 44, height: 44, borderRadius: 8, objectFit: 'cover', border: '1px solid #E2E8F0' }}
+                  />
+                  <span style={{ fontSize: 11.5, color: '#16A34A', fontWeight: 600 }}>✓ Product image ready</span>
+                  <button
+                    type="button"
+                    onClick={() => setImageUrl('')}
+                    style={{ background: 'transparent', border: 'none', color: '#DC2626', fontSize: 11, cursor: 'pointer', fontWeight: 600 }}
+                  >
+                    Remove
+                  </button>
+                </div>
+              )}
+
+              {/* Description */}
               <div>
                 <label style={{ fontSize: 12, fontWeight: 700, color: '#475569', display: 'block', marginBottom: 5 }}>
-                  Image URL
+                  Short Description (Optional):
                 </label>
-                <input placeholder="Image URL (https://...)" value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} style={inputStyle} />
+                <textarea
+                  rows={2}
+                  placeholder="Brief description of the product or store offer..."
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  style={{ ...inputStyle, minHeight: 56, resize: 'vertical' }}
+                />
+              </div>
+
+              {/* Informational banner confirming it will not convert into a digital product */}
+              <div style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 12, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 16 }}>🔗</span>
+                <span style={{ fontSize: 12, color: '#166534', fontWeight: 600 }}>
+                  هذا المنتج سيبقى كرابط مباشر لمتجرك الخارجي ولن يتحول إلى منتج رقمي. عند نقر الزبون عليه سيفتح رابط المتجر مباشرة.
+                </span>
               </div>
             </>
           )}
@@ -1464,7 +1592,7 @@ export default function ShopTab({ user, profile, products = [], reloadProducts }
           {filteredProducts.map((p, idx) => {
             const isDragging = draggedIdx === idx
             const categoryObj = DIGITAL_CATEGORIES.find((c) => c.id === p.category) || DIGITAL_CATEGORIES[0]
-            const isDigital = p.is_digital || p.category || p.delivery_type === 'whatsapp'
+            const isDigital = isProductDigitalItem(p)
 
             return (
               <div
@@ -1534,7 +1662,7 @@ export default function ShopTab({ user, profile, products = [], reloadProducts }
 
                 {/* Badge tags overlay */}
                 <div style={{ position: 'absolute', top: 8, left: 8, zIndex: 3, display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                  {isDigital && (
+                  {isDigital ? (
                     <span
                       style={{
                         background: categoryObj.color,
@@ -1549,8 +1677,24 @@ export default function ShopTab({ user, profile, products = [], reloadProducts }
                     >
                       {categoryObj.icon} {categoryObj.label.split(' / ')[0]}
                     </span>
+                  ) : (
+                    <span
+                      style={{
+                        background: '#0F172A',
+                        color: 'white',
+                        fontSize: 10,
+                        fontWeight: 800,
+                        padding: '2px 7px',
+                        borderRadius: 6,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 3,
+                      }}
+                    >
+                      <span>🛍️</span> Store Link
+                    </span>
                   )}
-                  {p.file_url && p.file_url.startsWith('/uploads/') && (
+                  {isDigital && p.file_url && p.file_url.startsWith('/uploads/') && (
                     <span
                       style={{
                         background: '#0F172A',
@@ -1586,7 +1730,7 @@ export default function ShopTab({ user, profile, products = [], reloadProducts }
                   style={{
                     width: '100%',
                     aspectRatio: '1.4',
-                    background: categoryObj.bg || '#F8FAFC',
+                    background: isDigital ? (categoryObj.bg || '#F8FAFC') : '#F1F5F9',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -1596,7 +1740,7 @@ export default function ShopTab({ user, profile, products = [], reloadProducts }
                   {p.image_url ? (
                     <img src={p.image_url} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   ) : (
-                    <span style={{ fontSize: 38 }}>{categoryObj.icon || '🛍️'}</span>
+                    <span style={{ fontSize: 38 }}>{isDigital ? (categoryObj.icon || '📦') : '🛍️'}</span>
                   )}
                 </div>
 
@@ -1604,7 +1748,7 @@ export default function ShopTab({ user, profile, products = [], reloadProducts }
                 <div style={{ padding: '14px', flex: 1, display: 'flex', flexDirection: 'column' }}>
                   <p
                     style={{
-                      margin: '0 0 6px',
+                      margin: '0 0 4px',
                       fontSize: 14,
                       fontWeight: 700,
                       color: '#0F172A',
@@ -1616,6 +1760,31 @@ export default function ShopTab({ user, profile, products = [], reloadProducts }
                   >
                     {p.name}
                   </p>
+
+                  {!isDigital && p.external_url && (
+                    <a
+                      href={p.external_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{
+                        fontSize: 11.5,
+                        color: '#0284C7',
+                        textDecoration: 'none',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 4,
+                        marginBottom: 6,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      <span>🔗</span>
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {p.external_url.replace(/^https?:\/\/(www\.)?/, '')}
+                      </span>
+                    </a>
+                  )}
 
                   {p.description && (
                     <p
@@ -1635,7 +1804,7 @@ export default function ShopTab({ user, profile, products = [], reloadProducts }
                   )}
 
                   {/* Highlights preview */}
-                  {Array.isArray(p.highlights) && p.highlights.length > 0 && (
+                  {isDigital && Array.isArray(p.highlights) && p.highlights.length > 0 && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 3, marginBottom: 10 }}>
                       {p.highlights.slice(0, 2).map((h, i) => (
                         <span key={i} style={{ fontSize: 11, color: '#0D9488', fontWeight: 600 }}>
@@ -1654,6 +1823,7 @@ export default function ShopTab({ user, profile, products = [], reloadProducts }
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'space-between',
+                      gap: 6,
                     }}
                   >
                     <div>
@@ -1665,25 +1835,48 @@ export default function ShopTab({ user, profile, products = [], reloadProducts }
                       )}
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() => setPreviewProduct(p)}
-                      style={{
-                        background: '#0F172A',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: 8,
-                        padding: '5px 10px',
-                        fontSize: 11.5,
-                        fontWeight: 600,
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 4,
-                      }}
-                    >
-                      <span>👁️ Preview</span>
-                    </button>
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                      {!isDigital && p.external_url && (
+                        <a
+                          href={p.external_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          style={{
+                            background: '#0F172A',
+                            color: 'white',
+                            borderRadius: 8,
+                            padding: '5px 10px',
+                            fontSize: 11.5,
+                            fontWeight: 600,
+                            textDecoration: 'none',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 3,
+                          }}
+                        >
+                          <span>↗ Store</span>
+                        </a>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setPreviewProduct(p)}
+                        style={{
+                          background: isDigital ? '#0F172A' : '#F1F5F9',
+                          color: isDigital ? 'white' : '#334155',
+                          border: isDigital ? 'none' : '1px solid #E2E8F0',
+                          borderRadius: 8,
+                          padding: '5px 10px',
+                          fontSize: 11.5,
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 4,
+                        }}
+                      >
+                        <span>👁️ {isDigital ? 'Preview' : 'Info'}</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1785,68 +1978,127 @@ export default function ShopTab({ user, profile, products = [], reloadProducts }
 
             {/* Content */}
             <div style={{ padding: 20 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                <span
-                  style={{
-                    background: '#F0FDFA',
-                    color: '#0D9488',
-                    border: '1px solid #CCFBF1',
-                    borderRadius: 100,
-                    fontSize: 11,
-                    fontWeight: 700,
-                    padding: '3px 9px',
-                  }}
-                >
-                  📦 Digital Download
-                </span>
-                <div>
-                  <span style={{ fontSize: 16, fontWeight: 800, color: '#0D9488' }}>{previewProduct.price}</span>
-                  {previewProduct.original_price && (
-                    <span style={{ fontSize: 12, color: '#94A3B8', textDecoration: 'line-through', marginLeft: 6 }}>
-                      {previewProduct.original_price}
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              <h3 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 700, color: '#0F172A' }}>{previewProduct.name}</h3>
-
-              {previewProduct.description && (
-                <p style={{ margin: '0 0 14px', fontSize: 13, color: '#64748B', lineHeight: 1.5 }}>
-                  {previewProduct.description}
-                </p>
-              )}
-
-              {Array.isArray(previewProduct.highlights) && previewProduct.highlights.length > 0 && (
-                <div style={{ background: '#F8FAFC', borderRadius: 12, padding: 12, marginBottom: 16 }}>
-                  <p style={{ margin: '0 0 6px', fontSize: 12, fontWeight: 700, color: '#334155' }}>Included with download:</p>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                    {previewProduct.highlights.map((h, i) => (
-                      <span key={i} style={{ fontSize: 12, color: '#0F766E', fontWeight: 600 }}>
-                        ✓ {h}
+              {(() => {
+                const isPrevDigital = isProductDigitalItem(previewProduct)
+                return (
+                  <>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                      <span
+                        style={{
+                          background: isPrevDigital ? '#F0FDFA' : '#F1F5F9',
+                          color: isPrevDigital ? '#0D9488' : '#334155',
+                          border: isPrevDigital ? '1px solid #CCFBF1' : '1px solid #E2E8F0',
+                          borderRadius: 100,
+                          fontSize: 11,
+                          fontWeight: 700,
+                          padding: '3px 9px',
+                        }}
+                      >
+                        {isPrevDigital ? '📦 Digital Download' : '🛍️ External Store Product'}
                       </span>
-                    ))}
-                  </div>
-                </div>
-              )}
+                      <div>
+                        <span style={{ fontSize: 16, fontWeight: 800, color: '#0D9488' }}>{previewProduct.price || 'Free'}</span>
+                        {previewProduct.original_price && (
+                          <span style={{ fontSize: 12, color: '#94A3B8', textDecoration: 'line-through', marginLeft: 6 }}>
+                            {previewProduct.original_price}
+                          </span>
+                        )}
+                      </div>
+                    </div>
 
-              <button
-                type="button"
-                onClick={() => setPreviewProduct(null)}
-                style={{
-                  width: '100%',
-                  background: '#14B8A6',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: 12,
-                  padding: '12px',
-                  fontSize: 13.5,
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                }}
-              >
-                Close Preview
-              </button>
+                    <h3 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 700, color: '#0F172A' }}>{previewProduct.name}</h3>
+
+                    {!isPrevDigital && previewProduct.external_url && (
+                      <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 12, padding: 12, marginBottom: 14 }}>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: '#64748B', display: 'block', marginBottom: 4 }}>
+                          Store Destination URL:
+                        </span>
+                        <a
+                          href={previewProduct.external_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          style={{
+                            color: '#0284C7',
+                            fontSize: 12.5,
+                            wordBreak: 'break-all',
+                            textDecoration: 'none',
+                            fontWeight: 600,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 4,
+                          }}
+                        >
+                          <span>🔗</span>
+                          <span>{previewProduct.external_url}</span>
+                        </a>
+                      </div>
+                    )}
+
+                    {previewProduct.description && (
+                      <p style={{ margin: '0 0 14px', fontSize: 13, color: '#64748B', lineHeight: 1.5 }}>
+                        {previewProduct.description}
+                      </p>
+                    )}
+
+                    {isPrevDigital && Array.isArray(previewProduct.highlights) && previewProduct.highlights.length > 0 && (
+                      <div style={{ background: '#F8FAFC', borderRadius: 12, padding: 12, marginBottom: 16 }}>
+                        <p style={{ margin: '0 0 6px', fontSize: 12, fontWeight: 700, color: '#334155' }}>Included with download:</p>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                          {previewProduct.highlights.map((h, i) => (
+                            <span key={i} style={{ fontSize: 12, color: '#0F766E', fontWeight: 600 }}>
+                              ✓ {h}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      {!isPrevDigital && previewProduct.external_url && (
+                        <a
+                          href={previewProduct.external_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          style={{
+                            flex: 1,
+                            background: '#0F172A',
+                            color: 'white',
+                            borderRadius: 12,
+                            padding: '12px',
+                            fontSize: 13.5,
+                            fontWeight: 700,
+                            textAlign: 'center',
+                            textDecoration: 'none',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: 6,
+                          }}
+                        >
+                          <span>↗ Open Store</span>
+                        </a>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setPreviewProduct(null)}
+                        style={{
+                          flex: 1,
+                          background: isPrevDigital ? '#14B8A6' : '#F1F5F9',
+                          color: isPrevDigital ? 'white' : '#334155',
+                          border: isPrevDigital ? 'none' : '1px solid #CBD5E1',
+                          borderRadius: 12,
+                          padding: '12px',
+                          fontSize: 13.5,
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Close Preview
+                      </button>
+                    </div>
+                  </>
+                )
+              })()}
             </div>
           </div>
         </div>
