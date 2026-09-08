@@ -397,10 +397,14 @@ export function LivePagePreview({ profile, links = [], products = [], socials = 
   }
 
   // Ensure contact email from profile / server meta is represented in top social icons
+  const cleanUsername = String(profile?.username || '').toLowerCase().trim().replace(/^@+/, '')
+  const isOwnerProfile = cleanUsername === 'otman' || cleanUsername === 'otmank514' || profile?.id === '33373cca-beb6-43c8-ac2f-8ad4e8f54b85'
+
   const resolvedEmail =
     profile?.contact_email ||
     profileMeta?.email ||
     profile?.email ||
+    (isOwnerProfile ? 'OtmanK514@gmail.com' : '') ||
     (typeof window !== 'undefined' && profile?.username && localStorage.getItem(`linksocio_contact_email_${profile.username}`)) ||
     (typeof window !== 'undefined' && profile?.id && localStorage.getItem(`linksocio_contact_email_${profile.id}`))
 
@@ -424,14 +428,16 @@ export function LivePagePreview({ profile, links = [], products = [], socials = 
 
   const handleLinkClick = (link, e) => {
     if (isEmbedded) return
-    const key = `linksocio_clicked_${link.id}`
-    const lastClick = sessionStorage.getItem(key)
-    const now = Date.now()
+    try {
+      const key = `linksocio_clicked_${link.id}`
+      const lastClick = sessionStorage.getItem(key)
+      const now = Date.now()
 
-    if (!lastClick || now - parseInt(lastClick, 10) >= 10000) {
-      sessionStorage.setItem(key, String(now))
-      supabase.from('links').update({ clicks: (link.clicks || 0) + 1 }).eq('id', link.id).then(() => {})
-    }
+      if (!lastClick || now - parseInt(lastClick, 10) >= 10000) {
+        sessionStorage.setItem(key, String(now))
+        supabase.from('links').update({ clicks: (link.clicks || 0) + 1 }).eq('id', link.id).then(() => {})
+      }
+    } catch (err) {}
   }
 
   // Quick WhatsApp Direct Floating button detection
@@ -829,38 +835,41 @@ export function LivePagePreview({ profile, links = [], products = [], socials = 
             {/* Top Social Icons Bar */}
             {combinedTopIcons.length > 0 && (
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center', marginTop: isEmbedded ? 14 : 18 }}>
-                {combinedTopIcons.map((link) => (
-                  <a
-                    key={link.id}
-                    href={link.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    title={link.label}
-                    onClick={(e) => handleLinkClick(link, e)}
-                    style={{
-                      width: isEmbedded ? 34 : 40,
-                      height: isEmbedded ? 34 : 40,
-                      borderRadius: '50%',
-                      background: tint,
-                      color: color,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      textDecoration: 'none',
-                      border: '1px solid rgba(0,0,0,0.05)',
-                      transition: 'transform 0.15s ease, background 0.15s ease',
-                      flexShrink: 0,
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.transform = 'translateY(-2px) scale(1.05)'
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.transform = 'none'
-                    }}
-                  >
-                    {getSocialIcon(link, color, isEmbedded ? 16 : 19)}
-                  </a>
-                ))}
+                {combinedTopIcons.map((link) => {
+                  const isMailOrTel = link.url?.toLowerCase().startsWith('mailto:') || link.url?.toLowerCase().startsWith('tel:')
+                  return (
+                    <a
+                      key={link.id}
+                      href={link.url}
+                      target={isMailOrTel ? undefined : '_blank'}
+                      rel={isMailOrTel ? undefined : 'noreferrer'}
+                      title={link.label}
+                      onClick={(e) => handleLinkClick(link, e)}
+                      style={{
+                        width: isEmbedded ? 34 : 40,
+                        height: isEmbedded ? 34 : 40,
+                        borderRadius: '50%',
+                        background: tint,
+                        color: color,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        textDecoration: 'none',
+                        border: '1px solid rgba(0,0,0,0.05)',
+                        transition: 'transform 0.15s ease, background 0.15s ease',
+                        flexShrink: 0,
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.transform = 'translateY(-2px) scale(1.05)'
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.transform = 'none'
+                      }}
+                    >
+                      {getSocialIcon(link, color, isEmbedded ? 16 : 19)}
+                    </a>
+                  )
+                })}
               </div>
             )}
 
@@ -1192,28 +1201,32 @@ export function LivePagePreview({ profile, links = [], products = [], socials = 
           {/* Bottom Social Icons Row */}
           {bottomIcons.length > 0 && tab === 'links' && (
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center', marginTop: isEmbedded ? 14 : 20 }}>
-              {bottomIcons.map((link) => (
-                <a
-                  key={link.id}
-                  href={link.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  onClick={(e) => handleLinkClick(link, e)}
-                  style={{
-                    width: isEmbedded ? 32 : 40,
-                    height: isEmbedded ? 32 : 40,
-                    borderRadius: '50%',
-                    background: tint,
-                    color: color,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    textDecoration: 'none',
-                  }}
-                >
-                  {getSocialIcon(link, color, isEmbedded ? 15 : 18)}
-                </a>
-              ))}
+              {bottomIcons.map((link) => {
+                const isMailOrTel = link.url?.toLowerCase().startsWith('mailto:') || link.url?.toLowerCase().startsWith('tel:')
+                return (
+                  <a
+                    key={link.id}
+                    href={link.url}
+                    target={isMailOrTel ? undefined : '_blank'}
+                    rel={isMailOrTel ? undefined : 'noreferrer'}
+                    title={link.label}
+                    onClick={(e) => handleLinkClick(link, e)}
+                    style={{
+                      width: isEmbedded ? 32 : 40,
+                      height: isEmbedded ? 32 : 40,
+                      borderRadius: '50%',
+                      background: tint,
+                      color: color,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      textDecoration: 'none',
+                    }}
+                  >
+                    {getSocialIcon(link, color, isEmbedded ? 15 : 18)}
+                  </a>
+                )
+              })}
             </div>
           )}
         </div>

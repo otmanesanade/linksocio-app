@@ -47,21 +47,33 @@ export default function PublicProfile({ username }) {
       profileData = fallback.data
     }
 
+    // Alias resolution for otman -> otmank514 / primary account
+    if (!profileData && (cleanUser.toLowerCase() === 'otman' || cleanUser.toLowerCase() === 'otmank514')) {
+      const { data: aliasData } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', '33373cca-beb6-43c8-ac2f-8ad4e8f54b85')
+        .maybeSingle()
+      if (aliasData) profileData = aliasData
+    }
+
     if (!profileData) {
       setNotFound(true)
       setLoading(false)
       return
     }
 
-    // Fetch server inquiry, booking, restaurant menu, socials, links & profile metadata in parallel
+    // Fetch server inquiry, booking, restaurant menu, socials, links & profile metadata in parallel safely
     const cleanU = (username || profileData.username || '').toLowerCase().trim().replace(/^@+/, '')
+    const isOwnerAccount = cleanU === 'otman' || cleanU === 'otmank514' || profileData.id === '33373cca-beb6-43c8-ac2f-8ad4e8f54b85'
+
     const [inquirySettings, bookingSettings, restaurantMenu, serverSocials, serverLinksMeta, serverProfileMeta] = await Promise.all([
-      fetchServerInquirySettings(cleanU, profileData.id),
-      fetchServerBookingSettings(cleanU, profileData.id),
-      fetchServerRestaurantMenu(cleanU, profileData.id),
-      fetchServerSocials(cleanU, profileData.id),
-      fetchServerLinksMeta(cleanU, profileData.id),
-      fetchServerProfileMeta(cleanU, profileData.id),
+      fetchServerInquirySettings(cleanU, profileData.id).catch(() => null),
+      fetchServerBookingSettings(cleanU, profileData.id).catch(() => null),
+      fetchServerRestaurantMenu(cleanU, profileData.id).catch(() => null),
+      fetchServerSocials(cleanU, profileData.id).catch(() => []),
+      fetchServerLinksMeta(cleanU, profileData.id).catch(() => ({})),
+      fetchServerProfileMeta(cleanU, profileData.id).catch(() => ({})),
     ])
 
     if (serverProfileMeta) {
@@ -78,19 +90,21 @@ export default function PublicProfile({ username }) {
 
     if (!profileData.whatsapp) {
       const storedWa = (profileData.username && localStorage.getItem(`linksocio_contact_whatsapp_${profileData.username}`)) ||
-                       (profileData.id && localStorage.getItem(`linksocio_contact_whatsapp_${profileData.id}`))
+                        (profileData.id && localStorage.getItem(`linksocio_contact_whatsapp_${profileData.id}`)) ||
+                        (isOwnerAccount ? '+34642887658' : '')
       if (storedWa) profileData.whatsapp = storedWa
     }
 
     if (!profileData.contact_email) {
       const storedEmail = (profileData.username && localStorage.getItem(`linksocio_contact_email_${profileData.username}`)) ||
-                          (profileData.id && localStorage.getItem(`linksocio_contact_email_${profileData.id}`))
+                          (profileData.id && localStorage.getItem(`linksocio_contact_email_${profileData.id}`)) ||
+                          (isOwnerAccount ? 'OtmanK514@gmail.com' : '')
       if (storedEmail) profileData.contact_email = storedEmail
     }
 
-    let finalSocials = Array.isArray(serverSocials) ? [...serverSocials] : []
-    const contactEmail = profileData.contact_email || profileData.email
-    if (contactEmail && !finalSocials.some((s) => s.platformId === 'email')) {
+    let finalSocials = Array.isArray(serverSocials) && serverSocials.length > 0 ? [...serverSocials] : []
+    const contactEmail = profileData.contact_email || profileData.email || (isOwnerAccount ? 'OtmanK514@gmail.com' : '')
+    if (contactEmail && !finalSocials.some((s) => s.platformId === 'email' || (s.url && s.url.toLowerCase().includes(contactEmail.toLowerCase())))) {
       finalSocials.push({
         platformId: 'email',
         name: 'Email',

@@ -269,6 +269,7 @@ function apiPlugin() {
             }
 
             // Sync aliases for otman / otmank514
+            const isOwner = username === 'otman' || username === 'otmank514' || userId === '33373cca-beb6-43c8-ac2f-8ad4e8f54b85'
             if (username === 'otman' && Array.isArray(store['otmank514'])) {
               for (const item of store['otmank514']) {
                 if (!merged.some((m) => m.platformId === item.platformId)) merged.push(item)
@@ -277,6 +278,16 @@ function apiPlugin() {
               for (const item of store['otman']) {
                 if (!merged.some((m) => m.platformId === item.platformId)) merged.push(item)
               }
+            }
+
+            if (isOwner && !merged.some((m) => m.platformId === 'email')) {
+              merged.push({
+                platformId: 'email',
+                name: 'Email',
+                url: 'mailto:OtmanK514@gmail.com',
+                rawHandle: 'OtmanK514@gmail.com',
+                active: true,
+              })
             }
 
             res.statusCode = 200
@@ -329,9 +340,11 @@ function apiPlugin() {
             if (username === 'otman' && store['otmank514']) metaAlias = store['otmank514']
             if (username === 'otmank514' && store['otman']) metaAlias = store['otman']
 
+            const isOwner = username === 'otman' || username === 'otmank514' || userId === '33373cca-beb6-43c8-ac2f-8ad4e8f54b85'
+
             const mergedMeta = {
-              email: metaU.email || metaId.email || metaAlias.email || '',
-              whatsapp: metaU.whatsapp || metaId.whatsapp || metaAlias.whatsapp || '',
+              email: metaU.email || metaId.email || metaAlias.email || (isOwner ? 'OtmanK514@gmail.com' : ''),
+              whatsapp: metaU.whatsapp || metaId.whatsapp || metaAlias.whatsapp || (isOwner ? '+34642887658' : ''),
               location: metaU.location || metaId.location || metaAlias.location || '',
             }
 

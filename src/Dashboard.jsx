@@ -537,7 +537,8 @@ export default function Dashboard({ user, initialTab }) {
 
   function copyLink() {
     if (!profile?.username) return
-    const url = `https://linksocio.com/${profile.username}`
+    const currentOrigin = typeof window !== 'undefined' ? window.location.origin : 'https://linksocio.com'
+    const url = `${currentOrigin}/${profile.username}`
     try {
       if (navigator?.clipboard?.writeText) {
         navigator.clipboard.writeText(url).catch(() => {
