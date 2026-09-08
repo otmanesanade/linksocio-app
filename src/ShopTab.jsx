@@ -1486,14 +1486,6 @@ export default function ShopTab({ user, profile, products = [], reloadProducts }
                   style={{ ...inputStyle, minHeight: 56, resize: 'vertical' }}
                 />
               </div>
-
-              {/* Informational banner confirming it will not convert into a digital product */}
-              <div style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 12, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ fontSize: 16 }}>🔗</span>
-                <span style={{ fontSize: 12, color: '#166534', fontWeight: 600 }}>
-                  هذا المنتج سيبقى كرابط مباشر لمتجرك الخارجي ولن يتحول إلى منتج رقمي. عند نقر الزبون عليه سيفتح رابط المتجر مباشرة.
-                </span>
-              </div>
             </>
           )}
 
