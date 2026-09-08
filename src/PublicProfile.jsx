@@ -192,7 +192,14 @@ export default function PublicProfile({ username }) {
     setLoading(false)
   }
 
-  const isPaid = profile?.plan === 'pro' || profile?.plan === 'business' || profile?.plan === 'lifetime' || profile?.plan === 'owner' || String(profile?.username || '').toLowerCase() === 'otman'
+  const isPaid =
+    profile?.plan === 'pro' ||
+    profile?.plan === 'business' ||
+    profile?.plan === 'lifetime' ||
+    profile?.plan === 'owner' ||
+    String(profile?.username || '').toLowerCase() === 'otman' ||
+    String(profile?.username || '').toLowerCase() === 'otmank514' ||
+    String(profile?.email || '').toLowerCase().includes('otmank514')
   const isTrialExpired = !isPaid && (profile?.trial_status === 'expired' || profile?.plan === 'expired' || profile?.status === 'suspended')
 
   if (loading) {

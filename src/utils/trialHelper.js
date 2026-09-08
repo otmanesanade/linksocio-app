@@ -17,6 +17,7 @@ export function checkIsOwnerOrVip(user, profile) {
     email === 'otmank514@gmail.com' ||
     email.includes('otmank514') ||
     username === 'otman' ||
+    username === 'otmank514' ||
     profile?.plan === 'owner' ||
     profile?.plan === 'lifetime' ||
     profile?.role === 'admin' ||

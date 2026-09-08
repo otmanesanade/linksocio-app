@@ -404,6 +404,13 @@ export function LivePagePreview({ profile, links = [], products = [], socials = 
     (typeof window !== 'undefined' && profile?.username && localStorage.getItem(`linksocio_contact_email_${profile.username}`)) ||
     (typeof window !== 'undefined' && profile?.id && localStorage.getItem(`linksocio_contact_email_${profile.id}`))
 
+  const resolvedLocation =
+    (profile?.location && profile.location.trim()) ||
+    (profileMeta?.location && profileMeta.location.trim()) ||
+    (typeof window !== 'undefined' && profile?.username && localStorage.getItem(`linksocio_profile_location_${profile.username}`)) ||
+    (typeof window !== 'undefined' && profile?.id && localStorage.getItem(`linksocio_profile_location_${profile.id}`)) ||
+    ''
+
   const hasEmailInIcons = combinedTopIcons.some((icon) => icon.platformId === 'email' || (icon.url && icon.url.startsWith('mailto:')))
   if (resolvedEmail && !hasEmailInIcons) {
     combinedTopIcons.push({
@@ -428,9 +435,12 @@ export function LivePagePreview({ profile, links = [], products = [], socials = 
   }
 
   // Quick WhatsApp Direct Floating button detection
-  const whatsappLink = activeLinks.find(
-    (l) => l.label.toLowerCase().includes('whatsapp') || l.url.includes('wa.me') || l.url.includes('whatsapp.com')
-  )
+  const rawWaNumber = profile?.whatsapp || profileMeta?.whatsapp || ''
+  const directWaUrl = rawWaNumber ? `https://wa.me/${rawWaNumber.replace(/[^0-9]/g, '')}` : null
+  const whatsappLink =
+    activeLinks.find(
+      (l) => l.label.toLowerCase().includes('whatsapp') || l.url.includes('wa.me') || l.url.includes('whatsapp.com')
+    ) || (directWaUrl ? { url: directWaUrl, label: 'WhatsApp' } : null)
 
   const saveContact = () => {
     try {
@@ -713,12 +723,12 @@ export function LivePagePreview({ profile, links = [], products = [], socials = 
               </p>
             )}
 
-            {Boolean(profile?.location && profile.location.trim()) && (
+            {Boolean(resolvedLocation) && (
               <a
                 href={
-                  /^https?:\/\//i.test(profile.location)
-                    ? profile.location
-                    : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(profile.location)}`
+                  /^https?:\/\//i.test(resolvedLocation)
+                    ? resolvedLocation
+                    : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(resolvedLocation)}`
                 }
                 target="_blank"
                 rel="noopener noreferrer"
@@ -742,7 +752,7 @@ export function LivePagePreview({ profile, links = [], products = [], socials = 
               >
                 <IconMapPin size={isEmbedded ? 12 : 14} color={color} />
                 <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {profile.location}
+                  {resolvedLocation}
                 </span>
               </a>
             )}
