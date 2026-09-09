@@ -32,7 +32,6 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
     !priceStr ||
     priceStr.includes('free') ||
     priceStr.includes('gratuit') ||
-    priceStr.includes('مجاني') ||
     priceStr === '0' ||
     priceStr === '0.00' ||
     priceStr === '0,00' ||
@@ -526,7 +525,7 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
                   }}
                 >
                   <div style={{ fontSize: 13, fontWeight: 700, color: '#065F46' }}>
-                    ✓ جاهز للتحميل / File Ready!
+                    ✓ File Ready for Download!
                   </div>
                   <a
                     href={downloadBlobUrl}
@@ -548,7 +547,7 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
                       boxShadow: '0 2px 8px rgba(5, 150, 105, 0.25)',
                     }}
                   >
-                    <span>📥 اضغط هنا لتنزيل الملف / Click to Download</span>
+                    <span>📥 Click to Download File</span>
                   </a>
                   <div style={{ fontSize: 11, color: '#047857' }}>
                     {downloadFileName}

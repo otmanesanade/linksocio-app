@@ -426,7 +426,7 @@ export default function SettingsTab({ user, profile, onSaved, initialSubTab = 'p
                     <span>📍</span> Location / City
                   </label>
                   <span style={{ fontSize: 10.5, color: '#0D9488', fontWeight: 600, background: '#F0FDFA', padding: '1px 7px', borderRadius: 10 }}>
-                    Optional · اختياري
+                    Optional
                   </span>
                 </div>
                 <input

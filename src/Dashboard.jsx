@@ -144,7 +144,7 @@ function ProfileCard({ user, profile, onSaved }) {
               <span>📍</span> Location / City / Address
             </label>
             <span style={{ fontSize: 10.5, color: '#0D9488', fontWeight: 600, background: '#F0FDFA', padding: '1px 7px', borderRadius: 10 }}>
-              Optional · اختياري
+              Optional
             </span>
           </div>
           <input
@@ -1119,7 +1119,7 @@ export default function Dashboard({ user, initialTab }) {
                   <div style={{ fontSize: 13, fontWeight: 800, color: '#2DD4BF', display: 'flex', alignItems: 'center', gap: 6 }}>
                     <span>Owner / VIP Account Active</span>
                     <span style={{ fontSize: 10.5, background: '#14B8A6', color: 'white', padding: '1px 7px', borderRadius: 100, fontWeight: 800 }}>
-                      100% FREE FOREVER (بلا خلاص)
+                      100% FREE FOREVER (VIP OWNER)
                     </span>
                   </div>
                   <div style={{ fontSize: 11.5, color: '#94A3B8' }}>

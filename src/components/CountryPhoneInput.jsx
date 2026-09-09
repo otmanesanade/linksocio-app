@@ -1,45 +1,45 @@
 import { useState, useEffect, useRef } from 'react'
 
 export const COUNTRIES = [
-  { code: '212', flag: '🇲🇦', name: 'Morocco', ar: 'المغرب', placeholder: '6 12 34 56 78' },
-  { code: '966', flag: '🇸🇦', name: 'Saudi Arabia', ar: 'السعودية', placeholder: '50 123 4567' },
-  { code: '971', flag: '🇦🇪', name: 'United Arab Emirates', ar: 'الإمارات', placeholder: '50 123 4567' },
-  { code: '33', flag: '🇫🇷', name: 'France', ar: 'فرنسا', placeholder: '6 12 34 56 78' },
-  { code: '34', flag: '🇪🇸', name: 'Spain', ar: 'إسبانيا', placeholder: '612 34 56 78' },
-  { code: '213', flag: '🇩🇿', name: 'Algeria', ar: 'الجزائر', placeholder: '550 12 34 56' },
-  { code: '216', flag: '🇹🇳', name: 'Tunisia', ar: 'تونس', placeholder: '20 123 456' },
-  { code: '20', flag: '🇪🇬', name: 'Egypt', ar: 'مصر', placeholder: '100 123 4567' },
-  { code: '974', flag: '🇶🇦', name: 'Qatar', ar: 'قطر', placeholder: '3312 3456' },
-  { code: '965', flag: '🇰🇼', name: 'Kuwait', ar: 'الكويت', placeholder: '5123 4567' },
-  { code: '973', flag: '🇧🇭', name: 'Bahrain', ar: 'البحرين', placeholder: '3600 1234' },
-  { code: '968', flag: '🇴🇲', name: 'Oman', ar: 'عمان', placeholder: '9123 4567' },
-  { code: '962', flag: '🇯🇴', name: 'Jordan', ar: 'الأردن', placeholder: '7 9012 3456' },
-  { code: '961', flag: '🇱🇧', name: 'Lebanon', ar: 'لبنان', placeholder: '70 123 456' },
-  { code: '964', flag: '🇮🇶', name: 'Iraq', ar: 'العراق', placeholder: '770 123 4567' },
-  { code: '1', flag: '🇺🇸', name: 'United States / Canada', ar: 'أمريكا / كندا', placeholder: '202 555 0123' },
-  { code: '44', flag: '🇬🇧', name: 'United Kingdom', ar: 'بريطانيا', placeholder: '7911 123456' },
-  { code: '49', flag: '🇩🇪', name: 'Germany', ar: 'ألمانيا', placeholder: '151 12345678' },
-  { code: '39', flag: '🇮🇹', name: 'Italy', ar: 'إيطاليا', placeholder: '312 345 6789' },
-  { code: '32', flag: '🇧🇪', name: 'Belgium', ar: 'بلجيكا', placeholder: '470 12 34 56' },
-  { code: '31', flag: '🇳🇱', name: 'Netherlands', ar: 'هولندا', placeholder: '6 12345678' },
-  { code: '41', flag: '🇨🇭', name: 'Switzerland', ar: 'سويسرا', placeholder: '78 123 45 67' },
-  { code: '90', flag: '🇹🇷', name: 'Turkey', ar: 'تركيا', placeholder: '532 123 4567' },
-  { code: '221', flag: '🇸🇳', name: 'Senegal', ar: 'السنغال', placeholder: '70 123 45 67' },
-  { code: '225', flag: '🇨🇮', name: 'Ivory Coast', ar: 'ساحل العاج', placeholder: '01 23 45 67 89' },
-  { code: '222', flag: '🇲🇷', name: 'Mauritania', ar: 'موريتانيا', placeholder: '46 12 34 56' },
-  { code: '218', flag: '🇱🇾', name: 'Libya', ar: 'ليبيا', placeholder: '91 123 4567' },
-  { code: '249', flag: '🇸🇩', name: 'Sudan', ar: 'السودان', placeholder: '91 234 5678' },
-  { code: '970', flag: '🇵🇸', name: 'Palestine', ar: 'فلسطين', placeholder: '59 123 4567' },
-  { code: '967', flag: '🇾🇪', name: 'Yemen', ar: 'اليمن', placeholder: '71 234 5678' },
-  { code: '46', flag: '🇸🇪', name: 'Sweden', ar: 'السويد', placeholder: '70 123 45 67' },
-  { code: '47', flag: '🇳🇴', name: 'Norway', ar: 'النرويج', placeholder: '412 34 567' },
-  { code: '45', flag: '🇩🇰', name: 'Denmark', ar: 'الدانمارك', placeholder: '20 12 34 56' },
-  { code: '351', flag: '🇵🇹', name: 'Portugal', ar: 'البرتغال', placeholder: '912 345 678' },
-  { code: '86', flag: '🇨🇳', name: 'China', ar: 'الصين', placeholder: '138 1234 5678' },
-  { code: '91', flag: '🇮🇳', name: 'India', ar: 'الهند', placeholder: '98765 43210' },
-  { code: '55', flag: '🇧🇷', name: 'Brazil', ar: 'البرازيل', placeholder: '11 91234 5678' },
-  { code: '61', flag: '🇦🇺', name: 'Australia', ar: 'أستراليا', placeholder: '412 345 678' },
-  { code: '7', flag: '🇷🇺', name: 'Russia', ar: 'روسيا', placeholder: '912 345 6789' },
+  { code: '212', flag: '🇲🇦', name: 'Morocco', placeholder: '6 12 34 56 78' },
+  { code: '966', flag: '🇸🇦', name: 'Saudi Arabia', placeholder: '50 123 4567' },
+  { code: '971', flag: '🇦🇪', name: 'United Arab Emirates', placeholder: '50 123 4567' },
+  { code: '33', flag: '🇫🇷', name: 'France', placeholder: '6 12 34 56 78' },
+  { code: '34', flag: '🇪🇸', name: 'Spain', placeholder: '612 34 56 78' },
+  { code: '213', flag: '🇩🇿', name: 'Algeria', placeholder: '550 12 34 56' },
+  { code: '216', flag: '🇹🇳', name: 'Tunisia', placeholder: '20 123 456' },
+  { code: '20', flag: '🇪🇬', name: 'Egypt', placeholder: '100 123 4567' },
+  { code: '974', flag: '🇶🇦', name: 'Qatar', placeholder: '3312 3456' },
+  { code: '965', flag: '🇰🇼', name: 'Kuwait', placeholder: '5123 4567' },
+  { code: '973', flag: '🇧🇭', name: 'Bahrain', placeholder: '3600 1234' },
+  { code: '968', flag: '🇴🇲', name: 'Oman', placeholder: '9123 4567' },
+  { code: '962', flag: '🇯🇴', name: 'Jordan', placeholder: '7 9012 3456' },
+  { code: '961', flag: '🇱🇧', name: 'Lebanon', placeholder: '70 123 456' },
+  { code: '964', flag: '🇮🇶', name: 'Iraq', placeholder: '770 123 4567' },
+  { code: '1', flag: '🇺🇸', name: 'United States / Canada', placeholder: '202 555 0123' },
+  { code: '44', flag: '🇬🇧', name: 'United Kingdom', placeholder: '7911 123456' },
+  { code: '49', flag: '🇩🇪', name: 'Germany', placeholder: '151 12345678' },
+  { code: '39', flag: '🇮🇹', name: 'Italy', placeholder: '312 345 6789' },
+  { code: '32', flag: '🇧🇪', name: 'Belgium', placeholder: '470 12 34 56' },
+  { code: '31', flag: '🇳🇱', name: 'Netherlands', placeholder: '6 12345678' },
+  { code: '41', flag: '🇨🇭', name: 'Switzerland', placeholder: '78 123 45 67' },
+  { code: '90', flag: '🇹🇷', name: 'Turkey', placeholder: '532 123 4567' },
+  { code: '221', flag: '🇸🇳', name: 'Senegal', placeholder: '70 123 45 67' },
+  { code: '225', flag: '🇨🇮', name: 'Ivory Coast', placeholder: '01 23 45 67 89' },
+  { code: '222', flag: '🇲🇷', name: 'Mauritania', placeholder: '46 12 34 56' },
+  { code: '218', flag: '🇱🇾', name: 'Libya', placeholder: '91 123 4567' },
+  { code: '249', flag: '🇸🇩', name: 'Sudan', placeholder: '91 234 5678' },
+  { code: '970', flag: '🇵🇸', name: 'Palestine', placeholder: '59 123 4567' },
+  { code: '967', flag: '🇾🇪', name: 'Yemen', placeholder: '71 234 5678' },
+  { code: '46', flag: '🇸🇪', name: 'Sweden', placeholder: '70 123 45 67' },
+  { code: '47', flag: '🇳🇴', name: 'Norway', placeholder: '412 34 567' },
+  { code: '45', flag: '🇩🇰', name: 'Denmark', placeholder: '20 12 34 56' },
+  { code: '351', flag: '🇵🇹', name: 'Portugal', placeholder: '912 345 678' },
+  { code: '86', flag: '🇨🇳', name: 'China', placeholder: '138 1234 5678' },
+  { code: '91', flag: '🇮🇳', name: 'India', placeholder: '98765 43210' },
+  { code: '55', flag: '🇧🇷', name: 'Brazil', placeholder: '11 91234 5678' },
+  { code: '61', flag: '🇦🇺', name: 'Australia', placeholder: '412 345 678' },
+  { code: '7', flag: '🇷🇺', name: 'Russia', placeholder: '912 345 6789' },
 ]
 
 export default function CountryPhoneInput({
@@ -145,7 +145,6 @@ export default function CountryPhoneInput({
     const s = search.toLowerCase().trim()
     return (
       c.name.toLowerCase().includes(s) ||
-      (c.ar && c.ar.includes(s)) ||
       c.code.includes(s) ||
       `+${c.code}`.includes(s)
     )
@@ -321,7 +320,7 @@ export default function CountryPhoneInput({
                           textOverflow: 'ellipsis',
                         }}
                       >
-                        {c.name} {c.ar ? `(${c.ar})` : ''}
+                        {c.name}
                       </span>
                     </div>
 

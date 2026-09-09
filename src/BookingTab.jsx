@@ -13,8 +13,8 @@ export const CURRENCIES = [
   { code: 'EUR', symbol: '€', label: 'EUR (€)' },
   { code: 'MAD', symbol: 'DH', label: 'MAD (DH)' },
   { code: 'GBP', symbol: '£', label: 'GBP (£)' },
-  { code: 'SAR', symbol: 'SAR', label: 'SAR (ر.س)' },
-  { code: 'AED', symbol: 'AED', label: 'AED (د.إ)' },
+  { code: 'SAR', symbol: 'SAR', label: 'SAR (Saudi Riyal)' },
+  { code: 'AED', symbol: 'AED', label: 'AED (UAE Dirham)' },
   { code: 'CAD', symbol: 'CAD$', label: 'CAD ($)' },
 ]
 
@@ -866,7 +866,7 @@ export default function BookingTab({ profile, onUpdated }) {
 
             <div>
               <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, color: '#334155', marginBottom: 6 }}>
-                Default Currency / العملة:
+                Default Currency:
               </label>
               <select
                 value={settings.currency || 'USD'}
@@ -886,8 +886,8 @@ export default function BookingTab({ profile, onUpdated }) {
                 <option value="EUR">💶 EUR (€) - Euro</option>
                 <option value="MAD">🇲🇦 MAD (DH) - Moroccan Dirham</option>
                 <option value="GBP">💷 GBP (£) - British Pound</option>
-                <option value="SAR">🇸🇦 SAR (ر.س) - Saudi Riyal</option>
-                <option value="AED">🇦🇪 AED (د.إ) - UAE Dirham</option>
+                <option value="SAR">🇸🇦 SAR - Saudi Riyal</option>
+                <option value="AED">🇦🇪 AED - UAE Dirham</option>
                 <option value="CAD">🇨🇦 CAD ($) - Canadian Dollar</option>
               </select>
             </div>
@@ -1414,7 +1414,7 @@ export default function BookingTab({ profile, onUpdated }) {
 
                 <div>
                   <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, color: '#334155', marginBottom: 4 }}>
-                    Price & Currency / الثمن والعملة
+                    Price & Currency
                   </label>
                   <input
                     type="text"
@@ -1455,7 +1455,7 @@ export default function BookingTab({ profile, onUpdated }) {
                     Meeting Platform / Location
                   </label>
                   <span style={{ fontSize: 10.5, color: '#0D9488', fontWeight: 600, background: '#F0FDFA', padding: '1px 7px', borderRadius: 10 }}>
-                    Optional · اختياري
+                    Optional
                   </span>
                 </div>
                 <select

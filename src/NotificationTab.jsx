@@ -182,7 +182,7 @@ export default function NotificationTab({ profile, onUpdated, onNavigateToTab })
     if (!token || !chatId) {
       setTelegramStatus({
         type: 'error',
-        text: 'يرجى إدخال Bot Token و Chat ID أولاً لتفعيل إشعارات تيليجرام على الهاتف.',
+        text: 'Please enter Bot Token and Chat ID first to enable Telegram alerts on your phone.',
       })
       return
     }
@@ -201,13 +201,13 @@ export default function NotificationTab({ profile, onUpdated, onNavigateToTab })
       playNotificationSound()
       setTelegramStatus({
         type: 'success',
-        text: '✓ تم إرسال رسالة تجريبية بنجاح إلى هاتفك عبر تيليجرام! تحقق من تطبيق تيليجرام الآن.',
+        text: '✓ Test message sent successfully to your phone via Telegram! Check your Telegram app now.',
       })
       loadLogs(false)
     } else {
       setTelegramStatus({
         type: 'error',
-        text: `فشل الإرسال: ${res.error || 'تأكد من صحة Token و Chat ID وأنك ضغطت Start في البوت'}.`,
+        text: `Delivery failed: ${res.error || 'Please verify your Bot Token and Chat ID, and ensure you pressed Start in your bot'}.`,
       })
     }
   }
@@ -217,7 +217,7 @@ export default function NotificationTab({ profile, onUpdated, onNavigateToTab })
     if (!toEmail) {
       setEmailStatus({
         type: 'error',
-        text: 'يرجى إدخال بريد الاستلام (Notification Email) أولاً.',
+        text: 'Please enter your Notification Email address first.',
       })
       return
     }
@@ -239,13 +239,13 @@ export default function NotificationTab({ profile, onUpdated, onNavigateToTab })
       playNotificationSound()
       setEmailStatus({
         type: 'success',
-        text: `✓ تم إرسال إشعار حقيقي بنجاح إلى ${toEmail}! تحقق من صندوق البريد الوارد (Inbox).`,
+        text: `✓ Real test notification sent successfully to ${toEmail}! Check your Inbox or Spam folder.`,
       })
       loadLogs(false)
     } else if (res.needsCredentials) {
       setEmailStatus({
         type: 'warning',
-        text: '💡 لإرسال بريد حقيقي مباشر إلى Gmail: يرجى كتابة بريدك وكلمة مرور التطبيق (Gmail App Password) في القسم أسفله.',
+        text: '💡 To send direct emails to Gmail: Please enter your Gmail username and 16-character App Password below.',
       })
       setShowSmtpAdvanced(true)
       // Also trigger mailto as fallback preview
@@ -253,7 +253,7 @@ export default function NotificationTab({ profile, onUpdated, onNavigateToTab })
     } else {
       setEmailStatus({
         type: 'error',
-        text: `خطأ أثناء الإرسال: ${res.error || 'تأكد من صحة بيانات SMTP أو كلمة مرور تطبيق Gmail'}.`,
+        text: `Error sending email: ${res.error || 'Please verify your SMTP credentials or Gmail App Password'}.`,
       })
     }
   }
@@ -330,7 +330,7 @@ export default function NotificationTab({ profile, onUpdated, onNavigateToTab })
           >
             <span style={{ fontSize: 13 }}>🔔</span>
             <span style={{ fontSize: 12, fontWeight: 700, color: '#B45309' }}>
-              LIVE ALERTS: GMAIL · TELEGRAM · WHATSAPP (الإشعارات الحية)
+              LIVE ALERTS: GMAIL · TELEGRAM · WHATSAPP
             </span>
           </div>
           <h2 style={{ margin: '0 0 4px', fontSize: 20, fontWeight: 800, color: '#0F172A' }}>
@@ -517,14 +517,14 @@ export default function NotificationTab({ profile, onUpdated, onNavigateToTab })
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: '#0F172A' }}>
-                    Telegram Phone Alerts (إشعارات تيليجرام الفورية على الهاتف)
+                    Telegram Phone Alerts
                   </h3>
                   <span style={{ fontSize: 10.5, fontWeight: 800, background: '#DCFCE7', color: '#15803D', padding: '2px 8px', borderRadius: 100 }}>
                     ⚡ 100% Instant
                   </span>
                 </div>
                 <p style={{ margin: '2px 0 0', fontSize: 12.5, color: '#64748B' }}>
-                  Recevez immédiatement des notifications avec son sur votre téléphone dès qu'un client achète un livre ou télécharge un PDF.
+                  Receive instant notifications with sound directly on your phone whenever a client buys a book, downloads a PDF, or books a consultation.
                 </p>
               </div>
             </div>
@@ -570,7 +570,7 @@ export default function NotificationTab({ profile, onUpdated, onNavigateToTab })
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14 }}>
               <div>
                 <label style={{ display: 'block', fontSize: 13, fontWeight: 700, color: '#334155', marginBottom: 6 }}>
-                  Telegram Bot Token (رمز البوت) *
+                  Telegram Bot Token *
                 </label>
                 <input
                   type="text"
@@ -591,7 +591,7 @@ export default function NotificationTab({ profile, onUpdated, onNavigateToTab })
 
               <div>
                 <label style={{ display: 'block', fontSize: 13, fontWeight: 700, color: '#334155', marginBottom: 6 }}>
-                  Telegram Chat ID (معرف المحادثة الخاص بك) *
+                  Telegram Chat ID *
                 </label>
                 <input
                   type="text"
@@ -615,7 +615,7 @@ export default function NotificationTab({ profile, onUpdated, onNavigateToTab })
             <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 14, padding: 16 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10, marginBottom: 10 }}>
                 <div style={{ fontSize: 13, fontWeight: 800, color: '#0F172A' }}>
-                  📱 How to connect Telegram in 30 seconds (كيفية تفعيل إشعارات تيليجرام):
+                  📱 How to connect Telegram in 30 seconds:
                 </div>
                 <button
                   type="button"
@@ -672,7 +672,7 @@ export default function NotificationTab({ profile, onUpdated, onNavigateToTab })
               </div>
               <div>
                 <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: '#0F172A' }}>
-                  Gmail & Email Alerts (إشعارات البريد الإلكتروني و Gmail)
+                  Gmail & Email Alerts
                 </h3>
                 <p style={{ margin: '2px 0 0', fontSize: 12.5, color: '#64748B' }}>
                   Receive sales receipts, download alerts, and calendar confirmations directly into your Gmail inbox.
@@ -720,7 +720,7 @@ export default function NotificationTab({ profile, onUpdated, onNavigateToTab })
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <div>
               <label style={{ display: 'block', fontSize: 13, fontWeight: 700, color: '#334155', marginBottom: 6 }}>
-                Host Notification Email Address (بريد استلام الإشعارات) *
+                Host Notification Email Address *
               </label>
               <input
                 type="email"
@@ -747,7 +747,7 @@ export default function NotificationTab({ profile, onUpdated, onNavigateToTab })
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
                 <div>
                   <div style={{ fontSize: 13.5, fontWeight: 800, color: '#0F172A' }}>
-                    ⚙️ Gmail Direct Sending Configuration (إرسال تلقائي مباشر لـ Gmail)
+                    ⚙️ Gmail Direct Sending Configuration
                   </div>
                   <div style={{ fontSize: 12, color: '#64748B' }}>
                     Configure your Gmail App Password to deliver automated emails directly to inboxes.
@@ -796,7 +796,7 @@ export default function NotificationTab({ profile, onUpdated, onNavigateToTab })
 
                     <div>
                       <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#475569', marginBottom: 4 }}>
-                        Gmail App Password (كلمة مرور التطبيق 16 حرف)
+                        Gmail App Password (16-character App Password)
                       </label>
                       <input
                         type="password"
@@ -948,7 +948,7 @@ export default function NotificationTab({ profile, onUpdated, onNavigateToTab })
         <div style={{ background: 'white', border: '1px solid #E7EDEC', borderRadius: 20, padding: 24 }}>
           <div style={{ marginBottom: 16 }}>
             <h3 style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 800, color: '#0F172A' }}>
-              Custom Message & Notification Templates (قوالب الرسائل)
+              Custom Message & Notification Templates
             </h3>
             <p style={{ margin: 0, fontSize: 12.5, color: '#64748B' }}>
               Customize the automated text format for Telegram, WhatsApp, and Email alerts.

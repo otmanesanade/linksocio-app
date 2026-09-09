@@ -752,7 +752,7 @@ export default function BillingSettings({ user, profile, onSaved }) {
                   fontWeight: 600,
                 }}
               >
-                Auto-Renew: {isOwnerVip ? 'LIFETIME FREE (بلا خلاص)' : billingData.autoRenew ? 'ON ✓' : 'OFF'}
+                Auto-Renew: {isOwnerVip ? 'LIFETIME FREE (No Charge)' : billingData.autoRenew ? 'ON ✓' : 'OFF'}
               </span>
             </div>
 

@@ -277,7 +277,7 @@ export default function ThemeTab({ user, profile, onUpdated }) {
                         {f.name}
                       </span>
                       <span style={{ display: 'block', fontSize: 15, color: '#475569', fontFamily: f.fontFamily }}>
-                        Aa Bb Cc 123 · رابط البايو
+                        Aa Bb Cc 123 · Bio link preview
                       </span>
                     </div>
                     {isSelected && (
