@@ -185,6 +185,7 @@ export default function LandingPage({ goToLogin, goToSignUp, goTo }) {
         }}
       >
         <div
+          className="landing-header-inner"
           style={{
             maxWidth: 1200,
             margin: '0 auto',
@@ -196,10 +197,11 @@ export default function LandingPage({ goToLogin, goToSignUp, goTo }) {
         >
           {/* Logo */}
           <div
-            style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}
+            style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', flexShrink: 0 }}
             onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
           >
             <div
+              className="brand-logo-icon"
               style={{
                 width: 38,
                 height: 38,
@@ -210,19 +212,20 @@ export default function LandingPage({ goToLogin, goToSignUp, goTo }) {
                 justifyContent: 'center',
                 boxShadow: '0 4px 12px rgba(15,23,42,0.15)',
                 animation: 'pulseGlow 3s infinite ease-in-out',
+                flexShrink: 0,
               }}
             >
-              <svg width="24" height="24" viewBox="0 0 46 46">
+              <svg width="22" height="22" viewBox="0 0 46 46">
                 <rect x="4" y="4" width="22" height="22" rx="11" fill="none" stroke="#14B8A6" strokeWidth="6" />
                 <rect x="20" y="20" width="22" height="22" rx="11" fill="none" stroke="#FFFFFF" strokeWidth="6" />
               </svg>
             </div>
             <div>
-              <span style={{ fontSize: 19, fontWeight: 800, letterSpacing: '-0.02em' }}>
+              <span className="brand-title" style={{ fontSize: 19, fontWeight: 800, letterSpacing: '-0.02em', whiteSpace: 'nowrap' }}>
                 <span style={{ color: '#0F172A' }}>Link</span>
                 <span style={{ color: '#14B8A6' }}>Socio</span>
               </span>
-              <span style={{ display: 'block', fontSize: 10, color: '#8A97A3', fontWeight: 600, marginTop: -3, letterSpacing: '0.04em' }}>
+              <span className="brand-subtext" style={{ display: 'block', fontSize: 10, color: '#8A97A3', fontWeight: 600, marginTop: -3, letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>
                 BIO LINK & DIGITAL COMMERCE
               </span>
             </div>
@@ -238,43 +241,46 @@ export default function LandingPage({ goToLogin, goToSignUp, goTo }) {
           </nav>
 
           {/* Action CTAs & Language Switcher */}
-          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+          <div className="landing-header-actions" style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
             <LanguageSwitcher variant="compact" />
             <button
               onClick={goToLogin}
+              className="landing-login-btn"
               style={{
                 background: 'transparent',
                 border: 'none',
-                fontSize: 14,
+                fontSize: 13.5,
                 fontWeight: 600,
                 color: '#0F172A',
                 cursor: 'pointer',
-                padding: '8px 12px',
+                padding: '7px 11px',
+                whiteSpace: 'nowrap',
               }}
             >
               {t('landing.login', 'Log in')}
             </button>
             <button
               onClick={goToSignUp}
+              className="btn-scale landing-cta-btn"
               style={{
                 background: 'linear-gradient(135deg, #0F172A 0%, #1E293B 100%)',
                 color: 'white',
                 border: 'none',
                 borderRadius: 14,
-                padding: '10px 18px',
-                fontSize: 13.5,
+                padding: '9px 16px',
+                fontSize: 13,
                 fontWeight: 700,
                 cursor: 'pointer',
                 boxShadow: '0 4px 14px rgba(15,23,42,0.15)',
                 display: 'flex',
                 alignItems: 'center',
-                gap: 6,
+                gap: 5,
                 transition: 'all 0.2s ease',
+                whiteSpace: 'nowrap',
               }}
-              className="btn-scale"
             >
-              <span>{t('landing.startFree', 'Start 14-Days Free')}</span>
-              <span>⚡</span>
+              <span className="cta-label-full">{t('landing.startFree', 'Start 14-Days Free')} ⚡</span>
+              <span className="cta-label-short">{t('landing.startFreeShort', 'Start Free')} ⚡</span>
             </button>
           </div>
         </div>
@@ -1493,7 +1499,8 @@ export default function LandingPage({ goToLogin, goToSignUp, goTo }) {
             <span style={{ fontSize: 12, color: '#64748B' }}>— {t('landing.footer.tagline', 'Bio Link & Digital Store.')}</span>
           </div>
 
-          <div style={{ display: 'flex', gap: 20 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+            <LanguageSwitcher variant="compact" theme="dark" />
             <button onClick={() => goTo && goTo('privacy')} style={{ background: 'none', border: 'none', color: '#8A97A3', fontSize: 13, cursor: 'pointer', padding: 0 }}>
               {t('landing.footer.privacy', 'Privacy Policy')}
             </button>
@@ -1529,6 +1536,47 @@ export default function LandingPage({ goToLogin, goToSignUp, goTo }) {
         }
         .btn-scale:active {
           transform: translateY(0px);
+        }
+        .cta-label-short { display: none !important; }
+        .cta-label-full { display: inline !important; }
+
+        @media (max-width: 680px) {
+          .landing-header-inner {
+            padding: 10px 14px !important;
+          }
+          .brand-subtext {
+            display: none !important;
+          }
+          .brand-logo-icon {
+            width: 32px !important;
+            height: 32px !important;
+            border-radius: 9px !important;
+          }
+          .brand-logo-icon svg {
+            width: 18px !important;
+            height: 18px !important;
+          }
+          .brand-title {
+            font-size: 16.5px !important;
+          }
+          .landing-header-actions {
+            gap: 4px !important;
+          }
+          .landing-login-btn {
+            padding: 5px 7px !important;
+            font-size: 12.5px !important;
+          }
+          .landing-cta-btn {
+            padding: 6px 11px !important;
+            font-size: 12px !important;
+            border-radius: 10px !important;
+          }
+          .cta-label-full {
+            display: none !important;
+          }
+          .cta-label-short {
+            display: inline !important;
+          }
         }
         @media (max-width: 900px) {
           .hero-grid { grid-template-columns: 1fr !important; gap: 36px !important; text-align: center; }

@@ -87,6 +87,7 @@ const BASE_TRANSLATIONS = {
       faq: 'FAQ',
       login: 'Log in',
       startFree: 'Start 14-Days Free',
+      startFreeShort: 'Start Free',
 
       simulatorDemo: {
         chatWhatsapp: 'Chat on WhatsApp',
@@ -661,6 +662,7 @@ const BASE_TRANSLATIONS = {
       faq: 'FAQ',
       login: 'Connexion',
       startFree: 'Essai 14 jours gratuit',
+      startFreeShort: 'Démarrer',
 
       simulatorDemo: {
         chatWhatsapp: 'Discuter sur WhatsApp',
@@ -1235,6 +1237,7 @@ const BASE_TRANSLATIONS = {
       faq: 'Preguntas',
       login: 'Iniciar sesión',
       startFree: 'Empezar 14 Días Gratis',
+      startFreeShort: 'Empezar',
 
       simulatorDemo: {
         chatWhatsapp: 'Chatear por WhatsApp',
@@ -1809,6 +1812,7 @@ const BASE_TRANSLATIONS = {
       faq: 'الأسئلة الشائعة',
       login: 'تسجيل الدخول',
       startFree: 'ابدأ 14 يوماً مجاناً',
+      startFreeShort: 'ابدأ مجاناً',
 
       simulatorDemo: {
         chatWhatsapp: 'تواصل عبر واتساب',

@@ -48,10 +48,11 @@ export default function LanguageSwitcher({
         onClick={() => setIsOpen(!isOpen)}
         aria-label="Change language"
         aria-expanded={isOpen}
+        className="lang-switcher-trigger"
         style={{
           display: 'inline-flex',
           alignItems: 'center',
-          gap: 6,
+          gap: 5,
           background: isDark ? 'rgba(255, 255, 255, 0.08)' : '#FFFFFF',
           border: isDark ? '1px solid rgba(255, 255, 255, 0.15)' : '1px solid #E2E8F0',
           borderRadius: variant === 'pill' ? 100 : 10,
@@ -63,11 +64,13 @@ export default function LanguageSwitcher({
           boxShadow: isDark ? 'none' : '0 1px 3px rgba(0,0,0,0.04)',
           transition: 'all 0.15s ease',
           userSelect: 'none',
+          whiteSpace: 'nowrap',
         }}
       >
         <span style={{ fontSize: variant === 'compact' ? 13 : 14 }}>{current.flag}</span>
         <span style={{ fontWeight: 700, letterSpacing: '0.02em' }}>{current.code.toUpperCase()}</span>
         <svg
+          className="lang-chevron-arrow"
           width="11"
           height="11"
           viewBox="0 0 24 24"
@@ -151,6 +154,19 @@ export default function LanguageSwitcher({
           })}
         </div>
       )}
+
+      <style>{`
+        @media (max-width: 640px) {
+          .lang-switcher-trigger {
+            padding: 4px 6px !important;
+            gap: 3px !important;
+            font-size: 11.5px !important;
+          }
+          .lang-chevron-arrow {
+            display: none !important;
+          }
+        }
+      `}</style>
     </div>
   )
 }
