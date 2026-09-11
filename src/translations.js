@@ -91,8 +91,9 @@ const BASE_TRANSLATIONS = {
 
       simulatorDemo: {
         chatWhatsapp: 'Chat on WhatsApp',
-        storeTab: 'Store',
-        linksTab: 'Links',
+        allTab: '✨ All',
+        storeTab: '🛍️ Store',
+        linksTab: '🔗 Links',
         buyBtn: 'Buy ⚡',
         vcardSaved: '✓ vCard Saved to Contacts!',
         vcardTest: '📇 Click to Test vCard Download',
@@ -102,6 +103,15 @@ const BASE_TRANSLATIONS = {
         feeNotice: 'Platform fee:',
         closeModal: 'Close Demo Preview',
         testThemes: 'TEST THEMES:',
+        featuredTitle: 'FEATURED SPOTLIGHT',
+        popularLinks: 'POPULAR LINKS',
+        featuredProducts: 'DIGITAL STORE',
+        newsletterTitle: 'VIP Creator Newsletter',
+        newsletterSubtitle: 'Join 14,000+ creators for free drops',
+        newsletterPlaceholder: 'Enter your email...',
+        newsletterBtn: 'Join',
+        newsletterSubscribed: '✓ Subscribed!',
+        scrollHint: 'Scroll for more',
       },
 
       hero: {
@@ -666,8 +676,9 @@ const BASE_TRANSLATIONS = {
 
       simulatorDemo: {
         chatWhatsapp: 'Discuter sur WhatsApp',
-        storeTab: 'Boutique',
-        linksTab: 'Liens',
+        allTab: '✨ Tout',
+        storeTab: '🛍️ Boutique',
+        linksTab: '🔗 Liens',
         buyBtn: 'Acheter ⚡',
         vcardSaved: '✓ vCard enregistrée dans Contacts !',
         vcardTest: '📇 Télécharger la vCard test',
@@ -677,6 +688,15 @@ const BASE_TRANSLATIONS = {
         feeNotice: 'Frais plateforme :',
         closeModal: "Fermer l'aperçu",
         testThemes: 'THÈMES DE TEST :',
+        featuredTitle: 'EN VEDETTE',
+        popularLinks: 'LIENS POPULAIRES',
+        featuredProducts: 'BOUTIQUE DIGITALE',
+        newsletterTitle: 'Newsletter VIP Créateurs',
+        newsletterSubtitle: 'Rejoignez 14 000+ créateurs',
+        newsletterPlaceholder: 'Entrez votre email...',
+        newsletterBtn: 'Rejoindre',
+        newsletterSubscribed: '✓ Abonné !',
+        scrollHint: 'Défiler pour voir plus',
       },
 
       hero: {
@@ -1241,8 +1261,9 @@ const BASE_TRANSLATIONS = {
 
       simulatorDemo: {
         chatWhatsapp: 'Chatear por WhatsApp',
-        storeTab: 'Tienda',
-        linksTab: 'Enlaces',
+        allTab: '✨ Todo',
+        storeTab: '🛍️ Tienda',
+        linksTab: '🔗 Enlaces',
         buyBtn: 'Comprar ⚡',
         vcardSaved: '✓ ¡vCard guardada en Contactos!',
         vcardTest: '📇 Probar descarga de vCard',
@@ -1252,6 +1273,15 @@ const BASE_TRANSLATIONS = {
         feeNotice: 'Tarifa de plataforma:',
         closeModal: 'Cerrar vista previa',
         testThemes: 'PROBAR TEMAS:',
+        featuredTitle: 'DESTACADO',
+        popularLinks: 'ENLACES DESTACADOS',
+        featuredProducts: 'TIENDA DIGITAL',
+        newsletterTitle: 'Boletín VIP para Creadores',
+        newsletterSubtitle: 'Únete a más de 14.000 creadores',
+        newsletterPlaceholder: 'Introduce tu email...',
+        newsletterBtn: 'Unirse',
+        newsletterSubscribed: '✓ ¡Suscrito!',
+        scrollHint: 'Desplaza para ver más',
       },
 
       hero: {
@@ -1816,8 +1846,9 @@ const BASE_TRANSLATIONS = {
 
       simulatorDemo: {
         chatWhatsapp: 'تواصل عبر واتساب',
-        storeTab: 'المتجر',
-        linksTab: 'الروابط',
+        allTab: '✨ الكل',
+        storeTab: '🛍️ المتجر',
+        linksTab: '🔗 الروابط',
         buyBtn: 'شراء ⚡',
         vcardSaved: '✓ تم حفظ بطاقة الاتصال بنجاح!',
         vcardTest: '📇 تجربة تحميل بطاقة الاتصال vCard',
@@ -1827,6 +1858,15 @@ const BASE_TRANSLATIONS = {
         feeNotice: 'رسوم المنصة:',
         closeModal: 'إغلاق المعاينة',
         testThemes: 'تجربة المظاهر:',
+        featuredTitle: 'عنصر مميز وحصري',
+        popularLinks: 'الروابط الأكثر طلباً',
+        featuredProducts: 'المتجر الرقمي',
+        newsletterTitle: 'النشرة البريدية الحصرية',
+        newsletterSubtitle: 'انضم إلى أكثر من 14,000 صانع محتوى',
+        newsletterPlaceholder: 'بريدك الإلكتروني...',
+        newsletterBtn: 'انضمام',
+        newsletterSubscribed: '✓ تم الاشتراك بنجاح!',
+        scrollHint: 'مرر للأسفل للمزيد',
       },
 
       hero: {

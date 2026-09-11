@@ -5,8 +5,9 @@ import LanguageSwitcher from './components/LanguageSwitcher'
 import { useLanguage } from './context/LanguageContext'
 
 // Social SVG Icons
+// Social SVG Icons
 const SocialIcon = ({ name, color = '#14B8A6', size = 18 }) => {
-  const n = name.toLowerCase()
+  const n = (name || '').toLowerCase()
   if (n.includes('instagram')) {
     return (
       <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -38,7 +39,79 @@ const SocialIcon = ({ name, color = '#14B8A6', size = 18 }) => {
       </svg>
     )
   }
-  if (n.includes('store') || n.includes('shop') || n.includes('digital')) {
+  if (n.includes('telegram')) {
+    return (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <line x1="22" y1="2" x2="11" y2="13" />
+        <polygon points="22 2 15 22 11 13 2 9 22 2" />
+      </svg>
+    )
+  }
+  if (n.includes('spotify') || n.includes('podcast')) {
+    return (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="10" />
+        <path d="M8 15c2.5-1 5.5-1 8 0" />
+        <path d="M7 12c3-1.2 7-1.2 10 0" />
+        <path d="M6 9c3.5-1.5 8.5-1.5 12 0" />
+      </svg>
+    )
+  }
+  if (n.includes('twitter') || n.includes('x')) {
+    return (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M4 4l11.733 16h4.267l-11.733 -16z" />
+        <path d="M4 20l6.768 -6.768m2.46 -2.46l6.772 -6.772" />
+      </svg>
+    )
+  }
+  if (n.includes('linkedin')) {
+    return (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z" />
+        <rect x="2" y="9" width="4" height="12" />
+        <circle cx="4" cy="4" r="2" />
+      </svg>
+    )
+  }
+  if (n.includes('calendar') || n.includes('booking')) {
+    return (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+        <line x1="16" y1="2" x2="16" y2="6" />
+        <line x1="8" y1="2" x2="8" y2="6" />
+        <line x1="3" y1="10" x2="21" y2="10" />
+      </svg>
+    )
+  }
+  if (n.includes('pin') || n.includes('map') || n.includes('location')) {
+    return (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+        <circle cx="12" cy="10" r="3" />
+      </svg>
+    )
+  }
+  if (n.includes('mail') || n.includes('newsletter')) {
+    return (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+        <polyline points="22,6 12,13 2,6" />
+      </svg>
+    )
+  }
+  if (n.includes('file') || n.includes('template') || n.includes('course') || n.includes('pdf')) {
+    return (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+        <polyline points="14 2 14 8 20 8" />
+        <line x1="16" y1="13" x2="8" y2="13" />
+        <line x1="16" y1="17" x2="8" y2="17" />
+        <polyline points="10 9 9 9 8 9" />
+      </svg>
+    )
+  }
+  if (n.includes('store') || n.includes('shop') || n.includes('digital') || n.includes('agency')) {
     return (
       <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
@@ -61,57 +134,136 @@ const SHOWCASE_PROFILES = [
     key: 'digital_creator',
     name: 'Otman Digital',
     handle: 'otman',
-    bio: 'Digital Products & Online Masterclasses 🌍 Ebooks, Presets & 1-on-1 Mentorship',
+    verified: true,
+    tagline: 'Digital Creator & Agency',
+    location: 'Casablanca · Paris · Global',
+    bio: 'Helping creators & brands build, monetize & scale 🚀 Courses, Mentorship & Digital Products',
     theme: 'midnight',
     font: 'outfit',
     buttonStyle: 'rounded',
     avatarLetter: 'O',
+    avatarGradient: 'linear-gradient(135deg, #14B8A6 0%, #0F172A 100%)',
+    socials: [
+      { name: 'instagram', url: 'https://instagram.com' },
+      { name: 'tiktok', url: 'https://tiktok.com' },
+      { name: 'youtube', url: 'https://youtube.com' },
+      { name: 'whatsapp', url: 'https://wa.me/212600000000' },
+      { name: 'telegram', url: 'https://t.me' },
+      { name: 'spotify', url: 'https://spotify.com' },
+    ],
+    featuredCard: {
+      tag: '🔥 BESTSELLER 2026',
+      title: 'Digital Creator Monetization Blueprint',
+      subtitle: 'Complete 90-page step-by-step PDF guide + Video breakdown on building a $10k/mo digital product business.',
+      price: '€19.00',
+      originalPrice: '€49.00',
+      badge: '60% OFF',
+      image: 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=500&q=80',
+    },
     links: [
-      { id: 1, label: '💬 Direct WhatsApp VIP Support', url: 'https://wa.me/212600000000', icon: 'whatsapp', clicks: 2450 },
-      { id: 2, label: '🗓️ Book 1-on-1 Strategy Call', url: 'https://example.com', icon: 'store', clicks: 1890 },
-      { id: 3, label: '📷 Instagram Daily Tips', url: 'https://instagram.com', icon: 'instagram', clicks: 3100 },
+      { id: 1, label: '💬 Direct WhatsApp VIP Support', badge: 'ONLINE', url: 'https://wa.me/212600000000', icon: 'whatsapp', clicks: 2450 },
+      { id: 2, label: '🗓️ Book 1-on-1 Growth Consultation', badge: '30 MIN', url: 'https://example.com', icon: 'calendar', clicks: 1890 },
+      { id: 3, label: '🚀 Creator Masterclass 2026 (Full Video Course)', badge: 'HOT', url: 'https://example.com', icon: 'course', clicks: 3100 },
+      { id: 4, label: '📸 Pro Moody Lightroom Preset Pack (50+)', badge: 'PRESETS', url: 'https://example.com', icon: 'file', clicks: 2150 },
+      { id: 5, label: '🎙️ Listen to Weekly Creator Podcast on Spotify', badge: 'EPISODE #48', url: 'https://spotify.com', icon: 'spotify', clicks: 1420 },
+      { id: 6, label: '📁 Free Notion Content OS & Growth Template', badge: 'FREE', url: 'https://example.com', icon: 'template', clicks: 4200 },
+      { id: 7, label: '💼 Work with My Creative Agency for Ads & Branding', badge: 'AGENCY', url: 'https://example.com', icon: 'store', clicks: 950 },
     ],
     products: [
-      { id: 1, name: 'Digital Creator Masterclass 2026', price: '€29.00', category: 'course', image: 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=300&q=80' },
-      { id: 2, name: 'Pro Lightroom Preset Pack (50+)', price: '€14.99', category: 'file', image: 'https://images.unsplash.com/photo-1516961642265-531546e84af2?w=300&q=80' },
+      { id: 1, name: 'Digital Creator Masterclass 2026', price: '€29.00', originalPrice: '€69.00', category: 'course', badge: 'BESTSELLER', image: 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=300&q=80', rating: '5.0 ★ (184)' },
+      { id: 2, name: 'Pro Lightroom Preset Pack (50+)', price: '€14.99', originalPrice: '€29.00', category: 'file', badge: 'POPULAR', image: 'https://images.unsplash.com/photo-1516961642265-531546e84af2?w=300&q=80', rating: '4.9 ★ (92)' },
+      { id: 3, name: 'Agency Web Design & UI System', price: '€39.00', originalPrice: '€79.00', category: 'template', badge: 'NEW', image: 'https://images.unsplash.com/photo-1626785774573-4b799315345d?w=300&q=80', rating: '4.9 ★ (61)' },
+      { id: 4, name: '1-on-1 VIP Strategy Call (45m)', price: '€69.00', originalPrice: '€120.00', category: 'service', badge: 'LIMITED', image: 'https://images.unsplash.com/photo-1551836022-d5d88e9218df?w=300&q=80', rating: '5.0 ★ (45)' },
     ],
   },
   {
     key: 'restaurant',
     name: 'Le Bistro & Cafe',
     handle: 'lebistro',
-    bio: 'Artisan Coffee, Gourmet Brunches & Table Reservations ☕🍽️',
+    verified: true,
+    tagline: 'Artisan Bistro & Specialty Roastery',
+    location: 'Downtown Gourmet District',
+    bio: 'Artisan Coffee, Gourmet Brunches & Table Reservations ☕🍽️ Fresh seasonal ingredients daily.',
     theme: 'gold',
     font: 'luxury',
     buttonStyle: 'shadow',
     avatarLetter: 'B',
+    avatarGradient: 'linear-gradient(135deg, #EAB308 0%, #78350F 100%)',
+    socials: [
+      { name: 'instagram', url: 'https://instagram.com' },
+      { name: 'tiktok', url: 'https://tiktok.com' },
+      { name: 'whatsapp', url: 'https://wa.me/212600000000' },
+      { name: 'pin', url: 'https://maps.google.com' },
+      { name: 'spotify', url: 'https://spotify.com' },
+    ],
+    featuredCard: {
+      tag: '⭐ CHEF TASTING SPECIAL',
+      title: 'Weekend 4-Course Gourmet Brunch',
+      subtitle: 'Includes artisan coffee flight, signature eggs benedict, and truffle pastries.',
+      price: '€34.00',
+      originalPrice: '€48.00',
+      badge: 'RESERVE NOW',
+      image: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=500&q=80',
+    },
     links: [
-      { id: 1, label: '🍽️ Explore Interactive Food Menu', url: 'https://example.com', icon: 'store', clicks: 3200 },
-      { id: 2, label: '🗓️ Reserve a Dinner Table', url: 'https://example.com', icon: 'store', clicks: 2100 },
-      { id: 3, label: '💬 WhatsApp Table Inquiries', url: 'https://wa.me/212600000000', icon: 'whatsapp', clicks: 1750 },
+      { id: 1, label: '🍽️ Explore Interactive QR Food & Drinks Menu', badge: 'LIVE MENU', url: 'https://example.com', icon: 'store', clicks: 4800 },
+      { id: 2, label: '🗓️ Reserve a Dinner or Brunch Table', badge: 'INSTANT', url: 'https://example.com', icon: 'calendar', clicks: 3200 },
+      { id: 3, label: '💬 WhatsApp Table Inquiries & Private Events', badge: 'ONLINE', url: 'https://wa.me/212600000000', icon: 'whatsapp', clicks: 2150 },
+      { id: 4, label: '☕ Signature Roasted Ethiopian Coffee Beans (250g)', badge: 'SHOP', url: 'https://example.com', icon: 'store', clicks: 1650 },
+      { id: 5, label: '🎁 Gourmet Dining Gift Voucher for 2', badge: 'GIFT CARD', url: 'https://example.com', icon: 'store', clicks: 1200 },
+      { id: 6, label: '📍 Google Maps Location & Parking Directions', badge: 'MAP', url: 'https://example.com', icon: 'pin', clicks: 5400 },
+      { id: 7, label: '🎵 Listen to Our Bistro Relaxing Jazz Playlist', badge: 'SPOTIFY', url: 'https://spotify.com', icon: 'spotify', clicks: 920 },
     ],
     products: [
-      { id: 1, name: 'Tasting Menu Voucher', price: '€45.00', category: 'voucher', image: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=300&q=80' },
-      { id: 2, name: 'Signature Roasted Coffee Beans', price: '€18.00', category: 'physical', image: 'https://images.unsplash.com/photo-1559056199-641a0ac8b55e?w=300&q=80' },
+      { id: 1, name: 'Tasting Menu Dining Voucher', price: '€45.00', originalPrice: '€60.00', category: 'voucher', badge: 'GIFT', image: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=300&q=80', rating: '5.0 ★ (210)' },
+      { id: 2, name: 'Signature Roasted Coffee Beans', price: '€18.00', originalPrice: '€24.00', category: 'physical', badge: 'FRESH ROAST', image: 'https://images.unsplash.com/photo-1559056199-641a0ac8b55e?w=300&q=80', rating: '4.9 ★ (135)' },
+      { id: 3, name: 'Barista Latte Art Workshop Ticket', price: '€35.00', originalPrice: '€50.00', category: 'course', badge: 'WEEKEND', image: 'https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=300&q=80', rating: '5.0 ★ (68)' },
+      { id: 4, name: 'Handcrafted Ceramic Espresso Set', price: '€28.00', originalPrice: '€38.00', category: 'physical', badge: 'LIMITED', image: 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=300&q=80', rating: '4.8 ★ (42)' },
     ],
   },
   {
     key: 'agency',
     name: 'Nexus Studio',
     handle: 'nexus',
-    bio: 'Web Design, Media Scaling & Direct Appointments 🚀',
+    verified: true,
+    tagline: 'Digital Product & Growth Agency',
+    location: 'London · Dubai · Remote',
+    bio: 'High-Converting Web Design, Paid Media & Brand Scaling 🚀 Trusted by 50+ founders.',
     theme: 'aurora',
     font: 'playfair',
     buttonStyle: 'glass',
     avatarLetter: 'N',
+    avatarGradient: 'linear-gradient(135deg, #7C3AED 0%, #4338CA 100%)',
+    socials: [
+      { name: 'linkedin', url: 'https://linkedin.com' },
+      { name: 'twitter', url: 'https://x.com' },
+      { name: 'instagram', url: 'https://instagram.com' },
+      { name: 'youtube', url: 'https://youtube.com' },
+      { name: 'whatsapp', url: 'https://wa.me/212600000000' },
+    ],
+    featuredCard: {
+      tag: '🚀 FREE AUDIT FOR BRANDS',
+      title: '30-Min Conversion & UX Video Audit',
+      subtitle: 'We review your site structure, copy, and speed to help you double conversions.',
+      price: 'FREE',
+      originalPrice: '€150.00',
+      badge: 'LIMITED SLOTS',
+      image: 'https://images.unsplash.com/photo-1507238691740-187a5b1d37b8?w=500&q=80',
+    },
     links: [
-      { id: 1, label: '🗓️ Book 30-min Consultation', url: 'https://example.com', icon: 'store', clicks: 1420 },
-      { id: 2, label: '💬 Instant WhatsApp Lead Message', url: 'https://wa.me/212600000000', icon: 'whatsapp', clicks: 980 },
-      { id: 3, label: '📁 Agency Portfolio & Case Studies', url: 'https://example.com', icon: 'store', clicks: 650 },
+      { id: 1, label: '🗓️ Book 30-min Strategy Consultation', badge: 'CALENDAR', url: 'https://example.com', icon: 'calendar', clicks: 2350 },
+      { id: 2, label: '💬 Instant WhatsApp Client Onboarding', badge: 'ONLINE', url: 'https://wa.me/212600000000', icon: 'whatsapp', clicks: 1680 },
+      { id: 3, label: '📁 Agency Portfolio & 2026 Case Studies', badge: 'BEHANCE', url: 'https://example.com', icon: 'store', clicks: 3800 },
+      { id: 4, label: '🎨 Complete Brand Identity Design Kit', badge: 'FIGMA', url: 'https://example.com', icon: 'template', clicks: 1120 },
+      { id: 5, label: '💻 Next.js & Tailwind SaaS Landing Boilerplate', badge: 'CODE', url: 'https://example.com', icon: 'store', clicks: 1450 },
+      { id: 6, label: '📊 Free 2026 Funnel & Ads Scaling Blueprint', badge: 'PDF', url: 'https://example.com', icon: 'file', clicks: 3100 },
+      { id: 7, label: '📩 Join Weekly Agency Insider Newsletter', badge: 'NEWSLETTER', url: 'https://example.com', icon: 'mail', clicks: 890 },
     ],
     products: [
-      { id: 1, name: 'Brand Identity Template Kit', price: '€49.00', category: 'template', image: 'https://images.unsplash.com/photo-1626785774573-4b799315345d?w=300&q=80' },
-      { id: 2, name: 'UI/UX Component Pack', price: '€29.00', category: 'file', image: 'https://images.unsplash.com/photo-1507238691740-187a5b1d37b8?w=300&q=80' },
+      { id: 1, name: 'Brand Identity Template Kit', price: '€49.00', originalPrice: '€99.00', category: 'template', badge: 'FIGMA', image: 'https://images.unsplash.com/photo-1626785774573-4b799315345d?w=300&q=80', rating: '5.0 ★ (84)' },
+      { id: 2, name: 'UI/UX Mobile Component Pack', price: '€29.00', originalPrice: '€59.00', category: 'file', badge: 'POPULAR', image: 'https://images.unsplash.com/photo-1507238691740-187a5b1d37b8?w=300&q=80', rating: '4.9 ★ (72)' },
+      { id: 3, name: 'SaaS High-Converting Landing Page', price: '€39.00', originalPrice: '€89.00', category: 'template', badge: 'REACT', image: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=300&q=80', rating: '5.0 ★ (49)' },
+      { id: 4, name: 'Express 1-Day Design Sprint', price: '€299.00', originalPrice: '€500.00', category: 'service', badge: 'SPRINT', image: 'https://images.unsplash.com/photo-1551836022-d5d88e9218df?w=300&q=80', rating: '5.0 ★ (18)' },
     ],
   },
 ]
@@ -120,11 +272,13 @@ export default function LandingPage({ goToLogin, goToSignUp, goTo }) {
   const { t } = useLanguage()
   const [claimHandle, setClaimHandle] = useState('')
   const [selectedProfileIndex, setSelectedProfileIndex] = useState(0)
-  const [activeTab, setActiveTab] = useState('shop')
+  const [activeTab, setActiveTab] = useState('all')
   const [customTheme, setCustomTheme] = useState('midnight')
   const [faqOpen, setFaqOpen] = useState([0, 1])
   const [savedVcard, setSavedVcard] = useState(false)
   const [selectedProductCheckout, setSelectedProductCheckout] = useState(null)
+  const [newsletterEmail, setNewsletterEmail] = useState('')
+  const [newsletterSubscribed, setNewsletterSubscribed] = useState(false)
 
   const currentProfile = SHOWCASE_PROFILES[selectedProfileIndex]
   const currentThemeObj = THEMES[customTheme] || THEMES.midnight
@@ -627,9 +781,15 @@ export default function LandingPage({ goToLogin, goToSignUp, goTo }) {
 
               {/* Inside Screen Container */}
               <div
+                className="phone-screen-scroll"
                 style={{
                   borderRadius: 34,
-                  overflow: 'hidden',
+                  overflowY: 'auto',
+                  overflowX: 'hidden',
+                  height: 560,
+                  maxHeight: 560,
+                  width: '100%',
+                  boxSizing: 'border-box',
                   ...(currentThemeObj.pageBg?.startsWith('linear-gradient')
                     ? {
                         backgroundImage: currentThemeObj.pageBg,
@@ -640,40 +800,142 @@ export default function LandingPage({ goToLogin, goToSignUp, goTo }) {
                       }),
                   color: currentThemeObj.textColor,
                   fontFamily: currentFontObj.fontFamily,
-                  minHeight: 520,
-                  padding: '36px 16px 20px',
+                  padding: '36px 14px 20px',
                   display: 'flex',
                   flexDirection: 'column',
                   alignItems: 'center',
                   position: 'relative',
                 }}
               >
-                {/* Avatar Initial */}
-                <div
-                  style={{
-                    width: 64,
-                    height: 64,
-                    borderRadius: '50%',
-                    background: `linear-gradient(135deg, ${currentThemeObj.accent}, #0F172A)`,
-                    color: 'white',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: 24,
-                    fontWeight: 800,
-                    boxShadow: '0 8px 20px rgba(0,0,0,0.2)',
-                    border: '2px solid rgba(255,255,255,0.2)',
-                  }}
-                >
-                  {currentProfile.avatarLetter}
+                {/* Avatar with Online Status */}
+                <div style={{ position: 'relative', marginTop: 4 }}>
+                  <div
+                    style={{
+                      width: 66,
+                      height: 66,
+                      borderRadius: '50%',
+                      background: currentProfile.avatarGradient || `linear-gradient(135deg, ${currentThemeObj.accent}, #0F172A)`,
+                      color: 'white',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: 26,
+                      fontWeight: 800,
+                      boxShadow: '0 8px 24px rgba(0,0,0,0.25)',
+                      border: '2px solid rgba(255,255,255,0.25)',
+                    }}
+                  >
+                    {currentProfile.avatarLetter}
+                  </div>
+                  <div
+                    title="Online"
+                    style={{
+                      position: 'absolute',
+                      bottom: 2,
+                      right: 2,
+                      width: 14,
+                      height: 14,
+                      borderRadius: '50%',
+                      background: '#10B981',
+                      border: '2px solid #0F172A',
+                      boxShadow: '0 0 0 2px rgba(16,185,129,0.3)',
+                    }}
+                  />
                 </div>
 
-                <p style={{ margin: '10px 0 2px', fontSize: 16, fontWeight: 800, color: currentThemeObj.textColor }}>
-                  {currentProfile.name}
-                </p>
-                <p style={{ margin: 0, fontSize: 11.5, color: currentThemeObj.subTextColor, textAlign: 'center', lineHeight: 1.4, maxWidth: 220 }}>
+                {/* Profile Name & Verified Badge */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 10 }}>
+                  <span style={{ fontSize: 16.5, fontWeight: 800, color: currentThemeObj.textColor, letterSpacing: '-0.01em' }}>
+                    {currentProfile.name}
+                  </span>
+                  {currentProfile.verified && (
+                    <span
+                      title="Verified"
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        width: 16,
+                        height: 16,
+                        borderRadius: '50%',
+                        background: '#3B82F6',
+                        color: 'white',
+                        fontSize: 10,
+                        fontWeight: 900,
+                      }}
+                    >
+                      ✓
+                    </span>
+                  )}
+                </div>
+
+                {/* Tagline & Location Pills */}
+                <div style={{ display: 'flex', gap: 4, marginTop: 4, flexWrap: 'wrap', justifyContent: 'center' }}>
+                  {currentProfile.tagline && (
+                    <span
+                      style={{
+                        fontSize: 10,
+                        fontWeight: 700,
+                        padding: '2px 8px',
+                        borderRadius: 100,
+                        background: 'rgba(20, 184, 166, 0.14)',
+                        color: currentThemeObj.accent,
+                        border: '1px solid rgba(20, 184, 166, 0.25)',
+                      }}
+                    >
+                      {currentProfile.tagline}
+                    </span>
+                  )}
+                  {currentProfile.location && (
+                    <span
+                      style={{
+                        fontSize: 9.5,
+                        fontWeight: 600,
+                        padding: '2px 7px',
+                        borderRadius: 100,
+                        background: 'rgba(255,255,255,0.1)',
+                        color: currentThemeObj.subTextColor,
+                      }}
+                    >
+                      📍 {currentProfile.location}
+                    </span>
+                  )}
+                </div>
+
+                {/* Bio */}
+                <p style={{ margin: '6px 0 0', fontSize: 11, color: currentThemeObj.subTextColor, textAlign: 'center', lineHeight: 1.4, maxWidth: 250 }}>
                   {currentProfile.bio}
                 </p>
+
+                {/* Social Icons Row */}
+                {currentProfile.socials && currentProfile.socials.length > 0 && (
+                  <div style={{ display: 'flex', gap: 6, marginTop: 10, marginBottom: 4, flexWrap: 'wrap', justifyContent: 'center' }}>
+                    {currentProfile.socials.map((s, idx) => (
+                      <a
+                        key={idx}
+                        href={s.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        title={s.name}
+                        style={{
+                          width: 30,
+                          height: 30,
+                          borderRadius: '50%',
+                          background: 'rgba(255,255,255,0.08)',
+                          border: '1px solid rgba(255,255,255,0.14)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: currentThemeObj.textColor,
+                          textDecoration: 'none',
+                          boxShadow: '0 2px 6px rgba(0,0,0,0.06)',
+                        }}
+                      >
+                        <SocialIcon name={s.name} color={currentThemeObj.textColor} size={14} />
+                      </a>
+                    ))}
+                  </div>
+                )}
 
                 {/* Direct WhatsApp Quick Pill */}
                 <a
@@ -681,7 +943,7 @@ export default function LandingPage({ goToLogin, goToSignUp, goTo }) {
                   target="_blank"
                   rel="noreferrer"
                   style={{
-                    marginTop: 10,
+                    marginTop: 6,
                     display: 'inline-flex',
                     alignItems: 'center',
                     gap: 6,
@@ -692,100 +954,139 @@ export default function LandingPage({ goToLogin, goToSignUp, goTo }) {
                     fontSize: 11,
                     fontWeight: 800,
                     textDecoration: 'none',
-                    boxShadow: '0 4px 12px rgba(37, 211, 102, 0.3)',
+                    boxShadow: '0 4px 14px rgba(37, 211, 102, 0.35)',
                   }}
                 >
                   <SocialIcon name="whatsapp" color="white" size={13} />
                   <span>{t('landing.simulatorDemo.chatWhatsapp', 'Chat on WhatsApp')}</span>
                 </a>
 
-                {/* Tab Switcher (Store vs Links) */}
+                {/* Tab Switcher (All vs Links vs Store) */}
                 <div
                   style={{
                     display: 'flex',
                     width: '100%',
-                    background: 'rgba(0,0,0,0.06)',
+                    background: 'rgba(0,0,0,0.1)',
                     borderRadius: 12,
                     padding: 3,
                     marginTop: 12,
                     marginBottom: 10,
+                    boxSizing: 'border-box',
                   }}
                 >
                   <button
-                    onClick={() => setActiveTab('shop')}
+                    onClick={() => setActiveTab('all')}
                     style={{
                       flex: 1,
-                      padding: '6px 0',
+                      padding: '6px 2px',
                       borderRadius: 9,
                       border: 'none',
-                      background: activeTab === 'shop' ? 'rgba(255,255,255,0.95)' : 'transparent',
-                      color: activeTab === 'shop' ? '#0F172A' : currentThemeObj.subTextColor,
-                      fontSize: 11.5,
+                      background: activeTab === 'all' ? 'rgba(255,255,255,0.95)' : 'transparent',
+                      color: activeTab === 'all' ? '#0F172A' : currentThemeObj.subTextColor,
+                      fontSize: 10.5,
                       fontWeight: 800,
                       cursor: 'pointer',
+                      whiteSpace: 'nowrap',
                     }}
                   >
-                    🛍️ {t('landing.simulatorDemo.storeTab', 'Store')} ({currentProfile.products.length})
+                    {t('landing.simulatorDemo.allTab', '✨ All')}
                   </button>
                   <button
                     onClick={() => setActiveTab('links')}
                     style={{
                       flex: 1,
-                      padding: '6px 0',
+                      padding: '6px 2px',
                       borderRadius: 9,
                       border: 'none',
                       background: activeTab === 'links' ? 'rgba(255,255,255,0.95)' : 'transparent',
                       color: activeTab === 'links' ? '#0F172A' : currentThemeObj.subTextColor,
-                      fontSize: 11.5,
+                      fontSize: 10.5,
                       fontWeight: 800,
                       cursor: 'pointer',
+                      whiteSpace: 'nowrap',
                     }}
                   >
-                    🔗 {t('landing.simulatorDemo.linksTab', 'Links')} ({currentProfile.links.length})
+                    {t('landing.simulatorDemo.linksTab', '🔗 Links')} ({currentProfile.links.length})
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('shop')}
+                    style={{
+                      flex: 1,
+                      padding: '6px 2px',
+                      borderRadius: 9,
+                      border: 'none',
+                      background: activeTab === 'shop' ? 'rgba(255,255,255,0.95)' : 'transparent',
+                      color: activeTab === 'shop' ? '#0F172A' : currentThemeObj.subTextColor,
+                      fontSize: 10.5,
+                      fontWeight: 800,
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {t('landing.simulatorDemo.storeTab', '🛍️ Store')} ({currentProfile.products.length})
                   </button>
                 </div>
 
-                {/* Tab Content: Store Products */}
-                {activeTab === 'shop' && (
-                  <div style={{ width: '100%', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                    {currentProfile.products.map((p) => (
-                      <div
-                        key={p.id}
-                        onClick={() => triggerTestCheckout(p)}
-                        style={{
-                          background: currentThemeObj.cardBg || 'white',
-                          borderRadius: 12,
-                          overflow: 'hidden',
-                          border: '1px solid rgba(255,255,255,0.15)',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          cursor: 'pointer',
-                          transition: 'transform 0.15s ease',
-                          boxShadow: '0 2px 6px rgba(0,0,0,0.05)',
-                        }}
-                      >
-                        <img src={p.image} alt={p.name} style={{ width: '100%', height: 75, objectFit: 'cover' }} />
-                        <div style={{ padding: '8px 6px' }}>
-                          <p style={{ margin: 0, fontSize: 10.5, fontWeight: 700, color: currentThemeObj.textColor, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                            {p.name}
-                          </p>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 2 }}>
-                            <span style={{ fontSize: 11, fontWeight: 800, color: currentThemeObj.accent }}>
-                              {p.price}
+                {/* Featured Spotlight Card */}
+                {currentProfile.featuredCard && (activeTab === 'all' || activeTab === 'links') && (
+                  <div
+                    onClick={() => triggerTestCheckout({ name: currentProfile.featuredCard.title, price: currentProfile.featuredCard.price })}
+                    style={{
+                      width: '100%',
+                      borderRadius: 14,
+                      overflow: 'hidden',
+                      background: currentThemeObj.cardBg || 'white',
+                      border: '1px solid rgba(255,255,255,0.18)',
+                      cursor: 'pointer',
+                      marginBottom: 10,
+                      boxShadow: '0 4px 14px rgba(0,0,0,0.1)',
+                      textAlign: 'left',
+                      boxSizing: 'border-box',
+                    }}
+                  >
+                    <div style={{ position: 'relative', height: 86, overflow: 'hidden' }}>
+                      <img src={currentProfile.featuredCard.image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      <span style={{ position: 'absolute', top: 6, left: 6, background: '#EF4444', color: 'white', fontSize: 8.5, fontWeight: 900, padding: '2px 6px', borderRadius: 6 }}>
+                        {currentProfile.featuredCard.tag}
+                      </span>
+                      <span style={{ position: 'absolute', top: 6, right: 6, background: 'rgba(15,23,42,0.85)', color: '#FCD34D', fontSize: 8.5, fontWeight: 800, padding: '2px 6px', borderRadius: 6 }}>
+                        {currentProfile.featuredCard.badge}
+                      </span>
+                    </div>
+                    <div style={{ padding: '8px 10px' }}>
+                      <p style={{ margin: 0, fontSize: 11.5, fontWeight: 800, color: currentThemeObj.textColor, lineHeight: 1.3 }}>
+                        {currentProfile.featuredCard.title}
+                      </p>
+                      <p style={{ margin: '3px 0 6px', fontSize: 9.5, color: currentThemeObj.subTextColor, lineHeight: 1.35 }}>
+                        {currentProfile.featuredCard.subtitle}
+                      </p>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span style={{ fontSize: 12.5, fontWeight: 900, color: currentThemeObj.accent }}>
+                            {currentProfile.featuredCard.price}
+                          </span>
+                          {currentProfile.featuredCard.originalPrice && (
+                            <span style={{ fontSize: 10, textDecoration: 'line-through', opacity: 0.5 }}>
+                              {currentProfile.featuredCard.originalPrice}
                             </span>
-                            <span style={{ background: '#10B981', color: 'white', fontSize: 8.5, fontWeight: 800, padding: '2px 5px', borderRadius: 4 }}>
-                              {t('landing.simulatorDemo.buyBtn', 'Buy ⚡')}
-                            </span>
-                          </div>
+                          )}
                         </div>
+                        <span style={{ background: currentThemeObj.accent, color: 'white', fontSize: 9, fontWeight: 800, padding: '3px 8px', borderRadius: 6 }}>
+                          {t('landing.simulatorDemo.buyBtn', 'Buy ⚡')}
+                        </span>
                       </div>
-                    ))}
+                    </div>
                   </div>
                 )}
 
-                {/* Tab Content: Links List */}
-                {activeTab === 'links' && (
-                  <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {/* Section: Links List (for 'all' and 'links' tabs) */}
+                {(activeTab === 'all' || activeTab === 'links') && (
+                  <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 7, marginBottom: 10 }}>
+                    {activeTab === 'all' && (
+                      <div style={{ fontSize: 9.5, fontWeight: 800, letterSpacing: '0.06em', color: currentThemeObj.subTextColor, padding: '2px 4px', textTransform: 'uppercase' }}>
+                        {t('landing.simulatorDemo.popularLinks', 'POPULAR LINKS')}
+                      </div>
+                    )}
                     {currentProfile.links.map((link) => (
                       <a
                         key={link.id}
@@ -795,60 +1096,210 @@ export default function LandingPage({ goToLogin, goToSignUp, goTo }) {
                         style={{
                           display: 'flex',
                           alignItems: 'center',
-                          gap: 10,
+                          gap: 9,
                           background: currentThemeObj.cardBg || 'white',
                           color: currentThemeObj.textColor,
                           border: currentBtnStyle.border || '1px solid rgba(0,0,0,0.06)',
-                          borderRadius: currentBtnStyle.borderRadius || 14,
+                          borderRadius: currentBtnStyle.borderRadius || 13,
                           boxShadow: currentBtnStyle.boxShadow || '0 2px 8px rgba(0,0,0,0.03)',
                           backdropFilter: currentThemeObj.backdrop,
-                          padding: '10px 12px',
+                          padding: '9px 11px',
                           textDecoration: 'none',
+                          boxSizing: 'border-box',
+                          transition: 'transform 0.15s ease',
                         }}
                       >
                         <div
                           style={{
-                            width: 28,
-                            height: 28,
+                            width: 26,
+                            height: 26,
                             borderRadius: 8,
-                            background: 'rgba(20, 184, 166, 0.12)',
+                            background: 'rgba(20, 184, 166, 0.14)',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
                             flexShrink: 0,
                           }}
                         >
-                          <SocialIcon name={link.icon} color={currentThemeObj.accent} size={15} />
+                          <SocialIcon name={link.icon} color={currentThemeObj.accent} size={14} />
                         </div>
-                        <span style={{ fontSize: 12, fontWeight: 600, flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {link.label}
-                        </span>
-                        <span style={{ fontSize: 11, color: currentThemeObj.subTextColor }}>↗</span>
+                        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+                          <span style={{ fontSize: 11.5, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {link.label}
+                          </span>
+                        </div>
+                        {link.badge && (
+                          <span
+                            style={{
+                              fontSize: 8,
+                              fontWeight: 800,
+                              padding: '2px 5px',
+                              borderRadius: 4,
+                              background: 'rgba(255,255,255,0.12)',
+                              color: currentThemeObj.subTextColor,
+                              letterSpacing: '0.03em',
+                              flexShrink: 0,
+                            }}
+                          >
+                            {link.badge}
+                          </span>
+                        )}
+                        <span style={{ fontSize: 10, color: currentThemeObj.subTextColor, opacity: 0.7, flexShrink: 0 }}>↗</span>
                       </a>
                     ))}
-
-                    {/* Interactive Save Contact Button */}
-                    <button
-                      onClick={triggerVcardSimulation}
-                      style={{
-                        marginTop: 4,
-                        width: '100%',
-                        background: savedVcard ? '#22C55E' : 'rgba(255,255,255,0.15)',
-                        border: '1px dashed currentColor',
-                        borderRadius: 12,
-                        padding: '8px',
-                        fontSize: 11,
-                        fontWeight: 700,
-                        color: currentThemeObj.textColor,
-                        cursor: 'pointer',
-                      }}
-                    >
-                      {savedVcard
-                        ? t('landing.simulatorDemo.vcardSaved', '✓ vCard Saved to Contacts!')
-                        : t('landing.simulatorDemo.vcardTest', '📇 Click to Test vCard Download')}
-                    </button>
                   </div>
                 )}
+
+                {/* Section: Store Products (for 'all' and 'shop' tabs) */}
+                {(activeTab === 'all' || activeTab === 'shop') && (
+                  <div style={{ width: '100%', marginBottom: 10 }}>
+                    <div style={{ fontSize: 9.5, fontWeight: 800, letterSpacing: '0.06em', color: currentThemeObj.subTextColor, padding: '2px 4px 6px', textTransform: 'uppercase' }}>
+                      {t('landing.simulatorDemo.featuredProducts', 'DIGITAL STORE')}
+                    </div>
+                    <div style={{ width: '100%', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 7 }}>
+                      {currentProfile.products.map((p) => (
+                        <div
+                          key={p.id}
+                          onClick={() => triggerTestCheckout(p)}
+                          style={{
+                            background: currentThemeObj.cardBg || 'white',
+                            borderRadius: 12,
+                            overflow: 'hidden',
+                            border: '1px solid rgba(255,255,255,0.15)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            cursor: 'pointer',
+                            transition: 'transform 0.15s ease',
+                            boxShadow: '0 2px 6px rgba(0,0,0,0.05)',
+                          }}
+                        >
+                          <div style={{ position: 'relative', height: 72 }}>
+                            <img src={p.image} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            {p.badge && (
+                              <span style={{ position: 'absolute', top: 4, left: 4, background: '#10B981', color: 'white', fontSize: 7.5, fontWeight: 800, padding: '1px 5px', borderRadius: 4 }}>
+                                {p.badge}
+                              </span>
+                            )}
+                          </div>
+                          <div style={{ padding: '7px 6px', display: 'flex', flexDirection: 'column', flex: 1 }}>
+                            <p style={{ margin: 0, fontSize: 10, fontWeight: 700, color: currentThemeObj.textColor, lineHeight: 1.3, height: 26, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+                              {p.name}
+                            </p>
+                            {p.rating && (
+                              <span style={{ fontSize: 8.5, color: '#F59E0B', fontWeight: 700, marginTop: 2 }}>
+                                {p.rating}
+                              </span>
+                            )}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto', paddingTop: 4 }}>
+                              <span style={{ fontSize: 10.5, fontWeight: 800, color: currentThemeObj.accent }}>
+                                {p.price}
+                              </span>
+                              <span style={{ background: '#10B981', color: 'white', fontSize: 8, fontWeight: 800, padding: '2px 5px', borderRadius: 4 }}>
+                                {t('landing.simulatorDemo.buyBtn', 'Buy ⚡')}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Interactive Save Contact (vCard) Button */}
+                <button
+                  onClick={triggerVcardSimulation}
+                  style={{
+                    width: '100%',
+                    background: savedVcard ? '#22C55E' : 'rgba(255,255,255,0.12)',
+                    border: '1px dashed currentColor',
+                    borderRadius: 12,
+                    padding: '8px',
+                    fontSize: 10.5,
+                    fontWeight: 700,
+                    color: currentThemeObj.textColor,
+                    cursor: 'pointer',
+                    marginBottom: 8,
+                  }}
+                >
+                  {savedVcard
+                    ? t('landing.simulatorDemo.vcardSaved', '✓ vCard Saved to Contacts!')
+                    : t('landing.simulatorDemo.vcardTest', '📇 Click to Test vCard Download')}
+                </button>
+
+                {/* VIP Newsletter Subscription Form */}
+                <div
+                  style={{
+                    width: '100%',
+                    borderRadius: 13,
+                    background: 'rgba(255,255,255,0.06)',
+                    border: '1px solid rgba(255,255,255,0.12)',
+                    padding: '10px 10px',
+                    boxSizing: 'border-box',
+                    textAlign: 'center',
+                    marginBottom: 10,
+                  }}
+                >
+                  <div style={{ fontSize: 10.5, fontWeight: 800, color: currentThemeObj.textColor }}>
+                    💌 {t('landing.simulatorDemo.newsletterTitle', 'VIP Creator Newsletter')}
+                  </div>
+                  <div style={{ fontSize: 9, color: currentThemeObj.subTextColor, marginTop: 2, marginBottom: 6 }}>
+                    {t('landing.simulatorDemo.newsletterSubtitle', 'Join 14,000+ creators for free drops')}
+                  </div>
+                  {newsletterSubscribed ? (
+                    <div style={{ background: '#10B981', color: 'white', padding: '5px', borderRadius: 7, fontSize: 10, fontWeight: 800 }}>
+                      {t('landing.simulatorDemo.newsletterSubscribed', '✓ Subscribed!')}
+                    </div>
+                  ) : (
+                    <form
+                      onSubmit={(e) => {
+                        e.preventDefault()
+                        if (newsletterEmail) setNewsletterSubscribed(true)
+                      }}
+                      style={{ display: 'flex', gap: 4 }}
+                    >
+                      <input
+                        type="email"
+                        placeholder={t('landing.simulatorDemo.newsletterPlaceholder', 'Enter your email...')}
+                        value={newsletterEmail}
+                        onChange={(e) => setNewsletterEmail(e.target.value)}
+                        style={{
+                          flex: 1,
+                          minWidth: 0,
+                          padding: '5px 8px',
+                          borderRadius: 7,
+                          border: '1px solid rgba(255,255,255,0.2)',
+                          background: 'rgba(0,0,0,0.25)',
+                          color: 'white',
+                          fontSize: 9.5,
+                          outline: 'none',
+                        }}
+                      />
+                      <button
+                        type="submit"
+                        style={{
+                          padding: '5px 9px',
+                          borderRadius: 7,
+                          border: 'none',
+                          background: currentThemeObj.accent,
+                          color: 'white',
+                          fontSize: 9.5,
+                          fontWeight: 800,
+                          cursor: 'pointer',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {t('landing.simulatorDemo.newsletterBtn', 'Join')}
+                      </button>
+                    </form>
+                  )}
+                </div>
+
+                {/* Footer Brand */}
+                <div style={{ paddingTop: 4, paddingBottom: 6 }}>
+                  <span style={{ fontSize: 8.5, opacity: 0.6, letterSpacing: '0.05em', fontWeight: 700 }}>
+                    ⚡ POWERED BY LINKSOCIO
+                  </span>
+                </div>
 
                 {/* Mini Checkout Success Modal Demo Inside Phone */}
                 {selectedProductCheckout && (
@@ -856,7 +1307,7 @@ export default function LandingPage({ goToLogin, goToSignUp, goTo }) {
                     style={{
                       position: 'absolute',
                       inset: 12,
-                      background: 'rgba(15,23,42,0.92)',
+                      background: 'rgba(15,23,42,0.94)',
                       borderRadius: 24,
                       padding: 16,
                       color: 'white',
@@ -904,10 +1355,6 @@ export default function LandingPage({ goToLogin, goToSignUp, goTo }) {
                     </button>
                   </div>
                 )}
-
-                <div style={{ marginTop: 'auto', paddingTop: 10 }}>
-                  <span style={{ fontSize: 9, opacity: 0.6, letterSpacing: '0.04em' }}>POWERED BY LINKSOCIO</span>
-                </div>
               </div>
             </div>
 
@@ -1536,6 +1983,19 @@ export default function LandingPage({ goToLogin, goToSignUp, goTo }) {
         }
         .btn-scale:active {
           transform: translateY(0px);
+        }
+        .phone-screen-scroll::-webkit-scrollbar {
+          width: 4px;
+        }
+        .phone-screen-scroll::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .phone-screen-scroll::-webkit-scrollbar-thumb {
+          background: rgba(255, 255, 255, 0.22);
+          border-radius: 4px;
+        }
+        .phone-screen-scroll::-webkit-scrollbar-thumb:hover {
+          background: rgba(255, 255, 255, 0.45);
         }
         .cta-label-short { display: none !important; }
         .cta-label-full { display: inline !important; }
