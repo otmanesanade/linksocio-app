@@ -19,8 +19,11 @@ import confetti from 'canvas-confetti'
 import { getTrialStatus, checkIsOwnerOrVip } from './utils/trialHelper'
 import TrialExpiredPaywall from './components/TrialExpiredPaywall'
 import { getStoredLinksMeta, fetchServerLinksMeta, getStoredSocials, fetchServerSocials } from './utils/socialPlatforms'
+import LanguageSwitcher from './components/LanguageSwitcher'
+import { useLanguage } from './context/LanguageContext'
 
 function ProfileCard({ user, profile, onSaved }) {
+  const { t } = useLanguage()
   const [displayName, setDisplayName] = useState(profile?.display_name || '')
   const [bio, setBio] = useState(profile?.bio || '')
   const [location, setLocation] = useState(profile?.location || '')
@@ -105,19 +108,19 @@ function ProfileCard({ user, profile, onSaved }) {
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 14 }}>
         <div>
-          <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: '#0F172A' }}>Profile Details</p>
-          <p style={{ margin: '3px 0 0', fontSize: 12, color: '#8A97A3' }}>Update your page name, bio, and location.</p>
+          <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: '#0F172A' }}>{t('dashboard.profileTitle', 'Profile Details')}</p>
+          <p style={{ margin: '3px 0 0', fontSize: 12, color: '#8A97A3' }}>{t('dashboard.profileSubtitle', 'Update your page name, bio, and location.')}</p>
         </div>
       </div>
 
       <form onSubmit={save} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         <div>
-          <label htmlFor="profile-display-name" style={{ fontSize: 11.5, color: '#64748B', fontWeight: 600 }}>Display Name</label>
+          <label htmlFor="profile-display-name" style={{ fontSize: 11.5, color: '#64748B', fontWeight: 600 }}>{t('dashboard.displayName', 'Display Name')}</label>
           <input
             id="profile-display-name"
             value={displayName}
             onChange={(e) => { setDisplayName(e.target.value); setError('') }}
-            placeholder="e.g. Otman | Creative Agency"
+            placeholder={t('dashboard.displayNamePlaceholder', 'e.g. Otman | Creative Agency')}
             maxLength={50}
             style={{ ...inputStyle, marginTop: 4, borderColor: nameTooLong ? '#EF4444' : '#E7EDEC' }}
           />
@@ -125,12 +128,12 @@ function ProfileCard({ user, profile, onSaved }) {
         </div>
 
         <div>
-          <label htmlFor="profile-bio" style={{ fontSize: 11.5, color: '#64748B', fontWeight: 600 }}>Bio Description</label>
+          <label htmlFor="profile-bio" style={{ fontSize: 11.5, color: '#64748B', fontWeight: 600 }}>{t('dashboard.bio', 'Bio Description')}</label>
           <textarea
             id="profile-bio"
             value={bio}
             onChange={(e) => { setBio(e.target.value); setError('') }}
-            placeholder="Digital Creator · Software & Design · Work with me 👇"
+            placeholder={t('dashboard.bioPlaceholder', 'Digital Creator · Software & Design · Work with me 👇')}
             maxLength={120}
             rows={2}
             style={{ ...inputStyle, marginTop: 4, resize: 'vertical', minHeight: 64, fontFamily: 'inherit', borderColor: bioTooLong ? '#EF4444' : '#E7EDEC' }}
@@ -141,17 +144,17 @@ function ProfileCard({ user, profile, onSaved }) {
         <div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <label htmlFor="profile-location" style={{ fontSize: 11.5, color: '#64748B', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
-              <span>📍</span> Location / City / Address
+              {t('dashboard.locationLabel', '📍 Location / City / Address')}
             </label>
             <span style={{ fontSize: 10.5, color: '#0D9488', fontWeight: 600, background: '#F0FDFA', padding: '1px 7px', borderRadius: 10 }}>
-              Optional
+              {t('common.optional', 'Optional')}
             </span>
           </div>
           <input
             id="profile-location"
             value={location}
             onChange={(e) => { setLocation(e.target.value); setError('') }}
-            placeholder="Optional — leave empty if not needed (e.g. Casablanca, Morocco)"
+            placeholder={t('dashboard.locationPlaceholder', 'Optional — leave empty if not needed (e.g. Casablanca, Morocco)')}
             maxLength={80}
             style={{ ...inputStyle, marginTop: 4, borderColor: locTooLong ? '#EF4444' : '#E7EDEC' }}
           />
@@ -181,7 +184,7 @@ function ProfileCard({ user, profile, onSaved }) {
               transition: 'all 0.15s ease',
             }}
           >
-            {saved ? '✓ Saved' : saving ? 'Saving...' : hasChanges ? 'Save Changes' : 'No Changes'}
+            {saved ? t('common.saved', '✓ Saved') : saving ? t('common.saving', 'Saving...') : hasChanges ? t('dashboard.saveProfile', 'Save Changes') : t('common.noChanges', 'No Changes')}
           </button>
         </div>
       </form>
@@ -190,6 +193,7 @@ function ProfileCard({ user, profile, onSaved }) {
 }
 
 export default function Dashboard({ user, initialTab }) {
+  const { t, isRTL } = useLanguage()
   const [profile, setProfile] = useState(null)
   const [links, setLinks] = useState([])
   const [products, setProducts] = useState([])
@@ -563,18 +567,18 @@ export default function Dashboard({ user, initialTab }) {
   }
 
   const navItems = [
-    { key: 'links', label: 'Links & Socials', icon: '🔗' },
-    { key: 'restaurant', label: 'Restaurant & Menu', icon: '🍽️' },
-    { key: 'bookings', label: 'Appointments & Calendar', icon: '🗓️' },
-    { key: 'inquiries', label: 'Messages & Leads', icon: '💬' },
-    { key: 'notifications', label: 'WhatsApp & Email Alerts', icon: '🔔' },
-    { key: 'shop', label: 'Store & Products', icon: '🛍️' },
-    { key: 'payouts', label: 'Wallet & 9% Fees', icon: '💰' },
-    { key: 'billing', label: 'Billing & Plans', icon: '💳' },
-    { key: 'theme', label: 'Appearance & Themes', icon: '🎨' },
-    { key: 'qr', label: 'QR Code', icon: '🔲' },
-    { key: 'analytics', label: 'Analytics', icon: '📊' },
-    { key: 'settings', label: 'Settings', icon: '⚙️' },
+    { key: 'links', label: t('nav.links', 'Links & Bio'), icon: '🔗' },
+    { key: 'restaurant', label: t('nav.restaurant', 'Restaurant & Menu'), icon: '🍽️' },
+    { key: 'bookings', label: t('nav.bookings', 'Appointments & Calendar'), icon: '🗓️' },
+    { key: 'inquiries', label: t('nav.inquiries', 'Messages & Leads'), icon: '💬' },
+    { key: 'notifications', label: t('nav.notifications', 'WhatsApp & Email Alerts'), icon: '🔔' },
+    { key: 'shop', label: t('nav.store', 'Store & Products'), icon: '🛍️' },
+    { key: 'payouts', label: t('nav.payouts', 'Wallet & 9% Fees'), icon: '💰' },
+    { key: 'billing', label: t('nav.billing', 'Billing & Plans'), icon: '💳' },
+    { key: 'theme', label: t('nav.theme', 'Appearance & Themes'), icon: '🎨' },
+    { key: 'qr', label: t('dashboard.qrCode', 'QR Code'), icon: '🔲' },
+    { key: 'analytics', label: t('nav.analytics', 'Analytics'), icon: '📊' },
+    { key: 'settings', label: t('nav.settings', 'Settings'), icon: '⚙️' },
   ]
 
   const currentNavItem = navItems.find((it) => it.key === tab) || navItems[0]
@@ -730,25 +734,28 @@ export default function Dashboard({ user, initialTab }) {
           </div>
         </div>
 
-        <button
-          onClick={() => setShowMobilePreviewModal(true)}
-          style={{
-            background: '#0F172A',
-            color: 'white',
-            border: 'none',
-            borderRadius: 100,
-            padding: '6px 12px',
-            fontSize: 11.5,
-            fontWeight: 600,
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 5,
-            boxShadow: '0 2px 6px rgba(15,23,42,0.15)',
-          }}
-        >
-          <span>📱 Preview</span>
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <LanguageSwitcher variant="compact" />
+          <button
+            onClick={() => setShowMobilePreviewModal(true)}
+            style={{
+              background: '#0F172A',
+              color: 'white',
+              border: 'none',
+              borderRadius: 100,
+              padding: '6px 12px',
+              fontSize: 11.5,
+              fontWeight: 600,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 5,
+              boxShadow: '0 2px 6px rgba(15,23,42,0.15)',
+            }}
+          >
+            <span>📱 {t('common.preview', 'Preview')}</span>
+          </button>
+        </div>
       </div>
 
       {/* Mobile Navigation Drawer (Opens on 3 chartat click) */}
@@ -798,32 +805,35 @@ export default function Dashboard({ user, initialTab }) {
                 </span>
               </div>
 
-              <button
-                type="button"
-                onClick={() => setMobileMenuOpen(false)}
-                style={{
-                  background: '#F1F5F9',
-                  border: 'none',
-                  borderRadius: '50%',
-                  width: 32,
-                  height: 32,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: 14,
-                  fontWeight: 700,
-                  color: '#64748B',
-                  cursor: 'pointer',
-                }}
-              >
-                ✕
-              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <LanguageSwitcher variant="compact" />
+                <button
+                  type="button"
+                  onClick={() => setMobileMenuOpen(false)}
+                  style={{
+                    background: '#F1F5F9',
+                    border: 'none',
+                    borderRadius: '50%',
+                    width: 32,
+                    height: 32,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: 14,
+                    fontWeight: 700,
+                    color: '#64748B',
+                    cursor: 'pointer',
+                  }}
+                >
+                  ✕
+                </button>
+              </div>
             </div>
 
             {/* Navigation Items in Drawer */}
             <div style={{ padding: '14px 12px', flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
               <p style={{ margin: '0 0 6px 8px', fontSize: 11, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                Navigation Menu
+                {t('dashboard.menu', 'Navigation Menu')}
               </p>
               {navItems.map((item) => {
                 const isActive = tab === item.key
@@ -945,7 +955,7 @@ export default function Dashboard({ user, initialTab }) {
                 }}
               >
                 <span>🚪</span>
-                <span>Log out</span>
+                <span>{t('common.logout', 'Log out')}</span>
               </button>
             </div>
           </div>
@@ -967,15 +977,18 @@ export default function Dashboard({ user, initialTab }) {
       >
         {/* Navigation Sidebar */}
         <div className="linksocio-sidebar" style={{ background: 'white', border: '1px solid #E7EDEC', borderRadius: 20, padding: 16 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20, paddingLeft: 4 }}>
-            <svg width="24" height="24" viewBox="0 0 46 46">
-              <rect x="4" y="4" width="22" height="22" rx="11" fill="none" stroke="#14B8A6" strokeWidth="6" />
-              <rect x="20" y="20" width="22" height="22" rx="11" fill="none" stroke="#0F172A" strokeWidth="6" />
-            </svg>
-            <span style={{ fontSize: 15, fontWeight: 700 }}>
-              <span style={{ color: '#0F172A' }}>Link</span>
-              <span style={{ color: '#14B8A6' }}>Socio</span>
-            </span>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, paddingLeft: 4 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <svg width="24" height="24" viewBox="0 0 46 46">
+                <rect x="4" y="4" width="22" height="22" rx="11" fill="none" stroke="#14B8A6" strokeWidth="6" />
+                <rect x="20" y="20" width="22" height="22" rx="11" fill="none" stroke="#0F172A" strokeWidth="6" />
+              </svg>
+              <span style={{ fontSize: 15, fontWeight: 700 }}>
+                <span style={{ color: '#0F172A' }}>Link</span>
+                <span style={{ color: '#14B8A6' }}>Socio</span>
+              </span>
+            </div>
+            <LanguageSwitcher variant="compact" />
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -1088,7 +1101,7 @@ export default function Dashboard({ user, initialTab }) {
               }}
             >
               <span>🚪</span>
-              <span>Log out</span>
+              <span>{t('common.logout', 'Log out')}</span>
             </button>
           </div>
         </div>
@@ -1117,13 +1130,13 @@ export default function Dashboard({ user, initialTab }) {
                 <span style={{ fontSize: 22 }}>👑</span>
                 <div>
                   <div style={{ fontSize: 13, fontWeight: 800, color: '#2DD4BF', display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <span>Owner / VIP Account Active</span>
+                    <span>{t('dashboard.vipBannerTitle', 'Owner / VIP Account Active')}</span>
                     <span style={{ fontSize: 10.5, background: '#14B8A6', color: 'white', padding: '1px 7px', borderRadius: 100, fontWeight: 800 }}>
-                      100% FREE FOREVER (VIP OWNER)
+                      {t('dashboard.vipBannerFree', '100% FREE FOREVER (VIP OWNER)')}
                     </span>
                   </div>
                   <div style={{ fontSize: 11.5, color: '#94A3B8' }}>
-                    All Business & Agency features unlocked permanently. No subscription or payment required.
+                    {t('dashboard.vipBannerDesc', 'All Business & Agency features unlocked permanently. No subscription or payment required.')}
                   </div>
                 </div>
               </div>
@@ -1141,7 +1154,7 @@ export default function Dashboard({ user, initialTab }) {
                   cursor: 'pointer',
                 }}
               >
-                VIP Billing & Plan ⚡
+                {t('dashboard.vipBillingBtn', 'VIP Billing & Plan ⚡')}
               </button>
             </div>
           )}
@@ -1167,10 +1180,10 @@ export default function Dashboard({ user, initialTab }) {
                 <span style={{ fontSize: 22 }}>⏳</span>
                 <div>
                   <div style={{ fontSize: 13, fontWeight: 800, color: '#0F766E' }}>
-                    14-Day Free Trial Active
+                    {t('dashboard.trialBannerTitle', '14-Day Free Trial Active')}
                   </div>
                   <div style={{ fontSize: 11.5, color: '#115E59' }}>
-                    <strong>{trial.daysRemaining} days left</strong>. Full access included. Subscribe anytime to keep your page active permanently.
+                    <strong>{trial.daysRemaining} {t('dashboard.trialBannerLeft', 'days left')}</strong>. {t('dashboard.trialBannerDesc', 'Full access included. Subscribe anytime to keep your page active permanently.')}
                   </div>
                 </div>
               </div>
@@ -1189,7 +1202,7 @@ export default function Dashboard({ user, initialTab }) {
                   boxShadow: '0 2px 6px rgba(13, 148, 136, 0.3)',
                 }}
               >
-                Upgrade to Pro 🚀
+                {t('dashboard.upgradePro', 'Upgrade to Pro 🚀')}
               </button>
             </div>
           )}
@@ -1270,7 +1283,7 @@ export default function Dashboard({ user, initialTab }) {
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#22C55E', display: 'inline-block' }} />
               <span style={{ fontSize: 11, fontWeight: 700, color: '#64748B', letterSpacing: 0.5 }}>
-                LIVE PREVIEW
+                {t('dashboard.livePreview', 'LIVE PREVIEW')}
               </span>
             </div>
             {profile?.username && (
@@ -1280,7 +1293,7 @@ export default function Dashboard({ user, initialTab }) {
                 rel="noreferrer"
                 style={{ fontSize: 11, color: '#14B8A6', fontWeight: 600, textDecoration: 'none' }}
               >
-                Open in new tab ↗
+                {t('dashboard.openInNewTab', 'Open in new tab ↗')}
               </a>
             )}
           </div>

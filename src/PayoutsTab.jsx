@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import confetti from 'canvas-confetti'
+import { useLanguage } from './context/LanguageContext'
 
 // Global payout options for all countries
 const GLOBAL_PAYOUT_METHODS = [
@@ -24,6 +25,7 @@ const CURRENCIES = [
 ]
 
 export default function PayoutsTab({ user, profile }) {
+  const { t, isRTL } = useLanguage()
   const [activeSubTab, setActiveSubTab] = useState('global') // 'global' | 'stripe' | 'history' | 'calculator' | 'admin'
   const [stats, setStats] = useState({
     grossSales: 0,
@@ -308,14 +310,14 @@ export default function PayoutsTab({ user, profile }) {
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800, letterSpacing: '-0.02em', color: '#FFFFFF' }}>
-                    Worldwide Creator Wallet & 9% Platform Split
+                    {t('payoutsTab.title', 'Worldwide Creator Wallet & 9% Platform Split')}
                   </h2>
                   <span style={{ background: '#14B8A625', color: '#2DD4BF', border: '1px solid #14B8A650', fontSize: 11, fontWeight: 800, padding: '2px 8px', borderRadius: 100 }}>
-                    Global (Todo el Mundo)
+                    {t('payoutsTab.badge', 'Transparent 9% Fee')}
                   </span>
                 </div>
                 <p style={{ margin: '4px 0 0', fontSize: 13, color: '#94A3B8' }}>
-                  Sell worldwide & receive <span style={{ color: '#2DD4BF', fontWeight: 800 }}>91% Net Payout</span> directly to your International Bank, Stripe, PayPal, Wise, Payoneer or Crypto · Platform fee is only <span style={{ color: '#FBBF24', fontWeight: 800 }}>9%</span>.
+                  {t('payoutsTab.desc', 'Keep 91% of every sale from your digital store and paid bookings. Zero hidden monthly fees. Withdraw your earnings easily to your preferred payout method.')}
                 </p>
               </div>
             </div>
@@ -362,7 +364,7 @@ export default function PayoutsTab({ user, profile }) {
                   boxShadow: stats.availableBalance > 0 ? '0 4px 16px rgba(20,184,166,0.4)' : 'none',
                 }}
               >
-                <span>🌍 Request Global Payout</span>
+                <span>{t('payoutsTab.withdrawBtn', 'Request Payout 💸')}</span>
               </button>
             </div>
           </div>
@@ -401,7 +403,7 @@ export default function PayoutsTab({ user, profile }) {
         <div style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: 18, padding: '18px 20px', boxShadow: '0 2px 5px rgba(0,0,0,0.03)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
             <span style={{ fontSize: 12, fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-              Your Net Available (91%)
+              {t('payoutsTab.availableBalance', 'Available Balance')}
             </span>
             <span style={{ background: '#ECFDF5', color: '#059669', fontSize: 12, padding: '2px 8px', borderRadius: 100, fontWeight: 800 }}>
               91% Net
@@ -420,7 +422,7 @@ export default function PayoutsTab({ user, profile }) {
         <div style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: 18, padding: '18px 20px', boxShadow: '0 2px 5px rgba(0,0,0,0.03)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
             <span style={{ fontSize: 12, fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-              Total Worldwide Sales
+              {t('payoutsTab.grossSales', 'Gross Sales')}
             </span>
             <span style={{ background: '#F1F5F9', color: '#475569', fontSize: 12, padding: '2px 8px', borderRadius: 100, fontWeight: 800 }}>
               100% Gross
@@ -439,7 +441,7 @@ export default function PayoutsTab({ user, profile }) {
         <div style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: 18, padding: '18px 20px', boxShadow: '0 2px 5px rgba(0,0,0,0.03)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
             <span style={{ fontSize: 12, fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-              Platform Processing (9%)
+              {t('payoutsTab.platformFee', 'Platform Fee (9%)')}
             </span>
             <span style={{ background: '#FEF3C7', color: '#D97706', fontSize: 12, padding: '2px 8px', borderRadius: 100, fontWeight: 800 }}>
               9% Fee
@@ -458,7 +460,7 @@ export default function PayoutsTab({ user, profile }) {
         <div style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: 18, padding: '18px 20px', boxShadow: '0 2px 5px rgba(0,0,0,0.03)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
             <span style={{ fontSize: 12, fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-              Total Paid Out
+              {t('payoutsTab.totalWithdrawn', 'Total Withdrawn')}
             </span>
             <span style={{ background: '#F8FAFC', color: '#64748B', fontSize: 12, padding: '2px 8px', borderRadius: 100, fontWeight: 800 }}>
               Settled
@@ -477,10 +479,10 @@ export default function PayoutsTab({ user, profile }) {
       {/* Sub-Tab Navigation */}
       <div style={{ display: 'flex', gap: 6, borderBottom: '1px solid #E2E8F0', paddingBottom: 6, overflowX: 'auto' }}>
         {[
-          { id: 'global', label: '🌍 Global Payout Methods (Wise, PayPal, Bank, Crypto)', icon: '🌐' },
-          { id: 'stripe', label: '💳 Stripe Connect (130+ Countries Auto-Split)', icon: '⚡' },
-          { id: 'history', label: `📋 Sales Ledger & 9% Split (${transactions.length})`, icon: '📊' },
-          { id: 'calculator', label: '🧮 9% Fee Calculator', icon: '🔢' },
+          { id: 'global', label: `🌍 ${t('payoutsTab.subTabs.global', 'Payout Methods & Bank Details')}`, icon: '🌐' },
+          { id: 'stripe', label: `💳 ${t('payoutsTab.subTabs.stripe', 'Stripe Direct Connect')}`, icon: '⚡' },
+          { id: 'history', label: `📋 ${t('payoutsTab.subTabs.history', 'Withdrawal & Sales History')} (${transactions.length})`, icon: '📊' },
+          { id: 'calculator', label: `🧮 ${t('payoutsTab.subTabs.calculator', 'Fee & Profit Calculator')}`, icon: '🔢' },
           { id: 'admin', label: '👑 Admin Global Overview', icon: '🛡️' },
         ].map((tab) => {
           const isActive = activeSubTab === tab.id
@@ -762,7 +764,7 @@ export default function PayoutsTab({ user, profile }) {
                   gap: 8,
                 }}
               >
-                <span>💾 Save Worldwide Payout Settings</span>
+                <span>💾 {savingSettings ? t('payoutsTab.saving', 'Saving Settings...') : t('payoutsTab.saveSettings', 'Save Payout Settings')}</span>
               </button>
             </div>
           </form>
@@ -1012,15 +1014,15 @@ export default function PayoutsTab({ user, profile }) {
         <div style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: 20, padding: 22, display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div>
             <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: '#0F172A' }}>
-              🧮 9% Fee & Profit Split Calculator
+              🧮 {t('payoutsTab.calcTitle', 'Fee & Earnings Calculator')}
             </h3>
             <p style={{ margin: '3px 0 0', fontSize: 12.5, color: '#64748B' }}>
-              Type any product price to preview the exact math of the 9% platform commission and 91% net payout.
+              {t('payoutsTab.calcDesc', 'See exactly what you pocket on any product price:')}
             </p>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, maxWidth: 360 }}>
-            <label style={{ fontSize: 13, fontWeight: 700, color: '#334155' }}>Product Price:</label>
+            <label style={{ fontSize: 13, fontWeight: 700, color: '#334155' }}>{t('payoutsTab.calcInputLabel', 'Enter Product Selling Price:')}</label>
             <div style={{ position: 'relative', flex: 1 }}>
               <input
                 type="number"
@@ -1049,7 +1051,7 @@ export default function PayoutsTab({ user, profile }) {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginTop: 4 }}>
             <div style={{ background: '#ECFDF5', border: '1px solid #A7F3D0', borderRadius: 16, padding: '16px' }}>
               <span style={{ fontSize: 11.5, fontWeight: 800, color: '#047857', textTransform: 'uppercase' }}>
-                🎉 You Get (91% Net Payout)
+                🎉 {t('payoutsTab.youReceive', 'You Receive (91%):')}
               </span>
               <div style={{ fontSize: 28, fontWeight: 800, color: '#065F46', marginTop: 4 }}>
                 {currSym}{calcSellerNet.toFixed(2)}
@@ -1059,7 +1061,7 @@ export default function PayoutsTab({ user, profile }) {
 
             <div style={{ background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 16, padding: '16px' }}>
               <span style={{ fontSize: 11.5, fontWeight: 800, color: '#B45309', textTransform: 'uppercase' }}>
-                ⚡ Platform Retains (9% Fee)
+                ⚡ {t('payoutsTab.platformCut', 'LinkSocio Fee (9%):')}
               </span>
               <div style={{ fontSize: 28, fontWeight: 800, color: '#92400E', marginTop: 4 }}>
                 {currSym}{calcPlatformFee.toFixed(2)}
@@ -1190,7 +1192,7 @@ export default function PayoutsTab({ user, profile }) {
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
               <h3 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: '#0F172A' }}>
-                🌍 Withdraw 91% Net Earnings
+                🌍 {t('payoutsTab.withdrawBtn', 'Request Payout 💸')}
               </h3>
               <button
                 type="button"
@@ -1202,7 +1204,7 @@ export default function PayoutsTab({ user, profile }) {
             </div>
 
             <div style={{ background: '#ECFDF5', border: '1px solid #A7F3D0', borderRadius: 12, padding: '10px 14px', marginBottom: 14 }}>
-              <span style={{ fontSize: 12, color: '#047857', fontWeight: 600 }}>Available Balance:</span>
+              <span style={{ fontSize: 12, color: '#047857', fontWeight: 600 }}>{t('payoutsTab.availableBalance', 'Available Balance')}:</span>
               <div style={{ fontSize: 20, fontWeight: 800, color: '#065F46' }}>
                 {currSym}
                 {stats.availableBalance.toFixed(2)}
@@ -1212,7 +1214,7 @@ export default function PayoutsTab({ user, profile }) {
             <form onSubmit={handleRequestWithdraw} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               <div>
                 <label style={{ fontSize: 12, fontWeight: 700, color: '#334155', display: 'block', marginBottom: 4 }}>
-                  Withdrawal Amount ({currSym})
+                  {t('payoutsTab.withdrawAmount', 'Withdrawal Amount')} ({currSym})
                 </label>
                 <input
                   type="number"
@@ -1235,10 +1237,10 @@ export default function PayoutsTab({ user, profile }) {
 
               <div>
                 <label style={{ fontSize: 12, fontWeight: 700, color: '#334155', display: 'block', marginBottom: 4 }}>
-                  Transfer Destination
+                  {t('payoutsTab.transferDestination', 'Transfer Destination')}
                 </label>
                 <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 10, padding: '10px 12px', fontSize: 12.5 }}>
-                  <div style={{ fontWeight: 700, color: '#0F172A' }}>Method: {settings.payoutMethod?.toUpperCase()}</div>
+                  <div style={{ fontWeight: 700, color: '#0F172A' }}>{t('payoutsTab.payoutMethod', 'Preferred Payout Method')}: {settings.payoutMethod?.toUpperCase()}</div>
                   <div style={{ color: '#64748B', fontFamily: 'monospace' }}>
                     {settings.paypalEmail || settings.iban || settings.cryptoAddress || settings.stripeAccountId || 'Saved account details'}
                   </div>
@@ -1261,7 +1263,7 @@ export default function PayoutsTab({ user, profile }) {
                   marginTop: 6,
                 }}
               >
-                Confirm Global Transfer
+                {t('payoutsTab.confirmTransfer', 'Confirm Global Transfer')}
               </button>
             </form>
           </div>

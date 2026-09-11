@@ -7,6 +7,7 @@ import {
   generateMailtoUrl,
 } from './notificationService'
 import confetti from 'canvas-confetti'
+import { useLanguage } from './context/LanguageContext'
 
 export const CURRENCIES = [
   { code: 'USD', symbol: '$', label: 'USD ($)' },
@@ -199,6 +200,7 @@ export async function recordNewBooking(profileOrUsername, booking) {
 }
 
 export default function BookingTab({ profile, onUpdated }) {
+  const { t, isRTL } = useLanguage()
   const [settings, setSettings] = useState(DEFAULT_BOOKING_SETTINGS)
   const [bookings, setBookings] = useState([])
   const [statusFilter, setStatusFilter] = useState('active') // 'active' | 'all' | 'completed' | 'cancelled'
@@ -579,13 +581,13 @@ export default function BookingTab({ profile, onUpdated }) {
         <div>
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#E6F7F5', padding: '4px 12px', borderRadius: 100, marginBottom: 8 }}>
             <span style={{ fontSize: 13 }}>🗓️</span>
-            <span style={{ fontSize: 12, fontWeight: 700, color: '#0D9488' }}>BOOKING & APPOINTMENTS</span>
+            <span style={{ fontSize: 12, fontWeight: 700, color: '#0D9488' }}>{t('bookingTab.proBadge', 'BOOKING & APPOINTMENTS')}</span>
           </div>
           <h2 style={{ margin: '0 0 4px', fontSize: 20, fontWeight: 800, color: '#0F172A' }}>
-            Consultation & Meeting Calendar
+            {t('bookingTab.title', 'Consultation & Meeting Calendar')}
           </h2>
           <p style={{ margin: 0, fontSize: 13, color: '#64748B' }}>
-            Allow clients and followers to schedule 1-on-1 consultations directly from your profile.
+            {t('bookingTab.desc', 'Allow clients and followers to schedule 1-on-1 consultations directly from your profile.')}
           </p>
         </div>
 
@@ -593,10 +595,10 @@ export default function BookingTab({ profile, onUpdated }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, background: '#F8FAFC', padding: '10px 16px', borderRadius: 16, border: '1px solid #E2E8F0' }}>
           <div>
             <div style={{ fontSize: 13, fontWeight: 700, color: '#0F172A' }}>
-              {settings.enabled ? 'Calendar is Active' : 'Calendar is Disabled'}
+              {settings.enabled ? t('bookingTab.enableTitle', 'Calendar is Active') : t('bookingTab.enableDesc', 'Calendar is Disabled')}
             </div>
             <div style={{ fontSize: 11, color: settings.enabled ? '#0D9488' : '#94A3B8' }}>
-              {settings.enabled ? 'Visible on your public profile' : 'Hidden from public visitors'}
+              {settings.enabled ? t('bookingTab.enableDesc', 'Visible on your public profile') : t('bookingTab.noBookingsSub', 'Hidden from public visitors')}
             </div>
           </div>
 
@@ -660,10 +662,10 @@ export default function BookingTab({ profile, onUpdated }) {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
           <div>
             <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: '#0F172A' }}>
-              Consultation Types & Services
+              {t('bookingTab.servicesTitle', 'Consultation Types & Services')}
             </h3>
             <p style={{ margin: '2px 0 0', fontSize: 12.5, color: '#64748B' }}>
-              Create different meeting options (e.g. 15-min discovery call, 1-hour coaching).
+              {t('bookingTab.subheadingPlaceholder', 'Create different meeting options (e.g. 15-min discovery call, 1-hour coaching).')}
             </p>
           </div>
 
@@ -684,7 +686,7 @@ export default function BookingTab({ profile, onUpdated }) {
               gap: 6,
             }}
           >
-            <span>+ Add Meeting Type</span>
+            <span>{t('bookingTab.addService', '+ Add Meeting Type')}</span>
           </button>
         </div>
 
@@ -928,12 +930,12 @@ export default function BookingTab({ profile, onUpdated }) {
                 cursor: 'pointer',
               }}
             >
-              {saving ? 'Saving...' : '💾 Save Booking Settings'}
+              {saving ? t('bookingTab.saving', 'Saving...') : `💾 ${t('bookingTab.saveChanges', 'Save Booking Settings')}`}
             </button>
 
             {savedSuccess && (
               <span style={{ fontSize: 13, fontWeight: 700, color: '#0D9488' }}>
-                ✓ Settings saved successfully!
+                {t('bookingTab.saved', '✓ Settings saved successfully!')}
               </span>
             )}
           </div>
@@ -945,10 +947,10 @@ export default function BookingTab({ profile, onUpdated }) {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
           <div>
             <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: '#0F172A' }}>
-              Scheduled Appointments ({filteredBookings.length})
+              {t('bookingTab.appointmentsInbox', 'Scheduled Appointments')} ({filteredBookings.length})
             </h3>
             <p style={{ margin: '2px 0 0', fontSize: 12.5, color: '#64748B' }}>
-              Manage clients who booked a meeting with you.
+              {t('bookingTab.noBookingsSub', 'Manage clients who booked a meeting with you.')}
             </p>
           </div>
 
@@ -985,10 +987,10 @@ export default function BookingTab({ profile, onUpdated }) {
             {/* Filter Tabs */}
             <div style={{ display: 'flex', background: '#F1F5F9', padding: 3, borderRadius: 10, gap: 2 }}>
               {[
-                { key: 'active', label: 'Active', count: activeCount },
-                { key: 'all', label: 'All', count: allCount },
-                { key: 'completed', label: 'Done', count: completedCount },
-                { key: 'cancelled', label: 'Cancelled', count: cancelledCount },
+                { key: 'active', label: t('bookingTab.filterActive', 'Active'), count: activeCount },
+                { key: 'all', label: t('bookingTab.filterAll', 'All'), count: allCount },
+                { key: 'completed', label: t('bookingTab.filterCompleted', 'Done'), count: completedCount },
+                { key: 'cancelled', label: t('bookingTab.filterCancelled', 'Cancelled'), count: cancelledCount },
               ].map((tab) => (
                 <button
                   key={tab.key}
@@ -1063,9 +1065,9 @@ export default function BookingTab({ profile, onUpdated }) {
             }}
           >
             <span style={{ fontSize: 32, display: 'block', marginBottom: 8 }}>🗓️</span>
-            <h4 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: '#0F172A' }}>No appointments found</h4>
+            <h4 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: '#0F172A' }}>{t('bookingTab.noBookings', 'No appointments found')}</h4>
             <p style={{ margin: '4px 0 0', fontSize: 13, color: '#64748B' }}>
-              When visitors schedule a session through your page, their bookings will appear here.
+              {t('bookingTab.noBookingsSub', 'When visitors schedule a session through your page, their bookings will appear here.')}
             </p>
           </div>
         ) : (
@@ -1105,7 +1107,7 @@ export default function BookingTab({ profile, onUpdated }) {
                             textTransform: 'uppercase',
                           }}
                         >
-                          {b.status}
+                          {b.status === 'confirmed' ? t('bookingTab.statusConfirmed', 'Confirmed') : b.status === 'completed' ? t('bookingTab.statusCompleted', 'Completed') : t('bookingTab.statusCancelled', 'Cancelled')}
                         </span>
                         {b.status === 'cancelled' && (
                           <span
@@ -1149,7 +1151,7 @@ export default function BookingTab({ profile, onUpdated }) {
                             color: '#0D9488',
                           }}
                         >
-                          ✓ Mark Done
+                          {t('bookingTab.markCompleted', '✓ Complete')}
                         </button>
                       )}
 
@@ -1169,7 +1171,7 @@ export default function BookingTab({ profile, onUpdated }) {
                             color: '#DC2626',
                           }}
                         >
-                          ✕ Cancel
+                          {t('bookingTab.cancelBooking', '✕ Cancel')}
                         </button>
                       )}
 

@@ -1,8 +1,11 @@
 import { useState } from 'react'
 import { supabase } from './supabaseClient'
 import { ArrowLeft, Mail, AlertCircle, ArrowRight, CheckCircle2, KeyRound } from 'lucide-react'
+import { useLanguage } from './context/LanguageContext'
+import LanguageSwitcher from './components/LanguageSwitcher'
 
 export default function ForgotPassword({ goHome, switchToLogin }) {
+  const { t, isRTL } = useLanguage()
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
   const [sent, setSent] = useState(false)
@@ -41,6 +44,7 @@ export default function ForgotPassword({ goHome, switchToLogin }) {
 
   return (
     <div
+      dir={isRTL ? 'rtl' : 'ltr'}
       style={{
         minHeight: '100vh',
         width: '100%',
@@ -55,6 +59,10 @@ export default function ForgotPassword({ goHome, switchToLogin }) {
         boxSizing: 'border-box',
       }}
     >
+      <div style={{ position: 'absolute', top: 20, right: isRTL ? 'auto' : 20, left: isRTL ? 20 : 'auto', zIndex: 10 }}>
+        <LanguageSwitcher />
+      </div>
+
       <div style={{ width: '100%', maxWidth: 420, position: 'relative', zIndex: 1 }}>
         {/* Top Header / Clickable Logo */}
         <div
@@ -109,12 +117,12 @@ export default function ForgotPassword({ goHome, switchToLogin }) {
               borderRadius: 6,
             }}
           >
-            <ArrowLeft size={13} />
-            <span>Back to home</span>
+            <ArrowLeft size={13} style={{ transform: isRTL ? 'rotate(180deg)' : 'none' }} />
+            <span>{t('forgotPassword.backHome', 'Back to home')}</span>
           </button>
         </div>
 
-        {/* Main Card */}
+        {/* Card */}
         <div
           style={{
             background: '#FFFFFF',
@@ -144,10 +152,10 @@ export default function ForgotPassword({ goHome, switchToLogin }) {
               </div>
 
               <h1 style={{ fontSize: 20, fontWeight: 700, color: '#0F172A', margin: '0 0 8px' }}>
-                Check your email inbox
+                {t('forgotPassword.checkInbox', 'Check your email inbox')}
               </h1>
               <p style={{ fontSize: 13.5, color: '#64748B', lineHeight: 1.6, margin: '0 0 24px' }}>
-                We sent a password reset link to <strong style={{ color: '#0F172A' }}>{email}</strong>. Please follow the instructions in the email.
+                {t('forgotPassword.sentDesc', 'We sent a password reset link to {email}. Please follow the instructions in the email.').replace('{email}', email)}
               </p>
 
               <button
@@ -165,7 +173,7 @@ export default function ForgotPassword({ goHome, switchToLogin }) {
                   cursor: 'pointer',
                 }}
               >
-                Return to log in
+                {t('forgotPassword.returnLogin', 'Return to log in')}
               </button>
             </div>
           ) : (
@@ -186,14 +194,14 @@ export default function ForgotPassword({ goHome, switchToLogin }) {
                   }}
                 >
                   <KeyRound size={13} />
-                  <span>Password Recovery</span>
+                  <span>{t('forgotPassword.badge', 'Password Recovery')}</span>
                 </div>
 
                 <h1 style={{ fontSize: 22, fontWeight: 700, color: '#0F172A', margin: 0 }}>
-                  Forgot your password?
+                  {t('forgotPassword.title', 'Forgot your password?')}
                 </h1>
                 <p style={{ fontSize: 13.5, color: '#64748B', marginTop: 6, marginBottom: 0 }}>
-                  Enter your email and we'll send a secure reset link.
+                  {t('forgotPassword.subtitle', "Enter your email and we'll send a secure reset link.")}
                 </p>
               </div>
 
@@ -211,11 +219,11 @@ export default function ForgotPassword({ goHome, switchToLogin }) {
                     }}
                   >
                     <Mail size={14} color="#64748B" />
-                    <span>Your account email</span>
+                    <span>{t('forgotPassword.emailLabel', 'Your account email')}</span>
                   </label>
                   <input
                     type="email"
-                    placeholder="you@example.com"
+                    placeholder={t('forgotPassword.emailPlaceholder', 'you@example.com')}
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
@@ -280,8 +288,8 @@ export default function ForgotPassword({ goHome, switchToLogin }) {
                     gap: 8,
                   }}
                 >
-                  {loading ? 'Sending link...' : 'Send reset link'}
-                  {!loading && <ArrowRight size={16} />}
+                  {loading ? t('forgotPassword.sending', 'Sending link...') : t('forgotPassword.sendBtn', 'Send reset link')}
+                  {!loading && <ArrowRight size={16} style={{ transform: isRTL ? 'rotate(180deg)' : 'none' }} />}
                 </button>
               </form>
 
@@ -301,8 +309,8 @@ export default function ForgotPassword({ goHome, switchToLogin }) {
                     gap: 5,
                   }}
                 >
-                  <ArrowLeft size={13} />
-                  <span>Back to sign in</span>
+                  <ArrowLeft size={13} style={{ transform: isRTL ? 'rotate(180deg)' : 'none' }} />
+                  <span>{t('forgotPassword.backSignIn', 'Back to sign in')}</span>
                 </button>
               </div>
             </>

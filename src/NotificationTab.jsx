@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useLanguage } from './context/LanguageContext'
 import {
   DEFAULT_NOTIFICATION_SETTINGS,
   getNotificationSettings,
@@ -29,6 +30,7 @@ const COUNTRY_CODES = [
 ]
 
 export default function NotificationTab({ profile, onUpdated, onNavigateToTab }) {
+  const { t, isRTL } = useLanguage()
   const [settings, setSettings] = useState(() => getNotificationSettings(profile))
   const [saving, setSaving] = useState(false)
   const [savedSuccess, setSavedSuccess] = useState(false)
@@ -301,7 +303,7 @@ export default function NotificationTab({ profile, onUpdated, onNavigateToTab })
   ]
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+    <div dir={isRTL ? 'rtl' : 'ltr'} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       {/* Top Banner */}
       <div
         style={{
@@ -330,14 +332,14 @@ export default function NotificationTab({ profile, onUpdated, onNavigateToTab })
           >
             <span style={{ fontSize: 13 }}>🔔</span>
             <span style={{ fontSize: 12, fontWeight: 700, color: '#B45309' }}>
-              LIVE ALERTS: GMAIL · TELEGRAM · WHATSAPP
+              {t('notificationTab.badge', 'LIVE ALERTS: GMAIL · TELEGRAM · WHATSAPP')}
             </span>
           </div>
           <h2 style={{ margin: '0 0 4px', fontSize: 20, fontWeight: 800, color: '#0F172A' }}>
-            Instant Notification Center
+            {t('notificationTab.title', 'Instant Notification Center')}
           </h2>
           <p style={{ margin: 0, fontSize: 13, color: '#64748B' }}>
-            Get instant alerts on Telegram (Phone) and Gmail whenever clients buy your books, download PDFs, or book consultations.
+            {t('notificationTab.desc', 'Get instant alerts on Telegram (Phone) and Gmail whenever clients buy your books, download PDFs, or book consultations.')}
           </p>
         </div>
 
@@ -363,7 +365,7 @@ export default function NotificationTab({ profile, onUpdated, onNavigateToTab })
               opacity: testingTelegram ? 0.8 : 1,
             }}
           >
-            <span>✈️ {testingTelegram ? 'Testing...' : 'Test Telegram'}</span>
+            <span>✈️ {testingTelegram ? t('notificationTab.testingTelegram', 'Testing...') : t('notificationTab.testTelegram', 'Test Telegram')}</span>
           </button>
 
           <button
@@ -386,7 +388,7 @@ export default function NotificationTab({ profile, onUpdated, onNavigateToTab })
               opacity: testingEmail ? 0.8 : 1,
             }}
           >
-            <span>✉️ {testingEmail ? 'Sending...' : 'Test Gmail'}</span>
+            <span>✉️ {testingEmail ? t('notificationTab.sendingEmail', 'Sending...') : t('notificationTab.testGmail', 'Test Gmail')}</span>
           </button>
 
           <button
@@ -407,7 +409,7 @@ export default function NotificationTab({ profile, onUpdated, onNavigateToTab })
               boxShadow: '0 2px 6px rgba(34, 197, 94, 0.25)',
             }}
           >
-            <span>💬 Test WhatsApp</span>
+            <span>💬 {t('notificationTab.testWhatsapp', 'Test WhatsApp')}</span>
           </button>
 
           <button
@@ -517,14 +519,14 @@ export default function NotificationTab({ profile, onUpdated, onNavigateToTab })
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: '#0F172A' }}>
-                    Telegram Phone Alerts
+                    {t('notificationTab.telegramSection', 'Telegram Phone Alerts')}
                   </h3>
                   <span style={{ fontSize: 10.5, fontWeight: 800, background: '#DCFCE7', color: '#15803D', padding: '2px 8px', borderRadius: 100 }}>
                     ⚡ 100% Instant
                   </span>
                 </div>
                 <p style={{ margin: '2px 0 0', fontSize: 12.5, color: '#64748B' }}>
-                  Receive instant notifications with sound directly on your phone whenever a client buys a book, downloads a PDF, or books a consultation.
+                  {t('notificationTab.telegramDesc', 'Receive instant notifications with sound directly on your phone whenever a client buys a book, downloads a PDF, or books a consultation.')}
                 </p>
               </div>
             </div>
@@ -570,7 +572,7 @@ export default function NotificationTab({ profile, onUpdated, onNavigateToTab })
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14 }}>
               <div>
                 <label style={{ display: 'block', fontSize: 13, fontWeight: 700, color: '#334155', marginBottom: 6 }}>
-                  Telegram Bot Token *
+                  {t('notificationTab.telegramBotToken', 'Telegram Bot Token')} *
                 </label>
                 <input
                   type="text"
@@ -591,7 +593,7 @@ export default function NotificationTab({ profile, onUpdated, onNavigateToTab })
 
               <div>
                 <label style={{ display: 'block', fontSize: 13, fontWeight: 700, color: '#334155', marginBottom: 6 }}>
-                  Telegram Chat ID *
+                  {t('notificationTab.telegramChatId', 'Telegram Chat ID')} *
                 </label>
                 <input
                   type="text"
@@ -615,7 +617,7 @@ export default function NotificationTab({ profile, onUpdated, onNavigateToTab })
             <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 14, padding: 16 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10, marginBottom: 10 }}>
                 <div style={{ fontSize: 13, fontWeight: 800, color: '#0F172A' }}>
-                  📱 How to connect Telegram in 30 seconds:
+                  📱 {t('notificationTab.telegramHowTo', 'How to connect Telegram in 30 seconds:')}
                 </div>
                 <button
                   type="button"
@@ -632,11 +634,11 @@ export default function NotificationTab({ profile, onUpdated, onNavigateToTab })
                     cursor: testingTelegram ? 'wait' : 'pointer',
                   }}
                 >
-                  {testingTelegram ? 'Testing...' : '⚡ Test Telegram Alert on Phone'}
+                  {testingTelegram ? t('notificationTab.testingTelegram', 'Testing...') : `⚡ ${t('notificationTab.testTelegram', 'Test Telegram Alert on Phone')}`}
                 </button>
               </div>
 
-              <ol style={{ margin: 0, paddingLeft: 20, fontSize: 12.5, color: '#475569', lineHeight: 1.6 }}>
+              <ol style={{ margin: 0, paddingLeft: isRTL ? 0 : 20, paddingRight: isRTL ? 20 : 0, fontSize: 12.5, color: '#475569', lineHeight: 1.6 }}>
                 <li>
                   Open Telegram on your phone and search for <strong>@BotFather</strong>, send <code>/newbot</code>, give it a name, and copy the <strong>HTTP API Token</strong> above.
                 </li>
@@ -672,10 +674,10 @@ export default function NotificationTab({ profile, onUpdated, onNavigateToTab })
               </div>
               <div>
                 <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: '#0F172A' }}>
-                  Gmail & Email Alerts
+                  {t('notificationTab.emailSection', 'Gmail & Email Alerts')}
                 </h3>
                 <p style={{ margin: '2px 0 0', fontSize: 12.5, color: '#64748B' }}>
-                  Receive sales receipts, download alerts, and calendar confirmations directly into your Gmail inbox.
+                  {t('notificationTab.emailDesc', 'Receive sales receipts, download alerts, and calendar confirmations directly into your Gmail inbox.')}
                 </p>
               </div>
             </div>
@@ -720,7 +722,7 @@ export default function NotificationTab({ profile, onUpdated, onNavigateToTab })
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <div>
               <label style={{ display: 'block', fontSize: 13, fontWeight: 700, color: '#334155', marginBottom: 6 }}>
-                Host Notification Email Address *
+                {t('notificationTab.notificationEmail', 'Host Notification Email Address')} *
               </label>
               <input
                 type="email"
@@ -738,7 +740,7 @@ export default function NotificationTab({ profile, onUpdated, onNavigateToTab })
                 }}
               />
               <p style={{ margin: '4px 0 0', fontSize: 11.5, color: '#94A3B8' }}>
-                All digital product sales (books/PDFs), customer emails, and inquiries will be routed to this Gmail address.
+                {t('notificationTab.emailDesc', 'All digital product sales (books/PDFs), customer emails, and inquiries will be routed to this Gmail address.')}
               </p>
             </div>
 
@@ -747,7 +749,7 @@ export default function NotificationTab({ profile, onUpdated, onNavigateToTab })
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
                 <div>
                   <div style={{ fontSize: 13.5, fontWeight: 800, color: '#0F172A' }}>
-                    ⚙️ Gmail Direct Sending Configuration
+                    ⚙️ {t('notificationTab.advancedSmtp', 'Gmail Direct Sending Configuration')}
                   </div>
                   <div style={{ fontSize: 12, color: '#64748B' }}>
                     Configure your Gmail App Password to deliver automated emails directly to inboxes.
@@ -864,7 +866,7 @@ export default function NotificationTab({ profile, onUpdated, onNavigateToTab })
                   style={{ width: 18, height: 18, accentColor: '#10B981' }}
                 />
                 <div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: '#0F172A' }}>🛍️ Alert on Book & PDF Sales</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#0F172A' }}>🛍️ {t('notificationTab.orderAlerts', 'Alert on Book & PDF Sales')}</div>
                   <div style={{ fontSize: 11.5, color: '#64748B' }}>Notify when someone buys a book or PDF</div>
                 </div>
               </label>
@@ -888,7 +890,7 @@ export default function NotificationTab({ profile, onUpdated, onNavigateToTab })
                   style={{ width: 18, height: 18, accentColor: '#2563EB' }}
                 />
                 <div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: '#0F172A' }}>🗓️ Alert on New Booking</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#0F172A' }}>🗓️ {t('notificationTab.bookingAlerts', 'Alert on New Booking')}</div>
                   <div style={{ fontSize: 11.5, color: '#64748B' }}>Notify when someone schedules a consultation</div>
                 </div>
               </label>
@@ -912,7 +914,7 @@ export default function NotificationTab({ profile, onUpdated, onNavigateToTab })
                   style={{ width: 18, height: 18, accentColor: '#2563EB' }}
                 />
                 <div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: '#0F172A' }}>💬 Alert on New Message / Lead</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#0F172A' }}>💬 {t('notificationTab.inquiryAlerts', 'Alert on New Message / Lead')}</div>
                   <div style={{ fontSize: 11.5, color: '#64748B' }}>Notify when someone sends an inquiry</div>
                 </div>
               </label>
@@ -936,7 +938,7 @@ export default function NotificationTab({ profile, onUpdated, onNavigateToTab })
                   style={{ width: 18, height: 18, accentColor: '#2563EB' }}
                 />
                 <div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: '#0F172A' }}>🔔 Sound Chime & Audio</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#0F172A' }}>🔔 {t('notificationTab.soundAlerts', 'Sound Chime & Audio')}</div>
                   <div style={{ fontSize: 11.5, color: '#64748B' }}>Play bell chime when new alert arrives on dashboard</div>
                 </div>
               </label>
@@ -948,7 +950,7 @@ export default function NotificationTab({ profile, onUpdated, onNavigateToTab })
         <div style={{ background: 'white', border: '1px solid #E7EDEC', borderRadius: 20, padding: 24 }}>
           <div style={{ marginBottom: 16 }}>
             <h3 style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 800, color: '#0F172A' }}>
-              Custom Message & Notification Templates
+              {t('notificationTab.templatesSection', 'Custom Message & Notification Templates')}
             </h3>
             <p style={{ margin: 0, fontSize: 12.5, color: '#64748B' }}>
               Customize the automated text format for Telegram, WhatsApp, and Email alerts.
@@ -958,17 +960,17 @@ export default function NotificationTab({ profile, onUpdated, onNavigateToTab })
           {/* Template Sub-tabs */}
           <div style={{ display: 'flex', background: '#F1F5F9', padding: 4, borderRadius: 12, gap: 4, flexWrap: 'wrap', marginBottom: 14 }}>
             {[
-              { id: 'order_alert', label: '🛍️ Book & PDF Sale Alert' },
-              { id: 'booking_alert', label: '🚨 Consultation Booking Alert' },
-              { id: 'inquiry_alert', label: '💬 Visitor Inquiry Alert' },
+              { id: 'order_alert', label: `🛍️ ${t('notificationTab.templateOrder', 'Book & PDF Sale Alert')}` },
+              { id: 'booking_alert', label: `🚨 ${t('notificationTab.templateBooking', 'Consultation Booking Alert')}` },
+              { id: 'inquiry_alert', label: `💬 ${t('notificationTab.templateInquiry', 'Visitor Inquiry Alert')}` },
               { id: 'booking_confirmation_client', label: '✅ Client Confirmation' },
               { id: 'booking_reminder_client', label: '⏰ Client 24h Reminder' },
               { id: 'inquiry_reply_client', label: '👋 Client Inquiry Reply' },
-            ].map((t) => (
+            ].map((tabItem) => (
               <button
-                key={t.id}
+                key={tabItem.id}
                 type="button"
-                onClick={() => setActiveTemplateTab(t.id)}
+                onClick={() => setActiveTemplateTab(tabItem.id)}
                 style={{
                   border: 'none',
                   borderRadius: 9,
@@ -976,12 +978,12 @@ export default function NotificationTab({ profile, onUpdated, onNavigateToTab })
                   fontSize: 12,
                   fontWeight: 700,
                   cursor: 'pointer',
-                  background: activeTemplateTab === t.id ? 'white' : 'transparent',
-                  color: activeTemplateTab === t.id ? '#0F172A' : '#64748B',
-                  boxShadow: activeTemplateTab === t.id ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                  background: activeTemplateTab === tabItem.id ? 'white' : 'transparent',
+                  color: activeTemplateTab === tabItem.id ? '#0F172A' : '#64748B',
+                  boxShadow: activeTemplateTab === tabItem.id ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
                 }}
               >
-                {t.label}
+                {tabItem.label}
               </button>
             ))}
           </div>
@@ -989,7 +991,7 @@ export default function NotificationTab({ profile, onUpdated, onNavigateToTab })
           {/* Variables Quick Add Chips */}
           <div style={{ marginBottom: 10 }}>
             <span style={{ fontSize: 11.5, fontWeight: 700, color: '#475569', display: 'block', marginBottom: 6 }}>
-              Click to insert dynamic variable tag:
+              {t('notificationTab.insertVariable', 'Click to insert dynamic variable tag:')}
             </span>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
               {templateVariables.map((v) => (
@@ -1077,12 +1079,12 @@ export default function NotificationTab({ profile, onUpdated, onNavigateToTab })
               boxShadow: '0 4px 12px rgba(15,23,42,0.15)',
             }}
           >
-            {saving ? 'Saving...' : '💾 Save Notification Settings'}
+            {saving ? t('common.saving', 'Saving...') : `💾 ${t('notificationTab.saveChanges', 'Save Notification Settings')}`}
           </button>
 
           {savedSuccess && (
             <span style={{ fontSize: 13.5, fontWeight: 700, color: '#0D9488' }}>
-              ✓ All notification preferences saved!
+              {t('notificationTab.savedSuccess', '✓ All notification preferences saved!')}
             </span>
           )}
         </div>
@@ -1093,10 +1095,10 @@ export default function NotificationTab({ profile, onUpdated, onNavigateToTab })
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
           <div>
             <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: '#0F172A' }}>
-              Alert Delivery History & Logs ({logs.length})
+              {t('notificationTab.logsTitle', 'Alert Delivery History & Logs')} ({logs.length})
             </h3>
             <p style={{ margin: '2px 0 0', fontSize: 12.5, color: '#64748B' }}>
-              Log of recently dispatched email alerts, WhatsApp notifications, and customer inquiries.
+              {t('notificationTab.logsDesc', 'Log of recently dispatched email alerts, WhatsApp notifications, and customer inquiries.')}
             </p>
           </div>
 
@@ -1119,7 +1121,7 @@ export default function NotificationTab({ profile, onUpdated, onNavigateToTab })
             }}
           >
             <span>{isRefreshingLogs ? '⏳' : '🔄'}</span>
-            <span>{isRefreshingLogs ? 'Updating...' : 'Refresh Logs'}</span>
+            <span>{isRefreshingLogs ? t('common.saving', 'Updating...') : t('notificationTab.refreshLogs', 'Refresh Logs')}</span>
           </button>
         </div>
 
@@ -1134,9 +1136,9 @@ export default function NotificationTab({ profile, onUpdated, onNavigateToTab })
             }}
           >
             <span style={{ fontSize: 30, display: 'block', marginBottom: 8 }}>📭</span>
-            <h4 style={{ margin: 0, fontSize: 14.5, fontWeight: 700, color: '#0F172A' }}>No alerts logged yet</h4>
+            <h4 style={{ margin: 0, fontSize: 14.5, fontWeight: 700, color: '#0F172A' }}>{t('notificationTab.noLogs', 'No alerts logged yet')}</h4>
             <p style={{ margin: '4px 0 0', fontSize: 12.5, color: '#64748B' }}>
-              When clients schedule bookings or send inquiries, automated alert logs will appear here.
+              {t('notificationTab.logsDesc', 'When clients schedule bookings or send inquiries, automated alert logs will appear here.')}
             </p>
           </div>
         ) : (
@@ -1225,7 +1227,7 @@ export default function NotificationTab({ profile, onUpdated, onNavigateToTab })
                           cursor: 'pointer',
                         }}
                       >
-                        View Orders & Sales
+                        {t('nav.payouts', 'View Orders & Sales')}
                       </button>
                     )}
 
@@ -1244,7 +1246,7 @@ export default function NotificationTab({ profile, onUpdated, onNavigateToTab })
                           cursor: 'pointer',
                         }}
                       >
-                        View Calendar
+                        {t('nav.bookings', 'View Calendar')}
                       </button>
                     )}
 
@@ -1263,7 +1265,7 @@ export default function NotificationTab({ profile, onUpdated, onNavigateToTab })
                           cursor: 'pointer',
                         }}
                       >
-                        View Leads
+                        {t('nav.inquiries', 'View Leads')}
                       </button>
                     )}
                   </div>

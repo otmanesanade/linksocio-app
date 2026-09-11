@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from './supabaseClient'
 import CountryPhoneInput from './components/CountryPhoneInput'
 import { downloadFile, sanitizeFileUrl, getCleanDownloadName } from './utils/fileDownload'
+import { useLanguage } from './context/LanguageContext'
 
 function normalizeUrl(url) {
   if (!url) return url
@@ -88,6 +89,7 @@ const STARTER_PRESETS = [
 ]
 
 export default function ShopTab({ user, profile, products = [], reloadProducts }) {
+  const { t, isRTL } = useLanguage()
   // Mode: 'digital' (digital product creation) | 'external' (affiliate/link)
   const [creationMode, setCreationMode] = useState('digital')
   const [activeFilter, setActiveFilter] = useState('all') // 'all' | 'digital' | 'external'
@@ -639,7 +641,7 @@ export default function ShopTab({ user, profile, products = [], reloadProducts }
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <span style={{ fontSize: 20 }}>🛍️</span>
               <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: '#0F172A' }}>
-                {editingId ? 'Edit Product' : 'Store & Digital Products'}
+                {editingId ? t('shopTab.editProduct', 'Edit Product') : t('shopTab.title', 'Store & Digital Products')}
               </h2>
               <span
                 style={{
@@ -652,11 +654,11 @@ export default function ShopTab({ user, profile, products = [], reloadProducts }
                   padding: '2px 8px',
                 }}
               >
-                PRO Store
+                {t('shopTab.proBadge', 'PRO Store')}
               </span>
             </div>
             <p style={{ margin: '4px 0 0', fontSize: 13, color: '#64748B' }}>
-              Add links to your online store (YouCan, Shopify, Amazon, Etsy...) or sell downloadable digital products (PDFs, templates, courses...).
+              {t('shopTab.desc', 'Add links to your online store (YouCan, Shopify, Amazon, Etsy...) or sell downloadable digital products (PDFs, templates, courses...).')}
             </p>
           </div>
 
@@ -675,7 +677,7 @@ export default function ShopTab({ user, profile, products = [], reloadProducts }
                 cursor: 'pointer',
               }}
             >
-              ✕ Cancel Editing
+              ✕ {t('shopTab.cancelEditing', 'Cancel Editing')}
             </button>
           )}
         </div>
@@ -701,7 +703,7 @@ export default function ShopTab({ user, profile, products = [], reloadProducts }
               gap: 6,
             }}
           >
-            <span>🛍️</span> Store / External Product Link
+            <span>🛍️</span> {t('shopTab.modeExternal', 'Store / External Product Link')}
           </button>
           <button
             type="button"
@@ -722,7 +724,7 @@ export default function ShopTab({ user, profile, products = [], reloadProducts }
               gap: 6,
             }}
           >
-            <span>📦</span> Digital Product (Download / WhatsApp)
+            <span>📦</span> {t('shopTab.modeDigital', 'Digital Product (Download / WhatsApp)')}
           </button>
         </div>
 
@@ -1507,7 +1509,7 @@ export default function ShopTab({ user, profile, products = [], reloadProducts }
               transition: 'background 0.15s ease',
             }}
           >
-            {saving ? 'Saving Product...' : editingId ? '✓ Save Changes' : '✨ Add Product to Storefront'}
+            {saving ? t('shopTab.savingProduct', 'Saving Product...') : editingId ? t('shopTab.updateProduct', '✓ Save Changes') : t('shopTab.saveProduct', '✨ Add Product to Storefront')}
           </button>
         </form>
       </div>
@@ -1517,11 +1519,11 @@ export default function ShopTab({ user, profile, products = [], reloadProducts }
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, flexWrap: 'wrap', gap: 10 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: '#0F172A' }}>
-              Your Products Catalog ({products.length})
+              {t('shopTab.yourProducts', 'Your Products Catalog')} ({products.length})
             </h3>
             {digitalCount > 0 && (
               <span style={{ background: '#F0FDFA', color: '#0D9488', fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 100 }}>
-                {digitalCount} Digital
+                {digitalCount} {t('shopTab.filterDigital', 'Digital')}
               </span>
             )}
           </div>
@@ -1542,7 +1544,7 @@ export default function ShopTab({ user, profile, products = [], reloadProducts }
                 cursor: 'pointer',
               }}
             >
-              All ({products.length})
+              {t('shopTab.filterAll', 'All')} ({products.length})
             </button>
             <button
               type="button"
@@ -1558,7 +1560,7 @@ export default function ShopTab({ user, profile, products = [], reloadProducts }
                 cursor: 'pointer',
               }}
             >
-              📦 Digital ({digitalCount})
+              📦 {t('shopTab.filterDigital', 'Digital')} ({digitalCount})
             </button>
             <button
               type="button"
@@ -1574,7 +1576,7 @@ export default function ShopTab({ user, profile, products = [], reloadProducts }
                 cursor: 'pointer',
               }}
             >
-              🔗 Links ({products.length - digitalCount})
+              🔗 {t('shopTab.filterExternal', 'Links')} ({products.length - digitalCount})
             </button>
           </div>
         </div>

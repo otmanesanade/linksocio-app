@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from './supabaseClient'
 import { getNotificationSettings, formatTemplate, generateWhatsAppUrl } from './notificationService'
 import confetti from 'canvas-confetti'
+import { useLanguage } from './context/LanguageContext'
 
 export const DEFAULT_SETTINGS = {
   enabled: false,
@@ -183,6 +184,7 @@ export function recordLeadLocally(profileOrUsername, lead) {
 }
 
 export default function InquiryTab({ profile, onUpdated }) {
+  const { t, isRTL } = useLanguage()
   const [settings, setSettings] = useState(() => getInquirySettings(profile))
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -437,17 +439,17 @@ export default function InquiryTab({ profile, onUpdated }) {
             </div>
             <div>
               <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#0F172A' }}>
-                Direct WhatsApp & Inquiry Box
+                {t('inquiryTab.title', 'Direct WhatsApp & Inquiry Box')}
               </h3>
               <p style={{ margin: '2px 0 0', fontSize: 12.5, color: '#64748B' }}>
-                {settings.enabled ? 'Enabled: Visitors can send you inquiries directly from your page.' : 'Disabled: The inquiry box is currently hidden from your page.'}
+                {settings.enabled ? t('inquiryTab.enableTitle', 'Enabled: Visitors can send you inquiries directly from your page.') : t('inquiryTab.enableDesc', 'Disabled: The inquiry box is currently hidden from your page.')}
               </p>
             </div>
           </div>
 
           <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', userSelect: 'none' }}>
             <span style={{ fontSize: 12.5, fontWeight: 600, color: settings.enabled ? '#0D9488' : '#94A3B8' }}>
-              {settings.enabled ? 'Active' : 'Disabled'}
+              {settings.enabled ? t('inquiryTab.active', 'Active') : t('inquiryTab.disabled', 'Disabled')}
             </span>
             <input
               type="checkbox"
@@ -463,7 +465,7 @@ export default function InquiryTab({ profile, onUpdated }) {
             {/* WhatsApp Number */}
             <div>
               <label style={{ display: 'block', fontSize: 12.5, fontWeight: 600, color: '#334155', marginBottom: 6 }}>
-                Your WhatsApp Phone Number (with country code)
+                {t('inquiryTab.whatsappLabel', 'Your WhatsApp Phone Number (with country code)')}
               </label>
               <div style={{ position: 'relative' }}>
                 <span style={{ position: 'absolute', left: 12, top: 10, fontSize: 15 }}>📞</span>
@@ -484,7 +486,7 @@ export default function InquiryTab({ profile, onUpdated }) {
                 />
               </div>
               <p style={{ margin: '4px 0 0', fontSize: 11.5, color: '#94A3B8' }}>
-                When visitors click send, their message will open directly in your WhatsApp with their name and details.
+                {t('inquiryTab.whatsappHelp', 'When visitors click send, their message will open directly in your WhatsApp with their name and details.')}
               </p>
             </div>
 
@@ -492,7 +494,7 @@ export default function InquiryTab({ profile, onUpdated }) {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <div>
                 <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#334155', marginBottom: 5 }}>
-                  Box Title
+                  {t('inquiryTab.boxTitle', 'Box Title')}
                 </label>
                 <input
                   type="text"
@@ -512,7 +514,7 @@ export default function InquiryTab({ profile, onUpdated }) {
 
               <div>
                 <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#334155', marginBottom: 5 }}>
-                  Button Text
+                  {t('inquiryTab.buttonText', 'Button Text')}
                 </label>
                 <input
                   type="text"
@@ -533,7 +535,7 @@ export default function InquiryTab({ profile, onUpdated }) {
 
             <div>
               <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#334155', marginBottom: 5 }}>
-                Subtitle Description
+                {t('inquiryTab.subtitleDesc', 'Subtitle Description')}
               </label>
               <input
                 type="text"
@@ -553,7 +555,7 @@ export default function InquiryTab({ profile, onUpdated }) {
 
             {/* Quick Preset Ideas */}
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
-              <span style={{ fontSize: 11, color: '#94A3B8', fontWeight: 600 }}>Quick Ideas:</span>
+              <span style={{ fontSize: 11, color: '#94A3B8', fontWeight: 600 }}>{t('inquiryTab.quickIdeas', 'Quick Ideas:')}</span>
               {[
                 { title: 'Send an Inquiry 💬', sub: 'Leave your message to chat directly on WhatsApp' },
                 { title: 'Get a Free Quote 💼', sub: 'Leave your details to receive pricing and availability' },
@@ -596,7 +598,7 @@ export default function InquiryTab({ profile, onUpdated }) {
                   gap: 6,
                 }}
               >
-                <span>{saved ? '✓ Saved!' : saving ? 'Saving...' : 'Save Settings'}</span>
+                <span>{saved ? t('inquiryTab.saved', '✓ Saved!') : saving ? t('inquiryTab.saving', 'Saving...') : t('inquiryTab.saveSettings', 'Save Settings')}</span>
               </button>
             </div>
           </form>
@@ -613,16 +615,16 @@ export default function InquiryTab({ profile, onUpdated }) {
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#0F172A' }}>
-                  Received Inquiries & Leads Inbox
+                  {t('inquiryTab.inboxTitle', 'Received Inquiries & Leads Inbox')}
                 </h3>
                 {newLeadsCount > 0 && (
                   <span style={{ background: '#EF4444', color: 'white', fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 100 }}>
-                    {newLeadsCount} New
+                    {newLeadsCount} {t('inquiryTab.filterNew', 'New')}
                   </span>
                 )}
               </div>
               <p style={{ margin: '2px 0 0', fontSize: 12.5, color: '#64748B' }}>
-                Messages submitted by visitors on your LinkSocio page.
+                {t('inquiryTab.inboxDesc', 'Messages submitted by visitors on your LinkSocio page.')}
               </p>
             </div>
           </div>
@@ -656,9 +658,9 @@ export default function InquiryTab({ profile, onUpdated }) {
         <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
           <div style={{ display: 'flex', background: '#F1F5F9', padding: 3, borderRadius: 10 }}>
             {[
-              { key: 'all', label: `All (${leads.length})` },
-              { key: 'new', label: `New (${newLeadsCount})` },
-              { key: 'replied', label: 'Replied' },
+              { key: 'all', label: `${t('inquiryTab.filterAll', 'All')} (${leads.length})` },
+              { key: 'new', label: `${t('inquiryTab.filterNew', 'New')} (${newLeadsCount})` },
+              { key: 'replied', label: t('inquiryTab.filterReplied', 'Replied') },
             ].map((f) => (
               <button
                 key={f.key}
@@ -874,10 +876,10 @@ export default function InquiryTab({ profile, onUpdated }) {
             <div style={{ textAlign: 'center', padding: '36px 16px', background: '#FAFAFA', borderRadius: 14, border: '1px dashed #CBD5E1' }}>
               <span style={{ fontSize: 32, display: 'block', marginBottom: 8 }}>💬</span>
               <p style={{ margin: 0, fontSize: 13.5, fontWeight: 600, color: '#334155' }}>
-                No inquiries in inbox yet
+                {t('inquiryTab.noMessages', 'No inquiries in inbox yet')}
               </p>
               <p style={{ margin: '4px 0 14px', fontSize: 12, color: '#64748B' }}>
-                When visitors on your page use the Inquiry Box, their messages will appear here and in your WhatsApp.
+                {t('inquiryTab.noMessagesSub', 'When visitors on your page use the Inquiry Box, their messages will appear here and in your WhatsApp.')}
               </p>
               <button
                 type="button"

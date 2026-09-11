@@ -1,6 +1,8 @@
 import React, { useState } from 'react'
 import confetti from 'canvas-confetti'
 import { THEMES, FONTS, BUTTON_STYLES } from './themes'
+import LanguageSwitcher from './components/LanguageSwitcher'
+import { useLanguage } from './context/LanguageContext'
 
 // Social SVG Icons
 const SocialIcon = ({ name, color = '#14B8A6', size = 18 }) => {
@@ -115,6 +117,7 @@ const SHOWCASE_PROFILES = [
 ]
 
 export default function LandingPage({ goToLogin, goToSignUp, goTo }) {
+  const { t } = useLanguage()
   const [claimHandle, setClaimHandle] = useState('')
   const [selectedProfileIndex, setSelectedProfileIndex] = useState(0)
   const [activeTab, setActiveTab] = useState('shop')
@@ -227,15 +230,16 @@ export default function LandingPage({ goToLogin, goToSignUp, goTo }) {
 
           {/* Desktop Nav Links */}
           <nav className="desktop-nav" style={{ display: 'flex', gap: 26, alignItems: 'center' }}>
-            <a href="#digital-store" style={navLinkStyle}>Digital Store & Payouts</a>
-            <a href="#features" style={navLinkStyle}>All Features</a>
-            <a href="#demo" style={navLinkStyle}>Live Simulator</a>
-            <a href="#pricing" style={navLinkStyle}>Pricing (€)</a>
-            <a href="#faq" style={navLinkStyle}>FAQ</a>
+            <a href="#digital-store" style={navLinkStyle}>{t('landing.storePayouts', 'Digital Store & Payouts')}</a>
+            <a href="#features" style={navLinkStyle}>{t('landing.features', 'All Features')}</a>
+            <a href="#demo" style={navLinkStyle}>{t('landing.simulator', 'Live Simulator')}</a>
+            <a href="#pricing" style={navLinkStyle}>{t('landing.pricing', 'Pricing (€)')}</a>
+            <a href="#faq" style={navLinkStyle}>{t('landing.faq', 'FAQ')}</a>
           </nav>
 
-          {/* Action CTAs */}
+          {/* Action CTAs & Language Switcher */}
           <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+            <LanguageSwitcher variant="compact" />
             <button
               onClick={goToLogin}
               style={{
@@ -248,7 +252,7 @@ export default function LandingPage({ goToLogin, goToSignUp, goTo }) {
                 padding: '8px 12px',
               }}
             >
-              Log in
+              {t('landing.login', 'Log in')}
             </button>
             <button
               onClick={goToSignUp}
@@ -269,7 +273,7 @@ export default function LandingPage({ goToLogin, goToSignUp, goTo }) {
               }}
               className="btn-scale"
             >
-              <span>Start 14-Days Free</span>
+              <span>{t('landing.startFree', 'Start 14-Days Free')}</span>
               <span>⚡</span>
             </button>
           </div>
@@ -342,7 +346,7 @@ export default function LandingPage({ goToLogin, goToSignUp, goTo }) {
             >
               <span style={{ fontSize: 14, animation: 'bounce 2s infinite' }}>🎁</span>
               <span style={{ fontSize: 12.5, fontWeight: 800, color: '#0F766E' }}>
-                14-Days Free Trial · Sell Digital Products & Collect Leads
+                {t('landing.hero.trialPill', '14-Days Free Trial · Sell Digital Products & Collect Leads')}
               </span>
             </div>
 
@@ -357,7 +361,7 @@ export default function LandingPage({ goToLogin, goToSignUp, goTo }) {
                 margin: 0,
               }}
             >
-              Sell Digital Products, Take Bookings & Monetize in{' '}
+              {t('landing.hero.title1', 'Sell Digital Products, Take Bookings & Monetize in')}{' '}
               <span
                 style={{
                   background: 'linear-gradient(135deg, #14B8A6 0%, #0D9488 50%, #6366F1 100%)',
@@ -365,7 +369,7 @@ export default function LandingPage({ goToLogin, goToSignUp, goTo }) {
                   WebkitTextFillColor: 'transparent',
                 }}
               >
-                One Link.
+                {t('landing.hero.titleHighlight', 'One Link.')}
               </span>
             </h1>
 
@@ -379,7 +383,7 @@ export default function LandingPage({ goToLogin, goToSignUp, goTo }) {
                 margin: 0,
               }}
             >
-              Turn your Instagram, TikTok, and social bio into an <strong>all-in-one hub</strong>. Sell ebooks, files & courses with automated delivery, take appointments, showcase restaurant menus, and capture direct WhatsApp leads with <strong>instant 91% creator revenue</strong>.
+              {t('landing.hero.subtitle', 'Turn your Instagram, TikTok, and social bio into an all-in-one hub. Sell ebooks, files & courses with automated delivery, take appointments, showcase restaurant menus, and capture direct WhatsApp leads with instant 91% creator revenue.')}
             </p>
 
             {/* Claim your handle input box */}
@@ -404,7 +408,7 @@ export default function LandingPage({ goToLogin, goToSignUp, goTo }) {
                 <span style={{ fontSize: 14, fontWeight: 700, color: '#14B8A6', whiteSpace: 'nowrap' }}>linksocio.com/</span>
                 <input
                   type="text"
-                  placeholder="yourname"
+                  placeholder={t('landing.hero.claimPlaceholder', 'yourname')}
                   value={claimHandle}
                   onChange={(e) => setClaimHandle(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleClaimSubmit(e)}
@@ -437,23 +441,23 @@ export default function LandingPage({ goToLogin, goToSignUp, goTo }) {
                 }}
                 className="btn-scale claim-btn"
               >
-                Claim Link (14-Day Free) →
+                {t('landing.hero.claimBtn', 'Claim Link (14-Day Free) →')}
               </button>
             </div>
 
             {/* Quick Benefits Checklist */}
             <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', fontSize: 13, fontWeight: 600, color: '#475569', marginTop: 4 }}>
               <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ color: '#14B8A6' }}>✓</span> 14-Days Free Trial
+                <span style={{ color: '#14B8A6' }}>✓</span> {t('landing.hero.benefit1', '14-Days Free Trial')}
               </span>
               <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ color: '#14B8A6' }}>✓</span> 91% Net Payout Split
+                <span style={{ color: '#14B8A6' }}>✓</span> {t('landing.hero.benefit2', '91% Net Payout Split')}
               </span>
               <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ color: '#14B8A6' }}>✓</span> Calendar Bookings & Leads
+                <span style={{ color: '#14B8A6' }}>✓</span> {t('landing.hero.benefit3', 'Calendar Bookings & Leads')}
               </span>
               <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ color: '#14B8A6' }}>✓</span> Restaurant Digital Menu
+                <span style={{ color: '#14B8A6' }}>✓</span> {t('landing.hero.benefit4', 'Restaurant Digital Menu')}
               </span>
             </div>
 
@@ -485,10 +489,10 @@ export default function LandingPage({ goToLogin, goToSignUp, goTo }) {
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                   <span style={{ color: '#F59E0B', fontSize: 14 }}>★★★★★</span>
-                  <span style={{ fontSize: 13, fontWeight: 800, color: '#0F172A' }}>4.9/5 Rating (Active Creators & Businesses)</span>
+                  <span style={{ fontSize: 13, fontWeight: 800, color: '#0F172A' }}>{t('landing.hero.rating', '4.9/5 Rating (Active Creators & Businesses)')}</span>
                 </div>
                 <p style={{ margin: 0, fontSize: 12, color: '#64748B' }}>
-                  Complete ecosystem for links, products, appointments & WhatsApp leads
+                  {t('landing.hero.ratingSub', 'Complete ecosystem for links, products, appointments & WhatsApp leads')}
                 </p>
               </div>
             </div>
@@ -519,8 +523,8 @@ export default function LandingPage({ goToLogin, goToSignUp, goTo }) {
                 💰
               </div>
               <div>
-                <div style={{ fontSize: 11, fontWeight: 800, color: '#0F766E' }}>INSTANT 91% PAYOUT</div>
-                <div style={{ fontSize: 12.5, fontWeight: 800, color: '#0F172A' }}>+€26.39 Net Earned</div>
+                <div style={{ fontSize: 11, fontWeight: 800, color: '#0F766E' }}>{t('landing.hero.badgePayout', 'INSTANT 91% PAYOUT')}</div>
+                <div style={{ fontSize: 12.5, fontWeight: 800, color: '#0F172A' }}>{t('landing.hero.badgePayoutSub', '+€26.39 Net Earned')}</div>
               </div>
             </div>
 
@@ -547,8 +551,8 @@ export default function LandingPage({ goToLogin, goToSignUp, goTo }) {
                 💳
               </div>
               <div>
-                <div style={{ fontSize: 10, fontWeight: 700, color: '#94A3B8' }}>CHECKOUT & WALLET</div>
-                <div style={{ fontSize: 12, fontWeight: 800, color: '#FFFFFF' }}>Card & PayPal Ready</div>
+                <div style={{ fontSize: 10, fontWeight: 700, color: '#94A3B8' }}>{t('landing.hero.badgeCheckout', 'GLOBAL CHECKOUT')}</div>
+                <div style={{ fontSize: 12, fontWeight: 800, color: '#FFFFFF' }}>{t('landing.hero.badgeCheckoutSub', 'Card, Apple Pay, PayPal')}</div>
               </div>
             </div>
 
@@ -686,7 +690,7 @@ export default function LandingPage({ goToLogin, goToSignUp, goTo }) {
                   }}
                 >
                   <SocialIcon name="whatsapp" color="white" size={13} />
-                  <span>Chat on WhatsApp</span>
+                  <span>{t('landing.simulatorDemo.chatWhatsapp', 'Chat on WhatsApp')}</span>
                 </a>
 
                 {/* Tab Switcher (Store vs Links) */}
@@ -715,7 +719,7 @@ export default function LandingPage({ goToLogin, goToSignUp, goTo }) {
                       cursor: 'pointer',
                     }}
                   >
-                    🛍️ Store ({currentProfile.products.length})
+                    🛍️ {t('landing.simulatorDemo.storeTab', 'Store')} ({currentProfile.products.length})
                   </button>
                   <button
                     onClick={() => setActiveTab('links')}
@@ -731,7 +735,7 @@ export default function LandingPage({ goToLogin, goToSignUp, goTo }) {
                       cursor: 'pointer',
                     }}
                   >
-                    🔗 Links ({currentProfile.links.length})
+                    🔗 {t('landing.simulatorDemo.linksTab', 'Links')} ({currentProfile.links.length})
                   </button>
                 </div>
 
@@ -764,7 +768,7 @@ export default function LandingPage({ goToLogin, goToSignUp, goTo }) {
                               {p.price}
                             </span>
                             <span style={{ background: '#10B981', color: 'white', fontSize: 8.5, fontWeight: 800, padding: '2px 5px', borderRadius: 4 }}>
-                              Buy ⚡
+                              {t('landing.simulatorDemo.buyBtn', 'Buy ⚡')}
                             </span>
                           </div>
                         </div>
@@ -833,7 +837,9 @@ export default function LandingPage({ goToLogin, goToSignUp, goTo }) {
                         cursor: 'pointer',
                       }}
                     >
-                      {savedVcard ? '✓ vCard Saved to Contacts!' : '📇 Click to Test vCard Download'}
+                      {savedVcard
+                        ? t('landing.simulatorDemo.vcardSaved', '✓ vCard Saved to Contacts!')
+                        : t('landing.simulatorDemo.vcardTest', '📇 Click to Test vCard Download')}
                     </button>
                   </div>
                 )}
@@ -859,18 +865,18 @@ export default function LandingPage({ goToLogin, goToSignUp, goTo }) {
                   >
                     <span style={{ fontSize: 32 }}>🎉</span>
                     <div style={{ fontSize: 14, fontWeight: 800, marginTop: 6 }}>
-                      Instant 91% Digital Sale!
+                      {t('landing.simulatorDemo.saleAlert', 'Instant 91% Digital Sale!')}
                     </div>
                     <p style={{ margin: '4px 0 10px', fontSize: 11, color: '#94A3B8' }}>
                       {selectedProductCheckout.name} ({selectedProductCheckout.price})
                     </p>
                     <div style={{ background: 'rgba(255,255,255,0.1)', borderRadius: 10, padding: '8px 12px', width: '100%', boxSizing: 'border-box', fontSize: 11 }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', color: '#2DD4BF', fontWeight: 800 }}>
-                        <span>Your 91% Net:</span>
-                        <span>Direct to Wallet</span>
+                        <span>{t('landing.simulatorDemo.splitNotice', 'Your 91% Net:')}</span>
+                        <span>{t('landing.simulatorDemo.directWallet', 'Direct to Wallet')}</span>
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', color: '#94A3B8', marginTop: 2 }}>
-                        <span>Platform fee:</span>
+                        <span>{t('landing.simulatorDemo.feeNotice', 'Platform fee:')}</span>
                         <span>9%</span>
                       </div>
                     </div>
@@ -888,7 +894,7 @@ export default function LandingPage({ goToLogin, goToSignUp, goTo }) {
                         cursor: 'pointer',
                       }}
                     >
-                      Close Demo Preview
+                      {t('landing.simulatorDemo.closeModal', 'Close Demo Preview')}
                     </button>
                   </div>
                 )}
@@ -901,7 +907,9 @@ export default function LandingPage({ goToLogin, goToSignUp, goTo }) {
 
             {/* Quick Theme Switch Bar under Mockup */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 14 }}>
-              <span style={{ fontSize: 11, fontWeight: 700, color: '#64748B' }}>TEST THEMES:</span>
+              <span style={{ fontSize: 11, fontWeight: 700, color: '#64748B' }}>
+                {t('landing.simulatorDemo.testThemes', 'TEST THEMES:')}
+              </span>
               <div style={{ display: 'flex', gap: 6 }}>
                 {[
                   { key: 'midnight', label: 'Dark', color: '#111827' },
@@ -936,13 +944,13 @@ export default function LandingPage({ goToLogin, goToSignUp, goTo }) {
         <div style={{ maxWidth: 1100, margin: '0 auto', position: 'relative', zIndex: 1 }}>
           <div style={{ textAlign: 'center', maxWidth: 700, margin: '0 auto 50px' }}>
             <span style={{ background: 'rgba(20, 184, 166, 0.2)', color: '#2DD4BF', border: '1px solid rgba(20, 184, 166, 0.4)', fontSize: 12, fontWeight: 800, padding: '4px 14px', borderRadius: 100 }}>
-              🌍 DIGITAL STORE & AUTOMATED SALES
+              {t('landing.storeSection.badge', '🌍 DIGITAL STORE & AUTOMATED SALES')}
             </span>
             <h2 style={{ fontSize: 'clamp(28px, 4vw, 42px)', fontWeight: 800, margin: '14px 0 8px', letterSpacing: '-0.02em', color: '#FFFFFF' }}>
-              Sell Ebooks, Courses & Files with 91% Net Payouts
+              {t('landing.storeSection.title', 'Sell Ebooks, Courses & Files with 91% Net Payouts')}
             </h2>
             <p style={{ fontSize: 16, color: '#94A3B8', lineHeight: 1.6, margin: 0 }}>
-              Upload your digital files, set your price in €, and let buyers purchase with card or PayPal. Instant file download for buyers, 91% net payout for you.
+              {t('landing.storeSection.subtitle', 'Upload your digital files, set your price in €, and let buyers purchase with card or PayPal. Instant file download for buyers, 91% net payout for you.')}
             </p>
           </div>
 
@@ -952,9 +960,11 @@ export default function LandingPage({ goToLogin, goToSignUp, goTo }) {
               <div style={{ width: 48, height: 48, borderRadius: 14, background: 'rgba(20, 184, 166, 0.2)', color: '#2DD4BF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, marginBottom: 14 }}>
                 ⚡
               </div>
-              <h3 style={{ fontSize: 18, fontWeight: 800, color: 'white', margin: '0 0 8px' }}>Instant Automated File Delivery</h3>
+              <h3 style={{ fontSize: 18, fontWeight: 800, color: 'white', margin: '0 0 8px' }}>
+                {t('landing.storeSection.f1Title', 'Instant Automated File Delivery')}
+              </h3>
               <p style={{ fontSize: 14, color: '#94A3B8', lineHeight: 1.6, margin: 0 }}>
-                Customers get immediate access to download their PDF guides, courses, or preset files the exact moment their purchase completes.
+                {t('landing.storeSection.f1Desc', 'Customers get immediate access to download their PDF guides, courses, or preset files the exact moment their purchase completes.')}
               </p>
             </div>
 
@@ -963,9 +973,11 @@ export default function LandingPage({ goToLogin, goToSignUp, goTo }) {
               <div style={{ width: 48, height: 48, borderRadius: 14, background: 'rgba(99, 102, 241, 0.2)', color: '#818CF8', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, marginBottom: 14 }}>
                 💰
               </div>
-              <h3 style={{ fontSize: 18, fontWeight: 800, color: 'white', margin: '0 0 8px' }}>Fair 91% Creator Net Split</h3>
+              <h3 style={{ fontSize: 18, fontWeight: 800, color: 'white', margin: '0 0 8px' }}>
+                {t('landing.storeSection.f2Title', 'Fair 91% Creator Net Split')}
+              </h3>
               <p style={{ fontSize: 14, color: '#94A3B8', lineHeight: 1.6, margin: 0 }}>
-                You keep <strong>91% of every product sale</strong>. The platform retains only 9% for automated hosting, file security, and processing.
+                {t('landing.storeSection.f2Desc', 'You keep 91% of every product sale. The platform retains only 9% for automated hosting, file security, and processing.')}
               </p>
             </div>
 
@@ -974,9 +986,11 @@ export default function LandingPage({ goToLogin, goToSignUp, goTo }) {
               <div style={{ width: 48, height: 48, borderRadius: 14, background: 'rgba(245, 158, 11, 0.2)', color: '#FBBF24', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, marginBottom: 14 }}>
                 💼
               </div>
-              <h3 style={{ fontSize: 18, fontWeight: 800, color: 'white', margin: '0 0 8px' }}>Dedicated Wallet & Payouts</h3>
+              <h3 style={{ fontSize: 18, fontWeight: 800, color: 'white', margin: '0 0 8px' }}>
+                {t('landing.storeSection.f3Title', 'Dedicated Wallet & Payouts')}
+              </h3>
               <p style={{ fontSize: 14, color: '#94A3B8', lineHeight: 1.6, margin: 0 }}>
-                Track your net earnings, sales breakdown, and request payouts straight from your built-in <strong>Wallet & 9% Fees</strong> dashboard tab.
+                {t('landing.storeSection.f3Desc', 'Track your net earnings, sales breakdown, and request payouts straight from your built-in Wallet & 9% Fees dashboard tab.')}
               </p>
             </div>
           </div>
@@ -987,13 +1001,13 @@ export default function LandingPage({ goToLogin, goToSignUp, goTo }) {
       <section id="features" style={{ maxWidth: 1200, margin: '0 auto', padding: '90px 20px 70px' }}>
         <div style={{ textAlign: 'center', maxWidth: 640, margin: '0 auto 50px' }}>
           <span style={{ fontSize: 12, fontWeight: 800, color: '#0D9488', letterSpacing: '0.06em', background: '#E6F7F5', padding: '4px 12px', borderRadius: 100 }}>
-            BUILT-IN LINKSOCIO TOOLS
+            {t('landing.featuresSection.badge', 'BUILT-IN LINKSOCIO TOOLS')}
           </span>
           <h2 style={{ fontSize: 32, fontWeight: 800, color: '#0F172A', marginTop: 12, marginBottom: 8, letterSpacing: '-0.02em' }}>
-            Everything you have in your dashboard.
+            {t('landing.featuresSection.title', 'Everything you have in your dashboard.')}
           </h2>
           <p style={{ fontSize: 15, color: '#64748B', lineHeight: 1.6, margin: 0 }}>
-            Every tool designed to grow your business, showcase your products, and turn your bio link into a high-converting machine.
+            {t('landing.featuresSection.subtitle', 'Every tool designed to grow your business, showcase your products, and turn your bio link into a high-converting machine.')}
           </p>
         </div>
 
@@ -1008,81 +1022,81 @@ export default function LandingPage({ goToLogin, goToSignUp, goTo }) {
           {/* 1. Links & Socials Manager */}
           <div style={featureCardStyle}>
             <div style={{ ...iconBadgeStyle, background: '#E0F2FE', color: '#0284C7' }}>🔗</div>
-            <h3 style={featureTitleStyle}>Links & Socials Manager</h3>
+            <h3 style={featureTitleStyle}>{t('landing.featuresSection.f1Title', 'Links & Socials Manager')}</h3>
             <p style={featureTextStyle}>
-              Add unlimited social media icons and custom links. Reorder them with intuitive drag-and-drop handles and track live click counts.
+              {t('landing.featuresSection.f1Desc', 'Add unlimited social media icons and custom links. Reorder them with intuitive drag-and-drop handles and track live click counts.')}
             </p>
           </div>
 
           {/* 2. Store & Digital Products */}
           <div style={featureCardStyle}>
             <div style={{ ...iconBadgeStyle, background: '#FEF3C7', color: '#D97706' }}>🛍️</div>
-            <h3 style={featureTitleStyle}>Store & Digital Products</h3>
+            <h3 style={featureTitleStyle}>{t('landing.featuresSection.f2Title', 'Digital Product Store')}</h3>
             <p style={featureTextStyle}>
-              Sell downloadable digital files, ebooks, templates, and courses with direct checkout and instant automated file delivery.
+              {t('landing.featuresSection.f2Desc', 'Sell downloadable digital files, ebooks, templates, and courses with direct checkout and instant automated file delivery.')}
             </p>
           </div>
 
           {/* 3. Appointments & Calendar Booking */}
           <div style={featureCardStyle}>
             <div style={{ ...iconBadgeStyle, background: '#DCFCE7', color: '#16A34A' }}>🗓️</div>
-            <h3 style={featureTitleStyle}>Appointments & Calendar</h3>
+            <h3 style={featureTitleStyle}>{t('landing.featuresSection.f4Title', 'Appointments & Calendar')}</h3>
             <p style={featureTextStyle}>
-              Let clients book 1-on-1 consultations, coaching calls, or services directly with customized time slots and booking limits.
+              {t('landing.featuresSection.f4Desc', 'Offer paid or free consultation calls. Set available weekdays, working hours, and session durations directly in your bio.')}
             </p>
           </div>
 
           {/* 4. Messages & Lead Inquiries */}
           <div style={featureCardStyle}>
             <div style={{ ...iconBadgeStyle, background: '#FCE7F3', color: '#DB2777' }}>💬</div>
-            <h3 style={featureTitleStyle}>Messages & Leads Capture</h3>
+            <h3 style={featureTitleStyle}>{t('landing.featuresSection.f5Title', 'Messages & Lead Capture')}</h3>
             <p style={featureTextStyle}>
-              Collect custom lead messages, project inquiries, and client contact details directly to your dashboard inbox with export capabilities.
+              {t('landing.featuresSection.f5Desc', 'Collect client inquiries, service requests, and emails with an integrated contact form sent straight to your inbox.')}
             </p>
           </div>
 
           {/* 5. Restaurant & Digital Menu */}
           <div style={featureCardStyle}>
             <div style={{ ...iconBadgeStyle, background: '#FFEDD5', color: '#C2410C' }}>🍽️</div>
-            <h3 style={featureTitleStyle}>Restaurant & Digital Menu</h3>
+            <h3 style={featureTitleStyle}>{t('landing.featuresSection.f3Title', 'Restaurant & QR Menu')}</h3>
             <p style={featureTextStyle}>
-              Create a mouth-watering interactive digital menu with categories, item photos, dietary badges, and table reservation links.
+              {t('landing.featuresSection.f3Desc', 'Build clean categorized menus with dish photos, ingredients, pricing, and generate printed table QR codes.')}
             </p>
           </div>
 
           {/* 6. Appearance & 12+ Themes */}
           <div style={featureCardStyle}>
             <div style={{ ...iconBadgeStyle, background: '#EDE9FE', color: '#7C3AED' }}>🎨</div>
-            <h3 style={featureTitleStyle}>Appearance & 12+ Themes</h3>
+            <h3 style={featureTitleStyle}>{t('landing.featuresSection.f7Title', 'Appearance & Animated Themes')}</h3>
             <p style={featureTextStyle}>
-              Personalize your page with curated themes (Midnight, Luxury Gold, Aurora, Pastel), Google Fonts, and custom button shadows.
+              {t('landing.featuresSection.f7Desc', 'Select from 12+ crafted themes (Glassmorphism, Cyberpunk, Luxury Emerald, Sunset) paired with Google Web Fonts.')}
             </p>
           </div>
 
           {/* 7. WhatsApp & Email Notification Alerts */}
           <div style={featureCardStyle}>
             <div style={{ ...iconBadgeStyle, background: '#DCFCE7', color: '#15803D' }}>🔔</div>
-            <h3 style={featureTitleStyle}>WhatsApp & Sound Alerts</h3>
+            <h3 style={featureTitleStyle}>{t('landing.featuresSection.f6Title', 'WhatsApp & Email Alerts')}</h3>
             <p style={featureTextStyle}>
-              Get instant notification chimes and 1-tap WhatsApp redirection whenever a new booking or lead inquiry arrives.
+              {t('landing.featuresSection.f6Desc', 'Receive instant Telegram and Gmail notifications whenever someone purchases a product or books an appointment.')}
             </p>
           </div>
 
           {/* 8. QR Code & Instant vCard */}
           <div style={featureCardStyle}>
             <div style={{ ...iconBadgeStyle, background: '#F1F5F9', color: '#334155' }}>🔲</div>
-            <h3 style={featureTitleStyle}>Vector QR Code & vCard</h3>
+            <h3 style={featureTitleStyle}>{t('landing.featuresSection.f8Title', 'Wallet & 9% Split Payouts')}</h3>
             <p style={featureTextStyle}>
-              Generate high-resolution vector QR codes for business cards and packaging, plus downloadable vCard contact saving.
+              {t('landing.featuresSection.f8Desc', 'Keep 91% of all your digital product revenue. Transparent automated calculation with one-click payout requests.')}
             </p>
           </div>
 
           {/* 9. Real-Time Analytics */}
           <div style={featureCardStyle}>
             <div style={{ ...iconBadgeStyle, background: '#E6F7F5', color: '#0D9488' }}>📊</div>
-            <h3 style={featureTitleStyle}>Live Conversion Analytics</h3>
+            <h3 style={featureTitleStyle}>{t('landing.featuresSection.f9Title', 'Analytics & Visitor Traffic')}</h3>
             <p style={featureTextStyle}>
-              Track page views, total link clicks, click-through rates (CTR), and top performing channels in real-time.
+              {t('landing.featuresSection.f9Desc', 'Inspect real-time visitor counts, link click tracking, top referring social platforms, and conversion performance.')}
             </p>
           </div>
         </div>
@@ -1106,15 +1120,15 @@ export default function LandingPage({ goToLogin, goToSignUp, goTo }) {
           >
             <span style={{ fontSize: 13 }}>🎁</span>
             <span style={{ fontSize: 12.5, fontWeight: 800, color: '#065F46' }}>
-              14 DAYS FREE TRIAL ON ALL PLANS · NO CREDIT CARD REQUIRED
+              {t('landing.pricingSection.badge', '14 DAYS FREE TRIAL ON ALL PLANS · NO CREDIT CARD REQUIRED')}
             </span>
           </div>
 
           <h2 style={{ fontSize: 'clamp(28px, 4vw, 38px)', fontWeight: 800, color: '#0F172A', margin: '6px 0' }}>
-            Simple, Transparent Pricing in EUR (€)
+            {t('landing.pricingSection.title', 'Simple, Transparent Pricing in EUR (€)')}
           </h2>
           <p style={{ fontSize: 15, color: '#64748B', margin: '0 0 40px' }}>
-            Start completely free for 14 days. Upgrade whenever you are ready to scale.
+            {t('landing.pricingSection.subtitle', 'Start completely free for 14 days. Upgrade whenever you are ready to scale.')}
           </p>
 
           <div
@@ -1128,26 +1142,28 @@ export default function LandingPage({ goToLogin, goToSignUp, goTo }) {
           >
             {/* Plan 1: 14-Days Free Trial (€0) */}
             <div style={{ border: '1px solid #E2E8F0', borderRadius: 24, padding: '32px 24px', background: '#F8FAFA', display: 'flex', flexDirection: 'column' }}>
-              <span style={{ fontSize: 12, fontWeight: 800, color: '#64748B', letterSpacing: '0.06em' }}>14-DAY FULL ACCESS</span>
+              <span style={{ fontSize: 12, fontWeight: 800, color: '#64748B', letterSpacing: '0.06em' }}>
+                {t('landing.pricingSection.trialPlan.title', '14-DAY FULL ACCESS')}
+              </span>
               <p style={{ fontSize: 34, fontWeight: 800, color: '#0F172A', margin: '10px 0 6px' }}>
-                €0 <span style={{ fontSize: 13, fontWeight: 600, color: '#8A97A3' }}>/ 14 days free</span>
+                €0 <span style={{ fontSize: 13, fontWeight: 600, color: '#8A97A3' }}>/ {t('landing.pricingSection.trialPlan.period', '14 days free')}</span>
               </p>
               <p style={{ fontSize: 12.5, color: '#64748B', margin: '0 0 20px', minHeight: 36 }}>
-                Full dashboard access to build your bio link, list products & test features.
+                {t('landing.pricingSection.trialPlan.desc', 'Full dashboard access to build your bio link, list products & test features.')}
               </p>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 9, marginBottom: 26, flex: 1 }}>
                 {[
-                  '14 Days full feature access',
-                  'Unlimited links & social icons',
-                  'Direct 1-tap WhatsApp button',
-                  'Digital store with 91% net split',
-                  'Appointments & Booking form',
-                  'Inquiry & Leads capture inbox',
-                  'Downloadable Vector QR Code',
-                  'Basic page view analytics',
-                ].map((item) => (
-                  <div key={item} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, color: '#0F172A' }}>
+                  t('landing.pricingSection.trialPlan.feat1', '14 Days full feature access'),
+                  t('landing.pricingSection.trialPlan.feat2', 'Unlimited links & social icons'),
+                  t('landing.pricingSection.trialPlan.feat3', 'Direct 1-tap WhatsApp button'),
+                  t('landing.pricingSection.trialPlan.feat4', 'Digital store with 91% net split'),
+                  t('landing.pricingSection.trialPlan.feat5', 'Appointments & Booking form'),
+                  t('landing.pricingSection.trialPlan.feat6', 'Inquiry & Leads capture inbox'),
+                  t('landing.pricingSection.trialPlan.feat7', 'Downloadable Vector QR Code'),
+                  t('landing.pricingSection.trialPlan.feat8', 'Basic page view analytics'),
+                ].map((item, idx) => (
+                  <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, color: '#0F172A' }}>
                     <span style={{ color: '#14B8A6', fontWeight: 800 }}>✓</span>
                     <span>{item}</span>
                   </div>
@@ -1170,7 +1186,7 @@ export default function LandingPage({ goToLogin, goToSignUp, goTo }) {
                 }}
                 className="btn-scale"
               >
-                Start 14-Days Free
+                {t('landing.pricingSection.trialPlan.btn', 'Start 14-Days Free')}
               </button>
             </div>
 
@@ -1202,28 +1218,30 @@ export default function LandingPage({ goToLogin, goToSignUp, goTo }) {
                   boxShadow: '0 4px 12px rgba(20,184,166,0.3)',
                 }}
               >
-                MOST POPULAR
+                {t('landing.pricingSection.proPlan.badge', 'MOST POPULAR')}
               </div>
-              <span style={{ fontSize: 12, fontWeight: 800, color: '#0D9488', letterSpacing: '0.06em' }}>PRO CREATOR</span>
+              <span style={{ fontSize: 12, fontWeight: 800, color: '#0D9488', letterSpacing: '0.06em' }}>
+                {t('landing.pricingSection.proPlan.title', 'PRO CREATOR')}
+              </span>
               <p style={{ fontSize: 34, fontWeight: 800, color: '#0F172A', margin: '10px 0 6px' }}>
-                €4.99 <span style={{ fontSize: 13, fontWeight: 600, color: '#8A97A3' }}>/ month</span>
+                €4.99 <span style={{ fontSize: 13, fontWeight: 600, color: '#8A97A3' }}>/ {t('landing.pricingSection.proPlan.period', 'month')}</span>
               </p>
               <p style={{ fontSize: 12.5, color: '#64748B', margin: '0 0 20px', minHeight: 36 }}>
-                For individual creators, coaches & freelancers wanting a premium page.
+                {t('landing.pricingSection.proPlan.desc', 'For individual creators, coaches & freelancers wanting a premium page.')}
               </p>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 9, marginBottom: 26, flex: 1 }}>
                 {[
-                  'Includes everything in 14-Day Free',
-                  'All 12+ Animated Themes & Google Fonts',
-                  'Unlimited Digital Products sales',
-                  'Instant automated file delivery',
-                  'Restaurant interactive menu builder',
-                  'WhatsApp & sound notification alerts',
-                  'Remove LinkSocio watermark badge',
-                  'Detailed traffic & click conversion logs',
-                ].map((item) => (
-                  <div key={item} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, color: '#0F172A' }}>
+                  t('landing.pricingSection.proPlan.feat1', 'Includes everything in 14-Day Free'),
+                  t('landing.pricingSection.proPlan.feat2', 'All 12+ Animated Themes & Google Fonts'),
+                  t('landing.pricingSection.proPlan.feat3', 'Unlimited Digital Products sales'),
+                  t('landing.pricingSection.proPlan.feat4', 'Instant automated file delivery'),
+                  t('landing.pricingSection.proPlan.feat5', 'Restaurant interactive menu builder'),
+                  t('landing.pricingSection.proPlan.feat6', 'WhatsApp & sound notification alerts'),
+                  t('landing.pricingSection.proPlan.feat7', 'Remove LinkSocio watermark badge'),
+                  t('landing.pricingSection.proPlan.feat8', 'Detailed traffic & click conversion logs'),
+                ].map((item, idx) => (
+                  <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, color: '#0F172A' }}>
                     <span style={{ color: '#14B8A6', fontWeight: 800 }}>✓</span>
                     <span style={{ fontWeight: 600 }}>{item}</span>
                   </div>
@@ -1246,31 +1264,33 @@ export default function LandingPage({ goToLogin, goToSignUp, goTo }) {
                 }}
                 className="btn-scale"
               >
-                Get Started (€4.99/mo) 🚀
+                {t('landing.pricingSection.proPlan.btn', 'Get Started (€4.99/mo) 🚀')}
               </button>
             </div>
 
             {/* Plan 3: Business & Agency (€11.99) */}
             <div style={{ border: '1px solid #CBD5E1', borderRadius: 24, padding: '32px 24px', background: '#F8FAFA', display: 'flex', flexDirection: 'column' }}>
-              <span style={{ fontSize: 12, fontWeight: 800, color: '#6366F1', letterSpacing: '0.06em' }}>BUSINESS & AGENCY</span>
+              <span style={{ fontSize: 12, fontWeight: 800, color: '#6366F1', letterSpacing: '0.06em' }}>
+                {t('landing.pricingSection.bizPlan.title', 'BUSINESS & AGENCY')}
+              </span>
               <p style={{ fontSize: 34, fontWeight: 800, color: '#0F172A', margin: '10px 0 6px' }}>
-                €11.99 <span style={{ fontSize: 13, fontWeight: 600, color: '#8A97A3' }}>/ month</span>
+                €11.99 <span style={{ fontSize: 13, fontWeight: 600, color: '#8A97A3' }}>/ {t('landing.pricingSection.bizPlan.period', 'month')}</span>
               </p>
               <p style={{ fontSize: 12.5, color: '#64748B', margin: '0 0 20px', minHeight: 36 }}>
-                For high-volume stores, restaurant chains, and commercial agencies.
+                {t('landing.pricingSection.bizPlan.desc', 'For high-volume stores, restaurant chains, and commercial agencies.')}
               </p>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 9, marginBottom: 26, flex: 1 }}>
                 {[
-                  'Everything included in Pro Creator',
-                  'Priority booking slots & leads handling',
-                  'Multi-category large restaurant menus',
-                  'Highest digital file upload capacity',
-                  'Priority instant payout processing',
-                  'Advanced export for leads (CSV / Excel)',
-                  'VIP 24/7 dedicated support',
-                ].map((item) => (
-                  <div key={item} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, color: '#0F172A' }}>
+                  t('landing.pricingSection.bizPlan.feat1', 'Everything included in Pro Creator'),
+                  t('landing.pricingSection.bizPlan.feat2', 'Priority booking slots & leads handling'),
+                  t('landing.pricingSection.bizPlan.feat3', 'Multi-category large restaurant menus'),
+                  t('landing.pricingSection.bizPlan.feat4', 'Highest digital file upload capacity'),
+                  t('landing.pricingSection.bizPlan.feat5', 'Priority instant payout processing'),
+                  t('landing.pricingSection.bizPlan.feat6', 'Advanced export for leads (CSV / Excel)'),
+                  t('landing.pricingSection.bizPlan.feat7', 'VIP 24/7 dedicated support'),
+                ].map((item, idx) => (
+                  <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, color: '#0F172A' }}>
                     <span style={{ color: '#6366F1', fontWeight: 800 }}>✓</span>
                     <span style={{ fontWeight: 600 }}>{item}</span>
                   </div>
@@ -1293,7 +1313,7 @@ export default function LandingPage({ goToLogin, goToSignUp, goTo }) {
                 }}
                 className="btn-scale"
               >
-                Choose Business (€11.99/mo)
+                {t('landing.pricingSection.bizPlan.btn', 'Choose Business (€11.99/mo)')}
               </button>
             </div>
           </div>
@@ -1304,34 +1324,34 @@ export default function LandingPage({ goToLogin, goToSignUp, goTo }) {
       <section id="faq" style={{ maxWidth: 800, margin: '0 auto', padding: '90px 20px' }}>
         <div style={{ textAlign: 'center', marginBottom: 40 }}>
           <h2 style={{ fontSize: 28, fontWeight: 800, color: '#0F172A', margin: '0 0 8px' }}>
-            Frequently Asked Questions
+            {t('landing.faqSection.title', 'Frequently Asked Questions')}
           </h2>
           <p style={{ fontSize: 14.5, color: '#64748B', margin: 0 }}>
-            Everything you need to know about the 14-day free trial, features, and pricing.
+            {t('landing.faqSection.subtitle', 'Everything you need to know about the 14-day free trial, features, and pricing.')}
           </p>
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {[
             {
-              q: 'How does the 14-day free trial work?',
-              a: 'You can sign up today and enjoy all features — including all luxury themes, digital product listings, direct WhatsApp ordering, appointment calendar, and analytics — completely free for 14 days without any credit card required.',
+              q: t('landing.faqSection.q1', 'How does the 14-day free trial work?'),
+              a: t('landing.faqSection.a1', 'You can sign up today and enjoy all features — including all luxury themes, digital product listings, direct WhatsApp ordering, appointment calendar, and analytics — completely free for 14 days without any credit card required.'),
             },
             {
-              q: 'What are the pricing options after the 14 days?',
-              a: 'You can continue with the Pro Creator plan at €4.99/month, or the Business plan at €11.99/month for higher volume and advanced capabilities.',
+              q: t('landing.faqSection.q2', 'What are the pricing options after the 14 days?'),
+              a: t('landing.faqSection.a2', 'You can continue with the Pro Creator plan at €4.99/month, or the Business plan at €11.99/month for higher volume and advanced capabilities.'),
             },
             {
-              q: 'How do digital product sales and payouts work?',
-              a: 'When you list a digital file (PDF, ebook, template, course), buyers can purchase directly. The buyer gets instant download access, and 91% net revenue is recorded directly to your Wallet with a 9% platform fee.',
+              q: t('landing.faqSection.q3', 'How do digital product sales and payouts work?'),
+              a: t('landing.faqSection.a3', 'When you list a digital file (PDF, ebook, template, course), buyers can purchase directly. The buyer gets instant download access, and 91% net revenue is recorded directly to your Wallet with a 9% platform fee.'),
             },
             {
-              q: 'How does the direct WhatsApp feature work?',
-              a: 'When you configure your WhatsApp link or phone number, LinkSocio creates a direct wa.me link. Visitors tap it from your page and immediately start a conversation without needing to manually save your number.',
+              q: t('landing.faqSection.q4', 'How does the direct WhatsApp feature work?'),
+              a: t('landing.faqSection.a4', 'When you configure your WhatsApp link or phone number, LinkSocio creates a direct wa.me link. Visitors tap it from your page and immediately start a conversation without needing to manually save your number.'),
             },
             {
-              q: 'Can I manage restaurant menus and table bookings?',
-              a: 'Yes! The built-in Restaurant & Menu tab allows you to showcase categorized dishes, add prices and photos, and let visitors reserve tables or send inquiries directly.',
+              q: t('landing.faqSection.q5', 'Can I manage restaurant menus and table bookings?'),
+              a: t('landing.faqSection.a5', 'Yes! The built-in Restaurant & Menu tab allows you to showcase categorized dishes, add prices and photos, and let visitors reserve tables or send inquiries directly.'),
             },
           ].map((item, idx) => {
             const isOpen = faqOpen.includes(idx)
@@ -1396,13 +1416,13 @@ export default function LandingPage({ goToLogin, goToSignUp, goTo }) {
 
         <div style={{ position: 'relative', zIndex: 1, maxWidth: 680, margin: '0 auto' }}>
           <span style={{ background: 'rgba(20, 184, 166, 0.2)', color: '#2DD4BF', border: '1px solid rgba(20, 184, 166, 0.4)', fontSize: 12, fontWeight: 800, padding: '4px 14px', borderRadius: 100 }}>
-            ⚡ 14-DAYS FREE TRIAL
+            {t('landing.ctaSection.badge', '⚡ 14-DAYS FREE TRIAL')}
           </span>
           <h2 style={{ fontSize: 'clamp(28px, 4vw, 42px)', fontWeight: 800, margin: '14px 0 0', letterSpacing: '-0.02em', lineHeight: 1.2 }}>
-            Ready to claim your corner of the internet?
+            {t('landing.ctaSection.title', 'Ready to claim your corner of the internet?')}
           </h2>
           <p style={{ fontSize: 16, color: '#94A3B8', marginTop: 12, marginBottom: 30 }}>
-            Join creators, brands, and businesses who connect and monetize with LinkSocio.
+            {t('landing.ctaSection.subtitle', 'Join creators, brands, and businesses who connect and monetize with LinkSocio.')}
           </p>
 
           <form
@@ -1425,7 +1445,7 @@ export default function LandingPage({ goToLogin, goToSignUp, goTo }) {
             <span style={{ fontSize: 14, color: '#94A3B8', fontWeight: 700, whiteSpace: 'nowrap' }}>linksocio.com/</span>
             <input
               type="text"
-              placeholder="yourname"
+              placeholder={t('landing.hero.claimPlaceholder', 'yourname')}
               value={claimHandle}
               onChange={(e) => setClaimHandle(e.target.value)}
               style={{
@@ -1455,7 +1475,7 @@ export default function LandingPage({ goToLogin, goToSignUp, goTo }) {
               }}
               className="btn-scale"
             >
-              Get Started →
+              {t('landing.ctaSection.btn', 'Get Started →')}
             </button>
           </form>
         </div>
@@ -1470,17 +1490,17 @@ export default function LandingPage({ goToLogin, goToSignUp, goTo }) {
               <rect x="20" y="20" width="22" height="22" rx="11" fill="none" stroke="#FFFFFF" strokeWidth="6" />
             </svg>
             <span style={{ fontSize: 15, fontWeight: 700, color: 'white' }}>LinkSocio</span>
-            <span style={{ fontSize: 12, color: '#64748B' }}>— Bio Link & Digital Store.</span>
+            <span style={{ fontSize: 12, color: '#64748B' }}>— {t('landing.footer.tagline', 'Bio Link & Digital Store.')}</span>
           </div>
 
           <div style={{ display: 'flex', gap: 20 }}>
             <button onClick={() => goTo && goTo('privacy')} style={{ background: 'none', border: 'none', color: '#8A97A3', fontSize: 13, cursor: 'pointer', padding: 0 }}>
-              Privacy Policy
+              {t('landing.footer.privacy', 'Privacy Policy')}
             </button>
             <button onClick={() => goTo && goTo('terms')} style={{ background: 'none', border: 'none', color: '#8A97A3', fontSize: 13, cursor: 'pointer', padding: 0 }}>
-              Terms of Service
+              {t('landing.footer.terms', 'Terms of Service')}
             </button>
-            <span style={{ color: '#475569' }}>© 2026 LinkSocio. All rights reserved.</span>
+            <span style={{ color: '#475569' }}>{t('landing.footer.copyright', '© 2026 LinkSocio. All rights reserved.')}</span>
           </div>
         </div>
       </footer>

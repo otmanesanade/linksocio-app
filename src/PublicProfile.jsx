@@ -5,8 +5,10 @@ import { fetchServerInquirySettings } from './InquiryTab'
 import { fetchServerBookingSettings } from './BookingTab'
 import { fetchServerRestaurantMenu } from './RestaurantTab'
 import { fetchServerSocials, fetchServerLinksMeta, fetchServerProfileMeta } from './utils/socialPlatforms'
+import { useLanguage } from './context/LanguageContext'
 
 export default function PublicProfile({ username }) {
+  const { t } = useLanguage()
   const [profile, setProfile] = useState(null)
   const [links, setLinks] = useState([])
   const [products, setProducts] = useState([])
@@ -231,7 +233,7 @@ export default function PublicProfile({ username }) {
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#F8FAFA', fontFamily: 'sans-serif' }}>
         <div style={{ textAlign: 'center' }}>
           <div style={{ width: 40, height: 40, border: '3px solid #14B8A6', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 12px' }} />
-          <p style={{ color: '#64748B', fontSize: 14 }}>Loading profile...</p>
+          <p style={{ color: '#64748B', fontSize: 14 }}>{t('publicProfile.loading', 'Loading profile...')}</p>
         </div>
         <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
       </div>
@@ -242,12 +244,12 @@ export default function PublicProfile({ username }) {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#F8FAFA', fontFamily: 'sans-serif', padding: 24, textAlign: 'center' }}>
         <div style={{ fontSize: 48, marginBottom: 12 }}>🔍</div>
-        <h2 style={{ fontSize: 20, color: '#0F172A', margin: '0 0 6px' }}>Page Not Found</h2>
+        <h2 style={{ fontSize: 20, color: '#0F172A', margin: '0 0 6px' }}>{t('publicProfile.notFoundTitle', 'Page Not Found')}</h2>
         <p style={{ color: '#64748B', fontSize: 14, maxWidth: 320, margin: '0 0 20px' }}>
-          The LinkSocio page @{username} doesn't exist or has been moved.
+          {t('publicProfile.notFoundDesc', "The LinkSocio page @{username} doesn't exist or has been moved.").replace('{username}', username || '')}
         </p>
         <a href="/" style={{ background: '#14B8A6', color: 'white', textDecoration: 'none', padding: '10px 20px', borderRadius: 12, fontSize: 13.5, fontWeight: 600 }}>
-          Create your LinkSocio page
+          {t('publicProfile.createPage', 'Create your LinkSocio page')}
         </a>
       </div>
     )
@@ -257,12 +259,12 @@ export default function PublicProfile({ username }) {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#F8FAFA', fontFamily: 'sans-serif', padding: 24, textAlign: 'center' }}>
         <div style={{ fontSize: 52, marginBottom: 16 }}>⏳</div>
-        <h2 style={{ fontSize: 22, fontWeight: 800, color: '#0F172A', margin: '0 0 8px' }}>Page Paused</h2>
+        <h2 style={{ fontSize: 22, fontWeight: 800, color: '#0F172A', margin: '0 0 8px' }}>{t('publicProfile.pausedTitle', 'Page Paused')}</h2>
         <p style={{ color: '#64748B', fontSize: 14, maxWidth: 380, margin: '0 0 24px', lineHeight: 1.5 }}>
-          The 14-day free trial for @{username} has ended. The creator needs to activate their LinkSocio subscription to reactivate this page.
+          {t('publicProfile.pausedDesc', 'The 14-day free trial for @{username} has ended. The creator needs to activate their LinkSocio subscription to reactivate this page.').replace('{username}', username || '')}
         </p>
         <a href="/login" style={{ background: '#14B8A6', color: 'white', textDecoration: 'none', padding: '12px 24px', borderRadius: 14, fontSize: 14, fontWeight: 700, boxShadow: '0 4px 12px rgba(20, 184, 166, 0.25)' }}>
-          Creator Login & Activate
+          {t('publicProfile.creatorLogin', 'Creator Login & Activate')}
         </a>
       </div>
     )

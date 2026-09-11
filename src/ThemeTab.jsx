@@ -2,8 +2,10 @@ import { useState, useEffect } from 'react'
 import { supabase } from './supabaseClient'
 import { THEMES, FONTS, BUTTON_STYLES } from './themes'
 import AvatarUpload from './components/AvatarUpload'
+import { useLanguage } from './context/LanguageContext'
 
 export default function ThemeTab({ user, profile, onUpdated }) {
+  const { t, isRTL } = useLanguage()
   const [selectedTheme, setSelectedTheme] = useState(profile?.theme_preset || 'default')
   const [selectedFont, setSelectedFont] = useState(profile?.font_family || 'default')
   const [selectedButtonStyle, setSelectedButtonStyle] = useState(profile?.button_style || 'rounded')
@@ -57,18 +59,19 @@ export default function ThemeTab({ user, profile, onUpdated }) {
       <AvatarUpload user={user} profile={profile} onUpdated={onUpdated} />
 
       {/* Sub tabs */}
-      <div style={{ display: 'flex', gap: 8, background: '#E2E8F0', padding: 4, borderRadius: 14 }}>
+      <div style={{ display: 'flex', gap: 8, background: '#E2E8F0', padding: 4, borderRadius: 14, flexWrap: 'wrap' }}>
         {[
-          { key: 'themes', label: '🎨 Color Themes' },
-          { key: 'fonts', label: '🔤 Typography & Fonts' },
-          { key: 'buttons', label: '✨ Button & Card Effects' },
-          { key: 'branding', label: '🛡️ Watermark & Badge' },
+          { key: 'themes', label: t('themeTab.tabThemes', '🎨 Color Themes') },
+          { key: 'fonts', label: t('themeTab.tabFonts', '🔤 Typography & Fonts') },
+          { key: 'buttons', label: t('themeTab.tabButtons', '✨ Button & Card Effects') },
+          { key: 'branding', label: t('themeTab.tabBranding', '🛡️ Watermark & Badge') },
         ].map((tab) => (
           <button
             key={tab.key}
             onClick={() => setActiveSubTab(tab.key)}
             style={{
               flex: 1,
+              minWidth: 120,
               padding: '9px 12px',
               borderRadius: 10,
               border: 'none',
@@ -92,9 +95,9 @@ export default function ThemeTab({ user, profile, onUpdated }) {
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
               <div>
-                <p style={{ margin: '0 0 3px', fontSize: 15, fontWeight: 700, color: '#0F172A' }}>Themes & Visual Styling</p>
+                <p style={{ margin: '0 0 3px', fontSize: 15, fontWeight: 700, color: '#0F172A' }}>{t('themeTab.themesTitle', 'Themes & Visual Styling')}</p>
                 <p style={{ margin: 0, fontSize: 13, color: '#64748B' }}>
-                  Choose from high-end photo showcase themes, dark luxury palettes, and glowing gradients.
+                  {t('themeTab.themesDesc', 'Choose from high-end photo showcase themes, dark luxury palettes, and glowing gradients.')}
                 </p>
               </div>
             </div>
@@ -102,11 +105,11 @@ export default function ThemeTab({ user, profile, onUpdated }) {
             {/* Category Filter Chips */}
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 16 }}>
               {[
-                { id: 'all', label: 'All Themes' },
-                { id: 'photo', label: '📸 Photo Focus (New)' },
-                { id: 'luxury', label: '👑 Luxury & VIP' },
-                { id: 'animated', label: '⚡ Animated Glow' },
-                { id: 'minimal', label: '✨ Minimal & Clean' },
+                { id: 'all', label: t('themeTab.catAll', 'All Themes') },
+                { id: 'photo', label: t('themeTab.catPhoto', '📸 Photo Focus (New)') },
+                { id: 'luxury', label: t('themeTab.catLuxury', '👑 Luxury & VIP') },
+                { id: 'animated', label: t('themeTab.catAnimated', '⚡ Animated Glow') },
+                { id: 'minimal', label: t('themeTab.catMinimal', '✨ Minimal & Clean') },
               ].map((cat) => {
                 const isActive = themeCategory === cat.id
                 return (
@@ -247,9 +250,9 @@ export default function ThemeTab({ user, profile, onUpdated }) {
 
         {activeSubTab === 'fonts' && (
           <div>
-            <p style={{ margin: '0 0 3px', fontSize: 15, fontWeight: 600, color: '#0F172A' }}>Font Selection</p>
+            <p style={{ margin: '0 0 3px', fontSize: 15, fontWeight: 600, color: '#0F172A' }}>{t('themeTab.fontsTitle', 'Font Selection')}</p>
             <p style={{ margin: '0 0 18px', fontSize: 13, color: '#8A97A3' }}>
-              Choose the typographic personality that matches your brand and bio.
+              {t('themeTab.fontsDesc', 'Choose the typographic personality that matches your brand and bio.')}
             </p>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
@@ -265,7 +268,7 @@ export default function ThemeTab({ user, profile, onUpdated }) {
                       border: isSelected ? '2px solid #14B8A6' : '1px solid #E7EDEC',
                       background: isSelected ? '#F0FDFA' : '#FAFAFA',
                       cursor: 'pointer',
-                      textAlign: 'left',
+                      textAlign: isRTL ? 'right' : 'left',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'space-between',
@@ -277,7 +280,7 @@ export default function ThemeTab({ user, profile, onUpdated }) {
                         {f.name}
                       </span>
                       <span style={{ display: 'block', fontSize: 15, color: '#475569', fontFamily: f.fontFamily }}>
-                        Aa Bb Cc 123 · Bio link preview
+                        Aa Bb Cc 123 · {t('themeTab.fontPreview', 'Bio link preview')}
                       </span>
                     </div>
                     {isSelected && (
@@ -294,9 +297,9 @@ export default function ThemeTab({ user, profile, onUpdated }) {
 
         {activeSubTab === 'buttons' && (
           <div>
-            <p style={{ margin: '0 0 3px', fontSize: 15, fontWeight: 600, color: '#0F172A' }}>Button & Link Card Styles</p>
+            <p style={{ margin: '0 0 3px', fontSize: 15, fontWeight: 600, color: '#0F172A' }}>{t('themeTab.buttonsTitle', 'Button & Link Card Styles')}</p>
             <p style={{ margin: '0 0 18px', fontSize: 13, color: '#8A97A3' }}>
-              Select button geometry, glassmorphism transparency, 3D brutalist shadows, or neon effects.
+              {t('themeTab.buttonsDesc', 'Select button geometry, glassmorphism transparency, 3D brutalist shadows, or neon effects.')}
             </p>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
@@ -312,7 +315,7 @@ export default function ThemeTab({ user, profile, onUpdated }) {
                       border: isSelected ? '2px solid #14B8A6' : '1px solid #E7EDEC',
                       background: isSelected ? '#F0FDFA' : '#FAFAFA',
                       cursor: 'pointer',
-                      textAlign: 'left',
+                      textAlign: isRTL ? 'right' : 'left',
                       display: 'flex',
                       flexDirection: 'column',
                       gap: 10,
@@ -345,8 +348,8 @@ export default function ThemeTab({ user, profile, onUpdated }) {
                         color: '#0F172A',
                       }}
                     >
-                      <span>🔥 My Latest Content</span>
-                      <span>↗</span>
+                      <span>🔥 {t('themeTab.sampleButton', 'My Latest Content')}</span>
+                      <span style={{ transform: isRTL ? 'scaleX(-1)' : 'none' }}>↗</span>
                     </div>
                   </button>
                 )
@@ -359,9 +362,9 @@ export default function ThemeTab({ user, profile, onUpdated }) {
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
               <div>
-                <p style={{ margin: '0 0 3px', fontSize: 15, fontWeight: 600, color: '#0F172A' }}>LinkSocio Branding & Watermark</p>
+                <p style={{ margin: '0 0 3px', fontSize: 15, fontWeight: 600, color: '#0F172A' }}>{t('themeTab.brandingTitle', 'LinkSocio Branding & Watermark')}</p>
                 <p style={{ margin: 0, fontSize: 13, color: '#8A97A3' }}>
-                  Control whether the "LinkSocio · Build your audience" badge appears at the bottom of your public page.
+                  {t('themeTab.brandingDesc', 'Control whether the "LinkSocio · Build your audience" badge appears at the bottom of your public page.')}
                 </p>
               </div>
               <span
@@ -375,7 +378,7 @@ export default function ThemeTab({ user, profile, onUpdated }) {
                   borderRadius: 100,
                 }}
               >
-                PRO FEATURE ⚡
+                {t('themeTab.proFeature', 'PRO FEATURE ⚡')}
               </span>
             </div>
 
@@ -410,12 +413,12 @@ export default function ThemeTab({ user, profile, onUpdated }) {
                 </div>
                 <div>
                   <div style={{ fontSize: 14, fontWeight: 700, color: '#0F172A' }}>
-                    Remove LinkSocio Watermarks & Badges
+                    {t('themeTab.hideWatermark', 'Remove LinkSocio Watermarks & Badges')}
                   </div>
                   <p style={{ margin: '2px 0 0', fontSize: 12.5, color: '#64748B' }}>
                     {hideBranding
-                      ? 'All LinkSocio badges (top-left badge and footer watermark) are hidden for a 100% white-label page.'
-                      : 'Show the LinkSocio brand badge at the top-left and footer credit watermark.'}
+                      ? t('themeTab.hideWatermarkActive', 'All LinkSocio badges (top-left badge and footer watermark) are hidden for a 100% white-label page.')
+                      : t('themeTab.hideWatermarkInactive', 'Show the LinkSocio brand badge at the top-left and footer credit watermark.')}
                   </p>
                 </div>
               </div>
@@ -475,11 +478,13 @@ export default function ThemeTab({ user, profile, onUpdated }) {
               <div style={{ fontSize: 12.5, color: '#475569', lineHeight: 1.5 }}>
                 {hideBranding ? (
                   <span>
-                    <strong>White-label Mode Active:</strong> Your visitors will only see your brand, products, and links without any platform footer.
+                    <strong>{t('themeTab.whiteLabelActive', 'White-label Mode Active:')}</strong>{' '}
+                    {t('themeTab.whiteLabelDesc', 'Your visitors will only see your brand, products, and links without any platform footer.')}
                   </span>
                 ) : (
                   <span>
-                    <strong>Standard Badge:</strong> Displays "LinkSocio · Build your audience" at the footer. Toggle the switch above to remove it anytime.
+                    <strong>{t('themeTab.standardBadge', 'Standard Badge:')}</strong>{' '}
+                    {t('themeTab.standardBadgeDesc', 'Displays "LinkSocio · Build your audience" at the footer. Toggle the switch above to remove it anytime.')}
                   </span>
                 )}
               </div>
@@ -489,7 +494,7 @@ export default function ThemeTab({ user, profile, onUpdated }) {
 
         {saved && (
           <div style={{ marginTop: 18, padding: '8px 12px', background: '#ECFDF5', border: '1px solid #A7F3D0', borderRadius: 10, display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, color: '#059669', fontWeight: 600 }}>
-            <span>✓</span> Design updated in real-time
+            <span>✓</span> {t('themeTab.savedLive', 'Design updated in real-time')}
           </div>
         )}
       </div>

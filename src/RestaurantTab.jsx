@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useLanguage } from './context/LanguageContext'
 
 export async function fetchServerRestaurantMenu(username, userId) {
   try {
@@ -114,6 +115,7 @@ const SAMPLE_DEMO_MENU = {
 }
 
 export default function RestaurantTab({ profile, onUpdated }) {
+  const { t, isRTL } = useLanguage()
   const [enabled, setEnabled] = useState(false)
   const [restaurantName, setRestaurantName] = useState('')
   const [cuisineType, setCuisineType] = useState('')
@@ -350,15 +352,15 @@ export default function RestaurantTab({ profile, onUpdated }) {
             </div>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <p style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#0F172A' }}>Restaurant & Cafe Digital Menu</p>
+                <p style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#0F172A' }}>{t('restaurantTab.title', 'Restaurant & Cafe Digital Menu')}</p>
                 {enabled && (
                   <span style={{ background: '#DCFCE7', color: '#15803D', fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 100 }}>
-                    ACTIVE ON PAGE
+                    {t('restaurantTab.active', 'ACTIVE ON PAGE')}
                   </span>
                 )}
               </div>
               <p style={{ margin: '3px 0 0', fontSize: 12.5, color: '#64748B' }}>
-                Showcase your food & drink menu, categories, prices, food photos, and allow direct WhatsApp table or takeaway orders.
+                {t('restaurantTab.desc', 'Showcase your food & drink menu, categories, prices, food photos, and allow direct WhatsApp table or takeaway orders.')}
               </p>
             </div>
           </div>
@@ -382,7 +384,7 @@ export default function RestaurantTab({ profile, onUpdated }) {
                   gap: 6,
                 }}
               >
-                <span>⚡ Load Demo Menu</span>
+                <span>{t('restaurantTab.loadDemo', '⚡ Load Demo Menu')}</span>
               </button>
             )}
 
@@ -408,7 +410,7 @@ export default function RestaurantTab({ profile, onUpdated }) {
                 gap: 8,
               }}
             >
-              <span>{enabled ? '✓ Enabled' : 'Disabled'}</span>
+              <span>{enabled ? t('restaurantTab.enabled', '✓ Enabled') : t('restaurantTab.disabled', 'Disabled')}</span>
             </button>
           </div>
         </div>
@@ -416,39 +418,39 @@ export default function RestaurantTab({ profile, onUpdated }) {
 
       {/* Restaurant Settings Box */}
       <div style={{ background: 'white', border: '1px solid #E7EDEC', borderRadius: 20, padding: 22 }}>
-        <p style={{ margin: '0 0 4px', fontSize: 14.5, fontWeight: 700, color: '#0F172A' }}>⚙️ Restaurant & Ordering Info</p>
-        <p style={{ margin: '0 0 16px', fontSize: 12, color: '#8A97A3' }}>Configure your restaurant details and ordering preferences.</p>
+        <p style={{ margin: '0 0 4px', fontSize: 14.5, fontWeight: 700, color: '#0F172A' }}>⚙️ {t('restaurantTab.restaurantDetails', 'Restaurant & Ordering Info')}</p>
+        <p style={{ margin: '0 0 16px', fontSize: 12, color: '#8A97A3' }}>{t('restaurantTab.enableDesc', 'Configure your restaurant details and ordering preferences.')}</p>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 14 }}>
           <div>
             <label style={{ fontSize: 11.5, fontWeight: 600, color: '#64748B', display: 'block', marginBottom: 4 }}>
-              Restaurant / Cafe Name
+              {t('restaurantTab.restaurantName', 'Restaurant / Cafe Name')}
             </label>
             <input
               type="text"
               value={restaurantName}
               onChange={(e) => setRestaurantName(e.target.value)}
-              placeholder="e.g. Bistro Parisien or Cafe Marrakech"
+              placeholder={t('restaurantTab.restaurantNamePlaceholder', 'e.g. Bistro Parisien or Cafe Marrakech')}
               style={{ width: '100%', padding: '9px 12px', border: '1px solid #E2E8F0', borderRadius: 10, fontSize: 13 }}
             />
           </div>
 
           <div>
             <label style={{ fontSize: 11.5, fontWeight: 600, color: '#64748B', display: 'block', marginBottom: 4 }}>
-              Cuisine & Specialty
+              {t('restaurantTab.cuisineType', 'Cuisine & Specialty')}
             </label>
             <input
               type="text"
               value={cuisineType}
               onChange={(e) => setCuisineType(e.target.value)}
-              placeholder="e.g. Burgers, Artisan Pizzas, Smoothies"
+              placeholder={t('restaurantTab.cuisineTypePlaceholder', 'e.g. Burgers, Artisan Pizzas, Smoothies')}
               style={{ width: '100%', padding: '9px 12px', border: '1px solid #E2E8F0', borderRadius: 10, fontSize: 13 }}
             />
           </div>
 
           <div>
             <label style={{ fontSize: 11.5, fontWeight: 600, color: '#64748B', display: 'block', marginBottom: 4 }}>
-              Currency Symbol / Devise
+              {t('restaurantTab.currency', 'Currency Symbol / Devise')}
             </label>
             <input
               type="text"
@@ -546,7 +548,7 @@ export default function RestaurantTab({ profile, onUpdated }) {
               gap: 6,
             }}
           >
-            <span>{saving ? 'Saving...' : savedMsg ? '✓ Saved!' : 'Save Settings'}</span>
+            <span>{saving ? t('restaurantTab.saving', 'Saving...') : savedMsg ? t('restaurantTab.saved', '✓ Saved!') : t('restaurantTab.saveChanges', 'Save Settings')}</span>
           </button>
         </div>
       </div>
@@ -555,8 +557,8 @@ export default function RestaurantTab({ profile, onUpdated }) {
       <div style={{ background: 'white', border: '1px solid #E7EDEC', borderRadius: 20, padding: 22 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, marginBottom: 12 }}>
           <div>
-            <p style={{ margin: 0, fontSize: 14.5, fontWeight: 700, color: '#0F172A' }}>📑 Menu Categories</p>
-            <p style={{ margin: '2px 0 0', fontSize: 12, color: '#8A97A3' }}>Organize your food & beverage items by sections.</p>
+            <p style={{ margin: 0, fontSize: 14.5, fontWeight: 700, color: '#0F172A' }}>📑 {t('restaurantTab.categoriesTitle', 'Menu Categories')}</p>
+            <p style={{ margin: '2px 0 0', fontSize: 12, color: '#8A97A3' }}>{t('restaurantTab.categoryPlaceholder', 'Organize your food & beverage items by sections.')}</p>
           </div>
           <button
             type="button"
@@ -572,7 +574,7 @@ export default function RestaurantTab({ profile, onUpdated }) {
               cursor: 'pointer',
             }}
           >
-            {showCatModal ? 'Close Category Editor' : '+ Manage / Add Categories'}
+            {showCatModal ? 'Close Category Editor' : `+ ${t('restaurantTab.addCategory', 'Manage / Add Categories')}`}
           </button>
         </div>
 
@@ -638,8 +640,8 @@ export default function RestaurantTab({ profile, onUpdated }) {
       <div style={{ background: 'white', border: '1px solid #E7EDEC', borderRadius: 20, padding: 22 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
           <div>
-            <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: '#0F172A' }}>🍲 Dishes & Items ({items.length})</p>
-            <p style={{ margin: '2px 0 0', fontSize: 12, color: '#8A97A3' }}>Add, edit, or toggle availability for your food and drinks.</p>
+            <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: '#0F172A' }}>🍲 {t('restaurantTab.dishesTitle', 'Dishes & Items')} ({items.length})</p>
+            <p style={{ margin: '2px 0 0', fontSize: 12, color: '#8A97A3' }}>{t('restaurantTab.desc', 'Add, edit, or toggle availability for your food and drinks.')}</p>
           </div>
 
           <button
@@ -660,7 +662,7 @@ export default function RestaurantTab({ profile, onUpdated }) {
               boxShadow: '0 2px 6px rgba(20, 184, 166, 0.25)',
             }}
           >
-            <span>+ Add New Dish / Item</span>
+            <span>{t('restaurantTab.addNewDish', '+ Add New Dish / Item')}</span>
           </button>
         </div>
 
@@ -670,7 +672,7 @@ export default function RestaurantTab({ profile, onUpdated }) {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="🔍 Search dishes by name or ingredients..."
+            placeholder={`🔍 ${t('restaurantTab.searchDishes', 'Search dishes by name or ingredients...')}`}
             style={{ flex: 1, minWidth: 200, padding: '8px 12px', border: '1px solid #E2E8F0', borderRadius: 10, fontSize: 12.5 }}
           />
 
@@ -679,7 +681,7 @@ export default function RestaurantTab({ profile, onUpdated }) {
             onChange={(e) => setFilterCategory(e.target.value)}
             style={{ padding: '8px 12px', border: '1px solid #E2E8F0', borderRadius: 10, fontSize: 12.5, background: 'white', color: '#1E293B' }}
           >
-            <option value="all">All Categories ({items.length})</option>
+            <option value="all">{t('restaurantTab.filterAll', 'All Categories')} ({items.length})</option>
             {categories.map((c) => (
               <option key={c} value={c}>
                 {c} ({items.filter((i) => i.category === c).length})
@@ -771,7 +773,7 @@ export default function RestaurantTab({ profile, onUpdated }) {
                       cursor: 'pointer',
                     }}
                   >
-                    {item.available ? '● Available' : '○ Out of stock'}
+                    {item.available ? `● ${t('restaurantTab.availableToggle', 'Available')}` : `○ ${t('restaurantTab.outOfStock', 'Out of stock')}`}
                   </button>
 
                   <div style={{ display: 'flex', gap: 8 }}>
@@ -780,14 +782,14 @@ export default function RestaurantTab({ profile, onUpdated }) {
                       onClick={() => handleEditItem(item)}
                       style={{ background: '#F1F5F9', border: 'none', borderRadius: 6, padding: '3px 8px', fontSize: 11, fontWeight: 600, color: '#475569', cursor: 'pointer' }}
                     >
-                      Edit
+                      {t('restaurantTab.editDish', 'Edit')}
                     </button>
                     <button
                       type="button"
                       onClick={() => handleDeleteItem(item.id)}
                       style={{ background: '#FEF2F2', border: 'none', borderRadius: 6, padding: '3px 8px', fontSize: 11, fontWeight: 600, color: '#EF4444', cursor: 'pointer' }}
                     >
-                      Delete
+                      {t('restaurantTab.deleteDish', 'Delete')}
                     </button>
                   </div>
                 </div>
@@ -798,14 +800,14 @@ export default function RestaurantTab({ profile, onUpdated }) {
           {filteredItems.length === 0 && (
             <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '40px 20px', background: '#F8FAFC', borderRadius: 16, color: '#94A3B8' }}>
               <p style={{ fontSize: 24, margin: '0 0 6px' }}>🍽️</p>
-              <p style={{ fontSize: 14, fontWeight: 600, color: '#475569', margin: '0 0 4px' }}>No dishes found</p>
-              <p style={{ fontSize: 12, margin: '0 0 14px' }}>Click below to add dishes to your restaurant menu or load our sample template.</p>
+              <p style={{ fontSize: 14, fontWeight: 600, color: '#475569', margin: '0 0 4px' }}>{t('restaurantTab.noItems', 'No dishes found')}</p>
+              <p style={{ fontSize: 12, margin: '0 0 14px' }}>{t('restaurantTab.desc', 'Click below to add dishes to your restaurant menu or load our sample template.')}</p>
               <button
                 type="button"
                 onClick={handleOpenAddItem}
                 style={{ background: '#14B8A6', color: 'white', border: 'none', borderRadius: 10, padding: '8px 16px', fontSize: 12.5, fontWeight: 600, cursor: 'pointer' }}
               >
-                + Add Dish
+                {t('restaurantTab.addNewDish', '+ Add Dish')}
               </button>
             </div>
           )}
@@ -843,7 +845,7 @@ export default function RestaurantTab({ profile, onUpdated }) {
           >
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
               <p style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#0F172A' }}>
-                {currentItemId ? '✏️ Edit Dish / Item' : '➕ Add New Dish / Item'}
+                {currentItemId ? `✏️ ${t('restaurantTab.editDish', 'Edit Dish / Item')}` : `➕ ${t('restaurantTab.addNewDish', 'Add New Dish / Item')}`}
               </p>
               <button
                 type="button"
@@ -857,14 +859,14 @@ export default function RestaurantTab({ profile, onUpdated }) {
             <form onSubmit={handleSaveItem} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div>
                 <label style={{ fontSize: 12, fontWeight: 600, color: '#64748B', display: 'block', marginBottom: 4 }}>
-                  Dish / Drink Title *
+                  {t('restaurantTab.dishName', 'Dish / Drink Title')} *
                 </label>
                 <input
                   type="text"
                   required
                   value={itemName}
                   onChange={(e) => setItemName(e.target.value)}
-                  placeholder="e.g. Burger Gourmet Beef 180g"
+                  placeholder={t('restaurantTab.dishNamePlaceholder', 'e.g. Burger Gourmet Beef 180g')}
                   style={{ width: '100%', padding: '9px 12px', border: '1px solid #E2E8F0', borderRadius: 10, fontSize: 13 }}
                 />
               </div>
@@ -872,7 +874,7 @@ export default function RestaurantTab({ profile, onUpdated }) {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                 <div>
                   <label style={{ fontSize: 12, fontWeight: 600, color: '#64748B', display: 'block', marginBottom: 4 }}>
-                    Category
+                    {t('restaurantTab.categorySelect', 'Category')}
                   </label>
                   <select
                     value={itemCategory}
@@ -887,13 +889,13 @@ export default function RestaurantTab({ profile, onUpdated }) {
 
                 <div>
                   <label style={{ fontSize: 12, fontWeight: 600, color: '#64748B', display: 'block', marginBottom: 4 }}>
-                    Price ({currency})
+                    {t('restaurantTab.price', 'Price')} ({currency})
                   </label>
                   <input
                     type="text"
                     value={itemPrice}
                     onChange={(e) => setItemPrice(e.target.value)}
-                    placeholder="e.g. 65"
+                    placeholder={t('restaurantTab.pricePlaceholder', 'e.g. 65')}
                     style={{ width: '100%', padding: '9px 12px', border: '1px solid #E2E8F0', borderRadius: 10, fontSize: 13 }}
                   />
                 </div>
@@ -901,26 +903,26 @@ export default function RestaurantTab({ profile, onUpdated }) {
 
               <div>
                 <label style={{ fontSize: 12, fontWeight: 600, color: '#64748B', display: 'block', marginBottom: 4 }}>
-                  Description & Ingredients
+                  {t('restaurantTab.description', 'Description & Ingredients')}
                 </label>
                 <textarea
                   rows={3}
                   value={itemDesc}
                   onChange={(e) => setItemDesc(e.target.value)}
-                  placeholder="e.g. Double steak 150g, cheddar affiné, sauce maison, salade & frites fraîches."
+                  placeholder={t('restaurantTab.descriptionPlaceholder', 'e.g. Double steak 150g, cheddar affiné, sauce maison, salade & frites fraîches.')}
                   style={{ width: '100%', padding: '9px 12px', border: '1px solid #E2E8F0', borderRadius: 10, fontSize: 13, fontFamily: 'inherit' }}
                 />
               </div>
 
               <div>
                 <label style={{ fontSize: 12, fontWeight: 600, color: '#64748B', display: 'block', marginBottom: 4 }}>
-                  Image URL
+                  {t('restaurantTab.dishImage', 'Image URL')}
                 </label>
                 <input
                   type="url"
                   value={itemImage}
                   onChange={(e) => setItemImage(e.target.value)}
-                  placeholder="https://... or choose from presets below"
+                  placeholder={t('restaurantTab.dishImagePlaceholder', 'https://... or choose from presets below')}
                   style={{ width: '100%', padding: '9px 12px', border: '1px solid #E2E8F0', borderRadius: 10, fontSize: 13 }}
                 />
 
@@ -953,7 +955,7 @@ export default function RestaurantTab({ profile, onUpdated }) {
 
               <div>
                 <label style={{ fontSize: 12, fontWeight: 600, color: '#64748B', display: 'block', marginBottom: 4 }}>
-                  Badges & Tags
+                  {t('restaurantTab.dietaryTags', 'Badges & Tags')}
                 </label>
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                   {['⭐ Best Seller', '🌶️ Spicy', '🥗 Veggie', '🥩 Chef Special', '🆕 New', '🥐 Breakfast'].map((tag) => {
@@ -992,7 +994,7 @@ export default function RestaurantTab({ profile, onUpdated }) {
                   onChange={(e) => setItemAvailable(e.target.checked)}
                 />
                 <label htmlFor="dish-available" style={{ fontSize: 12.5, color: '#334155', cursor: 'pointer' }}>
-                  Available in stock (dish is ready to order)
+                  {t('restaurantTab.availableToggle', 'Available in stock (dish is ready to order)')}
                 </label>
               </div>
 
@@ -1002,13 +1004,13 @@ export default function RestaurantTab({ profile, onUpdated }) {
                   onClick={() => setIsEditingItem(false)}
                   style={{ background: '#F1F5F9', border: 'none', borderRadius: 10, padding: '10px 16px', fontSize: 13, fontWeight: 600, color: '#475569', cursor: 'pointer' }}
                 >
-                  Cancel
+                  {t('restaurantTab.cancelEdit', 'Cancel')}
                 </button>
                 <button
                   type="submit"
                   style={{ background: '#14B8A6', border: 'none', borderRadius: 10, padding: '10px 20px', fontSize: 13, fontWeight: 700, color: 'white', cursor: 'pointer' }}
                 >
-                  {currentItemId ? 'Save Changes' : 'Add Dish'}
+                  {currentItemId ? t('restaurantTab.saveChanges', 'Save Changes') : t('restaurantTab.saveDish', 'Add Dish')}
                 </button>
               </div>
             </form>

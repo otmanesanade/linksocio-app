@@ -1,8 +1,11 @@
 import { useState } from 'react'
 import { supabase } from './supabaseClient'
 import { ArrowLeft, Lock, Eye, EyeOff, AlertCircle, CheckCircle2, KeyRound } from 'lucide-react'
+import { useLanguage } from './context/LanguageContext'
+import LanguageSwitcher from './components/LanguageSwitcher'
 
 export default function ResetPassword({ goHome, onDone }) {
+  const { t, isRTL } = useLanguage()
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -24,11 +27,11 @@ export default function ResetPassword({ goHome, onDone }) {
     setError('')
 
     if (password.length < 6) {
-      setError('Password must be at least 6 characters.')
+      setError(t('resetPassword.errMinLength', 'Password must be at least 6 characters.'))
       return
     }
     if (password !== confirm) {
-      setError('Passwords do not match.')
+      setError(t('resetPassword.errMismatch', 'Passwords do not match.'))
       return
     }
 
@@ -45,6 +48,7 @@ export default function ResetPassword({ goHome, onDone }) {
 
   return (
     <div
+      dir={isRTL ? 'rtl' : 'ltr'}
       style={{
         minHeight: '100vh',
         width: '100%',
@@ -59,6 +63,10 @@ export default function ResetPassword({ goHome, onDone }) {
         boxSizing: 'border-box',
       }}
     >
+      <div style={{ position: 'absolute', top: 20, right: isRTL ? 'auto' : 20, left: isRTL ? 20 : 'auto', zIndex: 10 }}>
+        <LanguageSwitcher />
+      </div>
+
       <div style={{ width: '100%', maxWidth: 420, position: 'relative', zIndex: 1 }}>
         {/* Top Header / Clickable Logo */}
         <div
@@ -113,8 +121,8 @@ export default function ResetPassword({ goHome, onDone }) {
               borderRadius: 6,
             }}
           >
-            <ArrowLeft size={13} />
-            <span>Back to home</span>
+            <ArrowLeft size={13} style={{ transform: isRTL ? 'rotate(180deg)' : 'none' }} />
+            <span>{t('resetPassword.backHome', 'Back to home')}</span>
           </button>
         </div>
 
@@ -148,10 +156,10 @@ export default function ResetPassword({ goHome, onDone }) {
               </div>
 
               <h1 style={{ fontSize: 20, fontWeight: 700, color: '#0F172A', margin: '0 0 8px' }}>
-                Password successfully updated
+                {t('resetPassword.successTitle', 'Password successfully updated')}
               </h1>
               <p style={{ fontSize: 13.5, color: '#64748B', lineHeight: 1.6, margin: '0 0 24px' }}>
-                Your new password has been set. You can now sign in to your dashboard.
+                {t('resetPassword.successDesc', 'Your new password has been set. You can now sign in to your dashboard.')}
               </p>
 
               <button
@@ -169,7 +177,7 @@ export default function ResetPassword({ goHome, onDone }) {
                   cursor: 'pointer',
                 }}
               >
-                Go to Sign in
+                {t('resetPassword.goToSignIn', 'Go to Sign in')}
               </button>
             </div>
           ) : (
@@ -190,14 +198,14 @@ export default function ResetPassword({ goHome, onDone }) {
                   }}
                 >
                   <KeyRound size={13} />
-                  <span>New Credentials</span>
+                  <span>{t('resetPassword.badge', 'New Credentials')}</span>
                 </div>
 
                 <h1 style={{ fontSize: 22, fontWeight: 700, color: '#0F172A', margin: 0 }}>
-                  Set a new password
+                  {t('resetPassword.title', 'Set a new password')}
                 </h1>
                 <p style={{ fontSize: 13.5, color: '#64748B', marginTop: 6, marginBottom: 0 }}>
-                  Enter and confirm your new secure password.
+                  {t('resetPassword.subtitle', 'Enter and confirm your new secure password.')}
                 </p>
               </div>
 
@@ -215,12 +223,12 @@ export default function ResetPassword({ goHome, onDone }) {
                     }}
                   >
                     <Lock size={14} color="#64748B" />
-                    <span>New password</span>
+                    <span>{t('resetPassword.newPassLabel', 'New password')}</span>
                   </label>
                   <div style={{ position: 'relative' }}>
                     <input
                       type={showPassword ? 'text' : 'password'}
-                      placeholder="At least 6 characters"
+                      placeholder={t('resetPassword.newPassPlaceholder', 'At least 6 characters')}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       required
@@ -231,7 +239,7 @@ export default function ResetPassword({ goHome, onDone }) {
                         borderRadius: 12,
                         border: '1.5px solid #E2E8F0',
                         background: '#F8FAFC',
-                        padding: '12px 42px 12px 14px',
+                        padding: isRTL ? '12px 14px 12px 42px' : '12px 42px 12px 14px',
                         fontSize: 14,
                         color: '#0F172A',
                         outline: 'none',
@@ -242,7 +250,8 @@ export default function ResetPassword({ goHome, onDone }) {
                       onClick={() => setShowPassword(!showPassword)}
                       style={{
                         position: 'absolute',
-                        right: 12,
+                        right: isRTL ? 'auto' : 12,
+                        left: isRTL ? 12 : 'auto',
                         top: '50%',
                         transform: 'translateY(-50%)',
                         background: 'none',
@@ -270,11 +279,11 @@ export default function ResetPassword({ goHome, onDone }) {
                     }}
                   >
                     <Lock size={14} color="#64748B" />
-                    <span>Confirm new password</span>
+                    <span>{t('resetPassword.confirmPassLabel', 'Confirm new password')}</span>
                   </label>
                   <input
                     type={showPassword ? 'text' : 'password'}
-                    placeholder="Repeat password"
+                    placeholder={t('resetPassword.confirmPassPlaceholder', 'Repeat password')}
                     value={confirm}
                     onChange={(e) => setConfirm(e.target.value)}
                     required
@@ -328,7 +337,7 @@ export default function ResetPassword({ goHome, onDone }) {
                     cursor: loading ? 'not-allowed' : 'pointer',
                   }}
                 >
-                  {loading ? 'Updating password...' : 'Update password'}
+                  {loading ? t('resetPassword.updating', 'Updating password...') : t('resetPassword.updateBtn', 'Update password')}
                 </button>
               </form>
             </>

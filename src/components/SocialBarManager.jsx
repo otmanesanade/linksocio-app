@@ -2,8 +2,10 @@ import { useState, useEffect } from 'react'
 import { SOCIAL_PLATFORMS, getStoredSocials, saveStoredSocials, fetchServerSocials } from '../utils/socialPlatforms'
 import { getSocialIcon } from './LivePagePreview'
 import confetti from 'canvas-confetti'
+import { useLanguage } from '../context/LanguageContext'
 
 export default function SocialBarManager({ profile, user, onSocialsChanged }) {
+  const { t } = useLanguage()
   const [socials, setSocials] = useState([])
   const [addingPlatform, setAddingPlatform] = useState(null)
   const [inputValue, setInputValue] = useState('')
@@ -79,19 +81,19 @@ export default function SocialBarManager({ profile, user, onSocialsChanged }) {
         <div>
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#EFF6FF', padding: '3px 10px', borderRadius: 100, marginBottom: 8 }}>
             <span style={{ fontSize: 13 }}>⚡</span>
-            <span style={{ fontSize: 11.5, fontWeight: 700, color: '#2563EB' }}>HEADER SOCIAL ICONS BAR</span>
+            <span style={{ fontSize: 11.5, fontWeight: 700, color: '#2563EB' }}>{t('socialBar.badge', 'HEADER SOCIAL ICONS BAR')}</span>
           </div>
           <h3 style={{ margin: '0 0 4px', fontSize: 17, fontWeight: 800, color: '#0F172A' }}>
-            Social Media Icons (Top Bar)
+            {t('socialBar.title', 'Social Media Icons (Top Bar)')}
           </h3>
           <p style={{ margin: 0, fontSize: 13, color: '#64748B', lineHeight: 1.5 }}>
-            Display high-contrast circular social icons directly below your Bio for instant 1-tap connection.
+            {t('socialBar.desc', 'Display high-contrast circular social icons directly below your Bio for instant 1-tap connection.')}
           </p>
         </div>
 
         {savedToast && (
           <span style={{ fontSize: 12, fontWeight: 700, color: '#10B981', background: '#ECFDF5', padding: '4px 10px', borderRadius: 8 }}>
-            ✓ Saved Live!
+            {t('socialBar.saved', '✓ Saved Live!')}
           </span>
         )}
       </div>
@@ -172,7 +174,7 @@ export default function SocialBarManager({ profile, user, onSocialsChanged }) {
                       cursor: 'pointer',
                     }}
                   >
-                    {item.active ? 'Active' : 'Hidden'}
+                    {item.active ? t('socialBar.active', 'Active') : t('socialBar.hidden', 'Hidden')}
                   </button>
 
                   <button
@@ -214,10 +216,10 @@ export default function SocialBarManager({ profile, user, onSocialsChanged }) {
         >
           <span style={{ fontSize: 28, display: 'block', marginBottom: 6 }}>🌐</span>
           <p style={{ margin: '0 0 4px', fontSize: 13.5, fontWeight: 700, color: '#334155' }}>
-            No social icons added yet
+            {t('socialBar.emptyTitle', 'No social icons added yet')}
           </p>
           <p style={{ margin: 0, fontSize: 12, color: '#94A3B8' }}>
-            Pick a platform below (Instagram, WhatsApp, TikTok, etc.) to display its icon on your profile.
+            {t('socialBar.emptyDesc', 'Pick a platform below (Instagram, WhatsApp, TikTok, etc.) to display its icon on your profile.')}
           </p>
         </div>
       )}
@@ -250,7 +252,7 @@ export default function SocialBarManager({ profile, user, onSocialsChanged }) {
             </div>
             <div>
               <p style={{ margin: 0, fontSize: 13.5, fontWeight: 700, color: '#0F172A' }}>
-                Add {addingPlatform.name}
+                {t('socialBar.addPlatform', 'Add')} {addingPlatform.name}
               </p>
               <p style={{ margin: 0, fontSize: 11.5, color: '#64748B' }}>
                 {addingPlatform.placeholder}
@@ -292,7 +294,7 @@ export default function SocialBarManager({ profile, user, onSocialsChanged }) {
                 cursor: 'pointer',
               }}
             >
-              Add Icon
+              {t('socialBar.addIconBtn', 'Add Icon')}
             </button>
             <button
               type="button"
@@ -311,7 +313,7 @@ export default function SocialBarManager({ profile, user, onSocialsChanged }) {
                 cursor: 'pointer',
               }}
             >
-              Cancel
+              {t('common.cancel', 'Cancel')}
             </button>
           </div>
         </div>
@@ -320,7 +322,7 @@ export default function SocialBarManager({ profile, user, onSocialsChanged }) {
       {/* Available Platforms Grid */}
       <div>
         <p style={{ margin: '0 0 10px', fontSize: 12, fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-          + Add Platform Icon:
+          {t('socialBar.addPlatformTitle', '+ Add Platform Icon:')}
         </p>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
           {availablePlatforms.map((platform) => (

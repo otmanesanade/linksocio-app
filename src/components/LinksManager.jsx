@@ -5,6 +5,7 @@ import { getMediaEmbedInfo } from '../utils/mediaEmbed'
 import SocialBarManager from './SocialBarManager'
 import ShareModal from './ShareModal'
 import { getStoredLinksMeta, saveStoredLinksMeta, inferIconFromLink } from '../utils/socialPlatforms'
+import { useLanguage } from '../context/LanguageContext'
 
 const QUICK_PRESETS = [
   { label: 'Instagram', prefix: 'https://instagram.com/', placeholder: 'username', icon: 'Instagram' },
@@ -30,6 +31,7 @@ export default function LinksManager({
   qrUrl,
   downloadQr,
 }) {
+  const { t, isRTL } = useLanguage()
   const [label, setLabel] = useState('')
   const [url, setUrl] = useState('')
   const [adding, setAdding] = useState(false)
@@ -283,7 +285,7 @@ export default function LinksManager({
           }}
         >
           <div style={{ minWidth: 0 }}>
-            <p style={{ margin: 0, fontSize: 11, color: '#8A97A3', fontWeight: 600, letterSpacing: '0.04em' }}>YOUR LIVE PAGE</p>
+            <p style={{ margin: 0, fontSize: 11, color: '#8A97A3', fontWeight: 600, letterSpacing: '0.04em' }}>{t('linksManager.yourLivePage', 'YOUR LIVE PAGE')}</p>
             <a
               href={`/${profile.username}`}
               target="_blank"
@@ -314,7 +316,7 @@ export default function LinksManager({
               }}
             >
               <span>↗️</span>
-              <span>Share</span>
+              <span>{t('linksManager.share', 'Share')}</span>
             </button>
             <button
               onClick={() => setShowQrModal(true)}
@@ -335,7 +337,7 @@ export default function LinksManager({
               }}
             >
               <span>🔲</span>
-              <span>QR Code</span>
+              <span>{t('linksManager.qrCode', 'QR Code')}</span>
             </button>
             <button
               onClick={copyLink}
@@ -355,7 +357,7 @@ export default function LinksManager({
                 transition: 'all 0.15s ease',
               }}
             >
-              <span>{copied ? '✓ Copied' : '📋 Copy Link'}</span>
+              <span>{copied ? t('linksManager.copied', '✓ Copied') : t('linksManager.copyLink', '📋 Copy Link')}</span>
             </button>
           </div>
         </div>
@@ -413,10 +415,10 @@ export default function LinksManager({
             </button>
 
             <h3 style={{ margin: '0 0 6px', fontSize: 18, fontWeight: 800, color: '#0F172A' }}>
-              Your QR Code
+              {t('linksManager.qrModalTitle', 'Your QR Code')}
             </h3>
             <p style={{ margin: '0 0 18px', fontSize: 12.5, color: '#64748B' }}>
-              Scan to open <strong>@{profile?.username}</strong>
+              {t('linksManager.qrModalScan', 'Scan to open')} <strong>@{profile?.username}</strong>
             </p>
 
             {qrUrl ? (
@@ -438,7 +440,7 @@ export default function LinksManager({
               </div>
             ) : (
               <div style={{ height: 190, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#8A97A3' }}>
-                Loading QR Code...
+                {t('preview.generatingQr', 'Loading QR Code...')}
               </div>
             )}
 
@@ -461,7 +463,7 @@ export default function LinksManager({
                   gap: 6,
                 }}
               >
-                <span>📥 Download High-Res PNG</span>
+                <span>{t('linksManager.downloadPng', '📥 Download High-Res PNG')}</span>
               </button>
               <button
                 onClick={copyLink}
@@ -477,7 +479,7 @@ export default function LinksManager({
                   cursor: 'pointer',
                 }}
               >
-                {copied ? '✓ Link Copied!' : '📋 Copy Profile URL'}
+                {copied ? t('linksManager.copied', '✓ Link Copied!') : t('linksManager.copyProfileUrl', '📋 Copy Profile URL')}
               </button>
             </div>
           </div>
@@ -508,7 +510,7 @@ export default function LinksManager({
           }}
         >
           <span>🔗</span>
-          <span>Custom Links & Content ({links.length})</span>
+          <span>{t('linksManager.customLinksTab', 'Custom Links & Content')} ({links.length})</span>
         </button>
         <button
           type="button"
@@ -532,7 +534,7 @@ export default function LinksManager({
           }}
         >
           <span>⚡</span>
-          <span>Social Media Icons Bar</span>
+          <span>{t('linksManager.socialIconsTab', 'Social Media Icons Bar')}</span>
         </button>
       </div>
 
@@ -543,10 +545,10 @@ export default function LinksManager({
           {/* Quick Social Presets Bar */}
           <div style={{ background: 'white', border: '1px solid #E7EDEC', borderRadius: 20, padding: '18px 20px' }}>
         <p style={{ margin: '0 0 10px', fontSize: 13.5, fontWeight: 600, color: '#0F172A' }}>
-          ⚡ Quick Connect Bar
+          {t('linksManager.quickConnect', '⚡ Quick Connect Bar')}
         </p>
         <p style={{ margin: '0 0 12px', fontSize: 12, color: '#8A97A3' }}>
-          Click an icon to quickly configure popular platforms with instant formatting:
+          {t('linksManager.quickConnectSub', 'Click an icon to quickly configure popular platforms with instant formatting:')}
         </p>
 
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -582,7 +584,7 @@ export default function LinksManager({
         {activePreset && (
           <div style={{ marginTop: 14, padding: 14, background: '#F8FAFC', borderRadius: 14, border: '1px solid #E2E8F0', display: 'flex', flexDirection: 'column', gap: 8 }}>
             <span style={{ fontSize: 12, fontWeight: 600, color: '#0F172A' }}>
-              Add {activePreset.label} link:
+              {activePreset.label}:
             </span>
             <div style={{ display: 'flex', gap: 8 }}>
               <input
@@ -596,7 +598,7 @@ export default function LinksManager({
                 onClick={handleApplyPreset}
                 style={{ background: '#14B8A6', color: 'white', border: 'none', borderRadius: 10, padding: '0 16px', fontSize: 12.5, fontWeight: 600, cursor: 'pointer' }}
               >
-                Set URL
+                {t('common.save', 'Set URL')}
               </button>
             </div>
           </div>
@@ -605,7 +607,7 @@ export default function LinksManager({
 
       {/* Add Custom Link Card */}
       <div style={{ background: 'white', border: '1px solid #E7EDEC', borderRadius: 20, padding: 20 }}>
-        <p style={{ margin: '0 0 12px', fontSize: 14, fontWeight: 600, color: '#0F172A' }}>+ Add Custom Link</p>
+        <p style={{ margin: '0 0 12px', fontSize: 14, fontWeight: 600, color: '#0F172A' }}>{t('linksManager.addCustomLink', '+ Add Custom Link')}</p>
         {linkError && (
           <div style={{ background: '#FEF2F2', border: '1px solid #FCA5A5', color: '#DC2626', padding: '10px 14px', borderRadius: 10, fontSize: 12.5, fontWeight: 600, marginBottom: 12 }}>
             ⚠️ {linkError}
@@ -613,13 +615,13 @@ export default function LinksManager({
         )}
         <form onSubmit={addLink} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           <input
-            placeholder="Link Title (e.g. My Portfolio, WhatsApp Chat, TikTok)"
+            placeholder={t('linksManager.linkTitlePlaceholder', 'Link Title (e.g. My Portfolio, WhatsApp Chat, TikTok)')}
             value={label}
             onChange={(e) => setLabel(e.target.value)}
             style={inputStyle}
           />
           <input
-            placeholder="Destination URL (https://...)"
+            placeholder={t('linksManager.destinationUrlPlaceholder', 'Destination URL (https://...)')}
             value={url}
             onChange={(e) => setUrl(e.target.value)}
             style={inputStyle}
@@ -639,7 +641,7 @@ export default function LinksManager({
               transition: 'background 0.15s ease',
             }}
           >
-            {adding ? 'Adding...' : 'Add Link to Bio'}
+            {adding ? t('linksManager.adding', 'Adding...') : t('linksManager.addLinkBtn', 'Add Link to Bio')}
           </button>
         </form>
       </div>
@@ -648,10 +650,10 @@ export default function LinksManager({
       <div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, padding: '0 4px' }}>
           <p style={{ margin: 0, fontSize: 13.5, fontWeight: 600, color: '#0F172A' }}>
-            Your Links ({links.length})
+            {t('linksManager.yourLinks', 'Your Links')} ({links.length})
           </p>
           <span style={{ fontSize: 11.5, color: '#8A97A3' }}>
-            ↕ Drag handles or use arrows to reorder
+            {t('linksManager.dragToReorder', '↕ Drag handles or use arrows to reorder')}
           </span>
         </div>
 
@@ -685,13 +687,13 @@ export default function LinksManager({
                     <input
                       value={editLabel}
                       onChange={(e) => setEditLabel(e.target.value)}
-                      placeholder="Title"
+                      placeholder={t('linksManager.editTitlePlaceholder', 'Title')}
                       style={inputStyle}
                     />
                     <input
                       value={editUrl}
                       onChange={(e) => setEditUrl(e.target.value)}
-                      placeholder="URL"
+                      placeholder={t('linksManager.editUrlPlaceholder', 'URL')}
                       style={inputStyle}
                     />
                     <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
@@ -699,13 +701,13 @@ export default function LinksManager({
                         onClick={() => setEditingId(null)}
                         style={{ padding: '6px 12px', borderRadius: 8, background: '#F1F5F9', border: 'none', fontSize: 12, cursor: 'pointer' }}
                       >
-                        Cancel
+                        {t('common.cancel', 'Cancel')}
                       </button>
                       <button
                         onClick={() => saveEdit(link.id)}
                         style={{ padding: '6px 14px', borderRadius: 8, background: '#14B8A6', color: 'white', border: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
                       >
-                        Save
+                        {t('common.save', 'Save')}
                       </button>
                     </div>
                   </div>
@@ -751,7 +753,7 @@ export default function LinksManager({
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                           <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: '#0F172A' }}>{link.label}</p>
                           <span style={{ fontSize: 11, color: '#0D9488', fontWeight: 600 }}>
-                            {link.clicks || 0} clicks
+                            {link.clicks || 0} {t('linksManager.clicks', 'clicks')}
                           </span>
                         </div>
                         <p style={{ margin: '2px 0 0', fontSize: 12, color: '#8A97A3', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -807,12 +809,12 @@ export default function LinksManager({
 
                     {/* Display Style Selector */}
                     <div style={{ display: 'flex', gap: 6, marginTop: 10, paddingTop: 10, borderTop: '1px solid #F1F2F4', fontSize: 11, flexWrap: 'wrap', alignItems: 'center' }}>
-                      <span style={{ color: '#8A97A3', fontSize: 11 }}>Display format:</span>
+                      <span style={{ color: '#8A97A3', fontSize: 11 }}>{t('linksManager.displayFormat', 'Display format:')}</span>
                       <button
                         onClick={() => setStyle(link, 'button')}
                         style={{ ...chipStyle, background: link.style === 'button' || !link.style ? '#0F172A' : '#F1F2F4', color: link.style === 'button' || !link.style ? 'white' : '#0F172A' }}
                       >
-                        Full Button Card
+                        {t('linksManager.fullButtonCard', 'Full Button Card')}
                       </button>
                       
                       {getMediaEmbedInfo(link.url) && (
@@ -828,7 +830,7 @@ export default function LinksManager({
                           }}
                         >
                           <span>▶️</span>
-                          <span>Interactive Media Player</span>
+                          <span>{t('linksManager.interactiveMedia', 'Interactive Media Player')}</span>
                         </button>
                       )}
 
@@ -836,23 +838,23 @@ export default function LinksManager({
                         onClick={() => setStyle(link, 'icon')}
                         style={{ ...chipStyle, background: link.style === 'icon' ? '#0F172A' : '#F1F2F4', color: link.style === 'icon' ? 'white' : '#0F172A' }}
                       >
-                        Social Icon Only
+                        {t('linksManager.socialIconOnly', 'Social Icon Only')}
                       </button>
 
                       {link.style === 'icon' && (
                         <div style={{ display: 'inline-flex', gap: 4, marginLeft: 8, alignItems: 'center' }}>
-                          <span style={{ color: '#8A97A3' }}>Position:</span>
+                          <span style={{ color: '#8A97A3' }}>{t('linksManager.position', 'Position:')}</span>
                           <button
                             onClick={() => setIconPosition(link, 'top')}
                             style={{ ...chipStyle, background: link.icon_position !== 'bottom' ? '#14B8A6' : '#F1F2F4', color: link.icon_position !== 'bottom' ? 'white' : '#0F172A' }}
                           >
-                            Top Header
+                            {t('linksManager.topHeader', 'Top Header')}
                           </button>
                           <button
                             onClick={() => setIconPosition(link, 'bottom')}
                             style={{ ...chipStyle, background: link.icon_position === 'bottom' ? '#14B8A6' : '#F1F2F4', color: link.icon_position === 'bottom' ? 'white' : '#0F172A' }}
                           >
-                            Bottom Footer
+                            {t('linksManager.bottomFooter', 'Bottom Footer')}
                           </button>
                         </div>
                       )}
@@ -865,8 +867,8 @@ export default function LinksManager({
 
           {links.length === 0 && (
             <div style={{ textAlign: 'center', background: 'white', border: '1px dashed #CBD5E1', borderRadius: 16, padding: '32px 16px', color: '#8A97A3' }}>
-              <p style={{ margin: '0 0 6px', fontSize: 14, fontWeight: 500, color: '#0F172A' }}>No links added yet</p>
-              <p style={{ margin: 0, fontSize: 12 }}>Choose a preset above or add a custom link to get started.</p>
+              <p style={{ margin: '0 0 6px', fontSize: 14, fontWeight: 500, color: '#0F172A' }}>{t('linksManager.noLinksYet', 'No links added yet')}</p>
+              <p style={{ margin: 0, fontSize: 12 }}>{t('linksManager.noLinksSub', 'Choose a preset above or add a custom link to get started.')}</p>
             </div>
           )}
         </div>

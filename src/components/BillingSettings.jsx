@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import confetti from 'canvas-confetti'
 import { supabase } from '../supabaseClient'
 import { checkIsOwnerOrVip } from '../utils/trialHelper'
+import { useLanguage } from '../context/LanguageContext'
 
 export const PLANS = [
   {
@@ -72,6 +73,7 @@ export const PLANS = [
 ]
 
 export default function BillingSettings({ user, profile, onSaved }) {
+  const { t, isRTL } = useLanguage()
   const userId = user?.id || profile?.id || 'guest'
   const username = profile?.username || ''
 
@@ -480,11 +482,11 @@ export default function BillingSettings({ user, profile, onSaved }) {
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
             <span style={{ fontSize: 20 }}>💳</span>
             <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: '#0F172A' }}>
-              Billing & Subscription Plans
+              {t('billingTab.title', 'Billing & Subscription Plans')}
             </h2>
           </div>
           <p style={{ margin: 0, fontSize: 13, color: '#64748B' }}>
-            Manage your LinkSocio plan, 14-day free trial countdown, card on file, and download invoices.
+            {t('billingTab.desc', 'Manage your LinkSocio plan, 14-day free trial countdown, card on file, and download invoices.')}
           </p>
         </div>
 
@@ -935,7 +937,7 @@ export default function BillingSettings({ user, profile, onSaved }) {
                 transition: 'all 0.15s ease',
               }}
             >
-              Monthly Billing
+              {t('billingTab.monthly', 'Monthly Billing')}
             </button>
             <button
               type="button"
@@ -956,9 +958,9 @@ export default function BillingSettings({ user, profile, onSaved }) {
                 transition: 'all 0.15s ease',
               }}
             >
-              <span>Annual (Save 20%)</span>
+              <span>{t('billingTab.yearly', 'Yearly Billing')}</span>
               <span style={{ fontSize: 10, background: '#DCFCE7', color: '#15803D', fontWeight: 800, padding: '2px 6px', borderRadius: 100 }}>
-                20% OFF
+                {t('billingTab.save20', 'Save 20%')}
               </span>
             </button>
           </div>

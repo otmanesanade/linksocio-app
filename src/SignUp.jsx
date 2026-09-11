@@ -1,8 +1,11 @@
 import { useState, useMemo } from 'react'
 import { supabase } from './supabaseClient'
 import { ArrowLeft, Mail, Lock, Eye, EyeOff, Sparkles, ArrowRight, AlertCircle, CheckCircle2, User, Globe } from 'lucide-react'
+import LanguageSwitcher from './components/LanguageSwitcher'
+import { useLanguage } from './context/LanguageContext'
 
 export default function SignUp({ onDone, goHome, switchToLogin, initialUsername = '' }) {
+  const { t, isRTL } = useLanguage()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -32,16 +35,16 @@ export default function SignUp({ onDone, goHome, switchToLogin, initialUsername 
   // Password strength calculation
   const passwordStrength = useMemo(() => {
     if (!password) return { score: 0, text: '', color: '#CBD5E1' }
-    if (password.length < 6) return { score: 1, text: 'Too short (min 6 chars)', color: '#EF4444' }
+    if (password.length < 6) return { score: 1, text: t('auth.tooShort', 'Too short (min 6 chars)'), color: '#EF4444' }
     let score = 2
     if (password.length >= 8) score++
     if (/[0-9]/.test(password) && /[A-Z]/.test(password)) score++
     if (/[^a-zA-Z0-9]/.test(password)) score++
 
-    if (score <= 2) return { score: 2, text: 'Fair', color: '#F59E0B' }
-    if (score === 3) return { score: 3, text: 'Good', color: '#10B981' }
-    return { score: 4, text: 'Strong', color: '#059669' }
-  }, [password])
+    if (score <= 2) return { score: 2, text: t('auth.strengthFair', 'Fair'), color: '#F59E0B' }
+    if (score === 3) return { score: 3, text: t('auth.strengthGood', 'Good'), color: '#10B981' }
+    return { score: 4, text: t('auth.strengthStrong', 'Strong'), color: '#059669' }
+  }, [password, t])
 
   async function handleSignUp(e) {
     e.preventDefault()
@@ -49,12 +52,12 @@ export default function SignUp({ onDone, goHome, switchToLogin, initialUsername 
 
     const finalUsername = cleanUsername
     if (!finalUsername || finalUsername.length < 2) {
-      setError('Please choose a valid username (at least 2 characters).')
+      setError(t('auth.invalidUsername', 'Please choose a valid username (at least 2 characters).'))
       return
     }
 
     if (password.length < 6) {
-      setError('Password must be at least 6 characters long.')
+      setError(t('auth.passwordLength', 'Password must be at least 6 characters long.'))
       return
     }
 
@@ -67,7 +70,7 @@ export default function SignUp({ onDone, goHome, switchToLogin, initialUsername 
       })
 
       if (signUpError) {
-        setError(signUpError.message || 'Could not create account. Please check your details.')
+        setError(signUpError.message || t('auth.failedSignUp', 'Could not create account. Please check your details.'))
         setLoading(false)
         return
       }
@@ -83,7 +86,7 @@ export default function SignUp({ onDone, goHome, switchToLogin, initialUsername 
           // If profile insert fails (e.g. duplicate username), display clear message
           setError(
             profileError.message.includes('unique')
-              ? 'This username is already taken. Please pick another one.'
+              ? t('auth.usernameTaken', 'This username is already taken. Please pick another one.')
               : profileError.message
           )
           setLoading(false)
@@ -94,13 +97,14 @@ export default function SignUp({ onDone, goHome, switchToLogin, initialUsername 
       setLoading(false)
       onDone()
     } catch (err) {
-      setError(err?.message || 'An unexpected error occurred. Please try again.')
+      setError(err?.message || t('common.error', 'An unexpected error occurred. Please try again.'))
       setLoading(false)
     }
   }
 
   return (
     <div
+      dir={isRTL ? 'rtl' : 'ltr'}
       style={{
         minHeight: '100vh',
         width: '100%',
@@ -131,13 +135,49 @@ export default function SignUp({ onDone, goHome, switchToLogin, initialUsername 
       />
 
       <div style={{ width: '100%', maxWidth: 440, position: 'relative', zIndex: 1 }}>
+        {/* Top Controls: Back to Home + Language Switcher */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginBottom: 16,
+            padding: '0 4px',
+          }}
+        >
+          <button
+            type="button"
+            onClick={handleGoHome}
+            style={{
+              background: 'rgba(255,255,255,0.85)',
+              border: '1px solid #E2E8F0',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              fontSize: 12.5,
+              fontWeight: 600,
+              color: '#475569',
+              cursor: 'pointer',
+              padding: '6px 12px',
+              borderRadius: 100,
+              boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            <ArrowLeft size={13} style={{ transform: isRTL ? 'rotate(180deg)' : 'none' }} />
+            <span>{t('common.back', 'Back')}</span>
+          </button>
+
+          <LanguageSwitcher variant="pill" />
+        </div>
+
         {/* Top Header / Clickable Logo to return to Landing Page */}
         <div
           style={{
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
-            marginBottom: 24,
+            marginBottom: 20,
           }}
         >
           <button
@@ -173,31 +213,6 @@ export default function SignUp({ onDone, goHome, switchToLogin, initialUsername 
               <span style={{ color: '#14B8A6' }}>Socio</span>
             </span>
           </button>
-
-          <button
-            type="button"
-            onClick={handleGoHome}
-            style={{
-              marginTop: 6,
-              background: 'none',
-              border: 'none',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 5,
-              fontSize: 12.5,
-              fontWeight: 600,
-              color: '#64748B',
-              cursor: 'pointer',
-              padding: '4px 8px',
-              borderRadius: 6,
-              transition: 'color 0.15s ease',
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.color = '#0F172A')}
-            onMouseLeave={(e) => (e.currentTarget.style.color = '#64748B')}
-          >
-            <ArrowLeft size={13} />
-            <span>Back to home</span>
-          </button>
         </div>
 
         {/* Main Card */}
@@ -229,7 +244,7 @@ export default function SignUp({ onDone, goHome, switchToLogin, initialUsername 
               }}
             >
               <Sparkles size={13} color="#16A34A" />
-              <span>🎁 14-Days Free Trial · No credit card required</span>
+              <span>{t('auth.signUpSub', '🎁 14-Days Free Trial · No credit card required')}</span>
             </div>
 
             <h1
@@ -241,7 +256,7 @@ export default function SignUp({ onDone, goHome, switchToLogin, initialUsername 
                 letterSpacing: '-0.02em',
               }}
             >
-              Claim your Link in Bio
+              {t('auth.createAccount', 'Claim your Link in Bio')}
             </h1>
             <p
               style={{
@@ -251,7 +266,7 @@ export default function SignUp({ onDone, goHome, switchToLogin, initialUsername 
                 marginBottom: 0,
               }}
             >
-              One simple link for all your links, bookings & store.
+              {t('auth.claimSub', 'One simple link for all your links, bookings & store.')}
             </p>
           </div>
 
@@ -271,14 +286,15 @@ export default function SignUp({ onDone, goHome, switchToLogin, initialUsername 
                 }}
               >
                 <User size={14} color="#64748B" />
-                <span>Choose your username</span>
+                <span>{t('auth.username', 'Choose your username')}</span>
               </label>
 
               <div style={{ position: 'relative' }}>
                 <span
                   style={{
                     position: 'absolute',
-                    left: 14,
+                    left: isRTL ? 'auto' : 14,
+                    right: isRTL ? 14 : 'auto',
                     top: '50%',
                     transform: 'translateY(-50%)',
                     fontSize: 13.5,
@@ -286,6 +302,7 @@ export default function SignUp({ onDone, goHome, switchToLogin, initialUsername 
                     color: '#94A3B8',
                     pointerEvents: 'none',
                     userSelect: 'none',
+                    direction: 'ltr',
                   }}
                 >
                   linksocio.com/
@@ -305,7 +322,7 @@ export default function SignUp({ onDone, goHome, switchToLogin, initialUsername 
                     borderRadius: 12,
                     border: '1.5px solid #E2E8F0',
                     background: '#F8FAFC',
-                    padding: '12px 14px 12px 122px',
+                    padding: isRTL ? '12px 122px 12px 14px' : '12px 14px 12px 122px',
                     fontSize: 14,
                     fontWeight: 600,
                     color: '#0F172A',
@@ -339,7 +356,7 @@ export default function SignUp({ onDone, goHome, switchToLogin, initialUsername 
                   }}
                 >
                   <Globe size={12} />
-                  <span>Your URL: linksocio.com/{cleanUsername}</span>
+                  <span>{t('auth.yourUrl', 'Your URL: {url}').replace('{url}', `linksocio.com/${cleanUsername}`)}</span>
                 </div>
               )}
             </div>
@@ -358,11 +375,11 @@ export default function SignUp({ onDone, goHome, switchToLogin, initialUsername 
                 }}
               >
                 <Mail size={14} color="#64748B" />
-                <span>Email address</span>
+                <span>{t('auth.email', 'Email address')}</span>
               </label>
               <input
                 type="email"
-                placeholder="you@example.com"
+                placeholder={t('auth.emailPlaceholder', 'you@example.com')}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
@@ -406,13 +423,12 @@ export default function SignUp({ onDone, goHome, switchToLogin, initialUsername 
                 }}
               >
                 <Lock size={14} color="#64748B" />
-                <span>Create password</span>
+                <span>{t('auth.createPassword', 'Create password')}</span>
               </label>
-
               <div style={{ position: 'relative' }}>
                 <input
                   type={showPassword ? 'text' : 'password'}
-                  placeholder="At least 6 characters"
+                  placeholder={t('auth.passwordLength', 'At least 6 characters')}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
@@ -424,7 +440,7 @@ export default function SignUp({ onDone, goHome, switchToLogin, initialUsername 
                     borderRadius: 12,
                     border: '1.5px solid #E2E8F0',
                     background: '#F8FAFC',
-                    padding: '12px 42px 12px 14px',
+                    padding: isRTL ? '12px 14px 12px 42px' : '12px 42px 12px 14px',
                     fontSize: 14,
                     color: '#0F172A',
                     outline: 'none',
@@ -447,7 +463,8 @@ export default function SignUp({ onDone, goHome, switchToLogin, initialUsername 
                   aria-label={showPassword ? 'Hide password' : 'Show password'}
                   style={{
                     position: 'absolute',
-                    right: 12,
+                    right: isRTL ? 'auto' : 12,
+                    left: isRTL ? 12 : 'auto',
                     top: '50%',
                     transform: 'translateY(-50%)',
                     background: 'none',
@@ -482,8 +499,8 @@ export default function SignUp({ onDone, goHome, switchToLogin, initialUsername 
                     ))}
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#64748B' }}>
-                    <span>Strength: <strong style={{ color: passwordStrength.color }}>{passwordStrength.text}</strong></span>
-                    <span>Min. 6 characters</span>
+                    <span>{t('auth.strengthLabel', 'Strength:')} <strong style={{ color: passwordStrength.color }}>{passwordStrength.text}</strong></span>
+                    <span>{t('auth.min6Chars', 'Min. 6 characters')}</span>
                   </div>
                 </div>
               )}
@@ -557,12 +574,12 @@ export default function SignUp({ onDone, goHome, switchToLogin, initialUsername 
                       animation: 'spin 0.8s linear infinite',
                     }}
                   />
-                  <span>Creating your page...</span>
+                  <span>{t('common.loading', 'Creating your page...')}</span>
                 </>
               ) : (
                 <>
-                  <span>Create your free page</span>
-                  <ArrowRight size={16} />
+                  <span>{t('auth.signUpBtn', 'Create your free page')}</span>
+                  <ArrowRight size={16} style={{ transform: isRTL ? 'rotate(180deg)' : 'none' }} />
                 </>
               )}
             </button>
@@ -579,14 +596,14 @@ export default function SignUp({ onDone, goHome, switchToLogin, initialUsername 
             }}
           >
             <div style={{ flex: 1, height: 1, background: '#F1F5F9' }} />
-            <span style={{ fontSize: 12, color: '#94A3B8', fontWeight: 500 }}>Already signed up?</span>
+            <span style={{ fontSize: 12, color: '#94A3B8', fontWeight: 500 }}>{t('auth.hasAccount', 'Already signed up?')}</span>
             <div style={{ flex: 1, height: 1, background: '#F1F5F9' }} />
           </div>
 
           {/* Switch to Login */}
           <div style={{ textAlign: 'center' }}>
             <p style={{ margin: 0, fontSize: 13.5, color: '#64748B' }}>
-              Already have an account?{' '}
+              {t('auth.hasAccount', 'Already have an account?')}{' '}
               <button
                 type="button"
                 onClick={switchToLogin}
@@ -602,7 +619,7 @@ export default function SignUp({ onDone, goHome, switchToLogin, initialUsername 
                   textUnderlineOffset: 3,
                 }}
               >
-                Log in here
+                {t('common.login', 'Log in here')}
               </button>
             </p>
           </div>
@@ -622,13 +639,13 @@ export default function SignUp({ onDone, goHome, switchToLogin, initialUsername 
           }}
         >
           <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <CheckCircle2 size={13} color="#14B8A6" /> Unlimited Links
+            <CheckCircle2 size={13} color="#14B8A6" /> {t('landing.featuresList.unlimitedLinks', 'Unlimited Links')}
           </span>
           <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <CheckCircle2 size={13} color="#14B8A6" /> Custom QR Codes
+            <CheckCircle2 size={13} color="#14B8A6" /> {t('landing.featuresList.qrTitle', 'Custom QR Codes')}
           </span>
           <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <CheckCircle2 size={13} color="#14B8A6" /> Appointments & Menu
+            <CheckCircle2 size={13} color="#14B8A6" /> {t('landing.featuresList.bookingsTitle', 'Appointments & Menu')}
           </span>
         </div>
       </div>

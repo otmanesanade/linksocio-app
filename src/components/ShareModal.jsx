@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import confetti from 'canvas-confetti'
 import { getSocialIcon } from './LivePagePreview'
+import { useLanguage } from '../context/LanguageContext'
 
 export default function ShareModal({ profile, isOpen, onClose, onOpenQr }) {
+  const { t } = useLanguage()
   const [copied, setCopied] = useState(false)
 
   if (!isOpen) return null
@@ -11,7 +13,8 @@ export default function ShareModal({ profile, isOpen, onClose, onOpenQr }) {
   const username = profile?.username || ''
   const pageUrl = `${origin}/${username}`
   const displayName = profile?.display_name || profile?.username || 'Creator'
-  const shareText = `Check out ${displayName}'s page, links, and products on LinkSocio!`
+  const shareTextTemplate = t('shareModal.checkOut', "Check out {name}'s page, links, and products on LinkSocio!")
+  const shareText = shareTextTemplate.replace('{name}', displayName)
 
   function handleCopy() {
     navigator.clipboard.writeText(pageUrl)
@@ -133,7 +136,7 @@ export default function ShareModal({ profile, isOpen, onClose, onOpenQr }) {
         </div>
 
         <h3 style={{ margin: '0 0 2px', fontSize: 17, fontWeight: 800, color: '#0F172A' }}>
-          Share this Profile
+          {t('shareModal.title', 'Share this Profile')}
         </h3>
         <p style={{ margin: '0 0 16px', fontSize: 12.5, color: '#64748B' }}>
           @{username} • linksocio.com/{username}
@@ -180,7 +183,7 @@ export default function ShareModal({ profile, isOpen, onClose, onOpenQr }) {
               whiteSpace: 'nowrap',
             }}
           >
-            {copied ? '✓ Copied' : 'Copy'}
+            {copied ? t('shareModal.copied', '✓ Copied') : t('shareModal.copy', 'Copy')}
           </button>
         </div>
 
@@ -246,7 +249,7 @@ export default function ShareModal({ profile, isOpen, onClose, onOpenQr }) {
             }}
           >
             <span>🔲</span>
-            <span>Show QR Code & Scan</span>
+            <span>{t('shareModal.showQr', 'Show QR Code & Scan')}</span>
           </button>
         )}
       </div>

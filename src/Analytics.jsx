@@ -1,6 +1,8 @@
 import React from 'react'
+import { useLanguage } from './context/LanguageContext'
 
 export default function Analytics({ links = [] }) {
+  const { t } = useLanguage()
   const totalClicks = links.reduce((sum, l) => sum + (l.clicks || 0), 0)
   const maxClicks = Math.max(1, ...links.map((l) => l.clicks || 0))
   const sorted = [...links].sort((a, b) => (b.clicks || 0) - (a.clicks || 0))
@@ -9,34 +11,34 @@ export default function Analytics({ links = [] }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
       {/* Top Metrics Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 14 }}>
         <div style={{ background: '#0F172A', borderRadius: 20, padding: '20px 18px', textAlign: 'center', color: 'white' }}>
           <p style={{ margin: 0, fontSize: 32, fontWeight: 700, color: '#2DD4BF' }}>{totalClicks}</p>
-          <p style={{ margin: '4px 0 0', fontSize: 12, color: '#94A3B8', fontWeight: 500 }}>Total Link Clicks</p>
+          <p style={{ margin: '4px 0 0', fontSize: 12, color: '#94A3B8', fontWeight: 500 }}>{t('analytics.totalClicks', 'Total Link Clicks')}</p>
         </div>
 
         <div style={{ background: 'white', border: '1px solid #E7EDEC', borderRadius: 20, padding: '20px 18px', textAlign: 'center' }}>
           <p style={{ margin: 0, fontSize: 32, fontWeight: 700, color: '#0F172A' }}>{activeCount}</p>
-          <p style={{ margin: '4px 0 0', fontSize: 12, color: '#64748B', fontWeight: 500 }}>Active Links</p>
+          <p style={{ margin: '4px 0 0', fontSize: 12, color: '#64748B', fontWeight: 500 }}>{t('analytics.activeLinks', 'Active Links')}</p>
         </div>
 
         <div style={{ background: 'white', border: '1px solid #E7EDEC', borderRadius: 20, padding: '20px 18px', textAlign: 'center' }}>
           <p style={{ margin: 0, fontSize: 32, fontWeight: 700, color: '#F59E0B' }}>
             {sorted[0]?.clicks || 0}
           </p>
-          <p style={{ margin: '4px 0 0', fontSize: 12, color: '#64748B', fontWeight: 500 }}>Top Performer</p>
+          <p style={{ margin: '4px 0 0', fontSize: 12, color: '#64748B', fontWeight: 500 }}>{t('analytics.topPerformer', 'Top Performer')}</p>
         </div>
       </div>
 
       {/* Clicks breakdown */}
       <div style={{ background: 'white', border: '1px solid #E7EDEC', borderRadius: 20, padding: 22 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18, flexWrap: 'wrap', gap: 8 }}>
           <div>
-            <p style={{ margin: 0, fontSize: 14.5, fontWeight: 600, color: '#0F172A' }}>Click Performance by Link</p>
-            <p style={{ margin: '3px 0 0', fontSize: 12, color: '#8A97A3' }}>Real-time traffic breakdown across your channels</p>
+            <p style={{ margin: 0, fontSize: 14.5, fontWeight: 600, color: '#0F172A' }}>{t('analytics.clicksBreakdown', 'Click Performance by Link')}</p>
+            <p style={{ margin: '3px 0 0', fontSize: 12, color: '#8A97A3' }}>{t('analytics.clicksSub', 'Real-time traffic breakdown across your channels')}</p>
           </div>
           <span style={{ fontSize: 11.5, background: '#F1F5F9', padding: '4px 10px', borderRadius: 8, color: '#475569', fontWeight: 600 }}>
-            Ranked by visits
+            {t('analytics.rankedByVisits', 'Ranked by visits')}
           </span>
         </div>
 
@@ -55,7 +57,7 @@ export default function Analytics({ links = [] }) {
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     <span style={{ fontSize: 11.5, color: '#64748B' }}>{percentage}%</span>
                     <span style={{ fontSize: 13.5, fontWeight: 700, color: '#0D9488' }}>
-                      {link.clicks || 0} <span style={{ fontSize: 11, fontWeight: 500, color: '#94A3B8' }}>clicks</span>
+                      {link.clicks || 0} <span style={{ fontSize: 11, fontWeight: 500, color: '#94A3B8' }}>{t('analytics.clicks', 'clicks')}</span>
                     </span>
                   </div>
                 </div>
@@ -75,7 +77,7 @@ export default function Analytics({ links = [] }) {
           })}
           {sorted.length === 0 && (
             <p style={{ textAlign: 'center', color: '#8A97A3', fontSize: 13, padding: '24px 0' }}>
-              No click data yet. Share your LinkSocio page to start tracking visits.
+              {t('analytics.noData', 'No click data yet. Share your LinkSocio page to start tracking visits.')}
             </p>
           )}
         </div>

@@ -12,6 +12,7 @@ import DigitalProductModal from './DigitalProductModal'
 import { DIGITAL_CATEGORIES } from '../ShopTab'
 import ShareModal from './ShareModal'
 import { getStoredSocials, fetchServerSocials, getStoredLinksMeta, fetchServerLinksMeta, getStoredProfileMeta, fetchServerProfileMeta } from '../utils/socialPlatforms'
+import { useLanguage } from '../context/LanguageContext'
 
 // SVG Social & Functional Icons
 const IconShare = ({ color = 'currentColor', size = 18 }) => (
@@ -243,11 +244,13 @@ export const getSocialIcon = (itemOrLabel = '', color = 'currentColor', size = 1
 }
 
 export function LivePagePreview({ profile, links = [], products = [], socials = null, isEmbedded = false, activeTabOverride = null }) {
+  const { t, isRTL, language, setLanguage, availableLanguages } = useLanguage()
   const [tab, setTab] = useState(activeTabOverride || 'links')
   const [pressedId, setPressedId] = useState(null)
   const [copiedContact, setCopiedContact] = useState(false)
   const [showQrModal, setShowQrModal] = useState(false)
   const [showShareModal, setShowShareModal] = useState(false)
+  const [showLangMenu, setShowLangMenu] = useState(false)
   const [publicQrUrl, setPublicQrUrl] = useState(null)
   const [selectedProductModal, setSelectedProductModal] = useState(null)
   const [storedSocials, setStoredSocials] = useState(() => (Array.isArray(socials) ? socials : getStoredSocials(profile?.username, profile?.id)))
@@ -611,40 +614,144 @@ export function LivePagePreview({ profile, links = [], products = [], socials = 
             </a>
           )}
 
-          {/* Top-Right Native Share / Quick Share Button */}
-          <button
-            type="button"
-            onClick={handleShareClick}
-            aria-label="Share profile"
-            title="Share this profile"
+          {/* Top-Right Native Share & Language Selector */}
+          <div
             style={{
               position: 'absolute',
               top: isEmbedded ? 12 : 16,
               right: isEmbedded ? 12 : 16,
               display: 'inline-flex',
               alignItems: 'center',
-              justifyContent: 'center',
-              width: isEmbedded ? 30 : 36,
-              height: isEmbedded ? 30 : 36,
-              borderRadius: '50%',
-              background: tint,
-              border: '1px solid rgba(0,0,0,0.06)',
-              color: theme.textColor,
-              cursor: 'pointer',
-              zIndex: 10,
-              backdropFilter: 'blur(8px)',
-              padding: 0,
-              transition: 'transform 0.15s ease',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.transform = 'scale(1.08)'
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.transform = 'scale(1)'
+              gap: 6,
+              zIndex: 15,
             }}
           >
-            <IconShare color={theme.textColor} size={isEmbedded ? 14 : 17} />
-          </button>
+            {/* Quick Language Switcher Dropdown */}
+            <div style={{ position: 'relative' }}>
+              <button
+                type="button"
+                onClick={() => setShowLangMenu(!showLangMenu)}
+                aria-label="Change language"
+                title="Change language"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 4,
+                  height: isEmbedded ? 30 : 36,
+                  padding: isEmbedded ? '0 8px' : '0 10px',
+                  borderRadius: 100,
+                  background: tint,
+                  border: '1px solid rgba(0,0,0,0.06)',
+                  color: theme.textColor,
+                  cursor: 'pointer',
+                  backdropFilter: 'blur(8px)',
+                  fontSize: isEmbedded ? 11 : 12,
+                  fontWeight: 700,
+                  transition: 'transform 0.15s ease',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'scale(1.05)'
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'scale(1)'
+                }}
+              >
+                <span style={{ fontSize: isEmbedded ? 12 : 14 }}>
+                  {availableLanguages.find((l) => l.code === language)?.flag || '🌐'}
+                </span>
+                <span style={{ textTransform: 'uppercase', letterSpacing: '0.02em' }}>
+                  {language}
+                </span>
+              </button>
+
+              {showLangMenu && (
+                <>
+                  <div
+                    onClick={() => setShowLangMenu(false)}
+                    style={{ position: 'fixed', inset: 0, zIndex: 40 }}
+                  />
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: 'calc(100% + 6px)',
+                      right: 0,
+                      background: '#FFFFFF',
+                      borderRadius: 14,
+                      boxShadow: '0 10px 30px rgba(0,0,0,0.18)',
+                      border: '1px solid #E2E8F0',
+                      padding: 5,
+                      minWidth: 130,
+                      zIndex: 50,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 2,
+                    }}
+                  >
+                    {availableLanguages.map((l) => (
+                      <button
+                        key={l.code}
+                        type="button"
+                        onClick={() => {
+                          setLanguage(l.code)
+                          setShowLangMenu(false)
+                        }}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 8,
+                          padding: '7px 10px',
+                          borderRadius: 10,
+                          border: 'none',
+                          background: language === l.code ? '#F1F5F9' : 'transparent',
+                          color: '#0F172A',
+                          fontSize: 12.5,
+                          fontWeight: language === l.code ? 750 : 500,
+                          cursor: 'pointer',
+                          width: '100%',
+                          textAlign: 'left',
+                          transition: 'background 0.1s ease',
+                        }}
+                      >
+                        <span style={{ fontSize: 15 }}>{l.flag}</span>
+                        <span>{l.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Share Button */}
+            <button
+              type="button"
+              onClick={handleShareClick}
+              aria-label="Share profile"
+              title="Share this profile"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: isEmbedded ? 30 : 36,
+                height: isEmbedded ? 30 : 36,
+                borderRadius: '50%',
+                background: tint,
+                border: '1px solid rgba(0,0,0,0.06)',
+                color: theme.textColor,
+                cursor: 'pointer',
+                backdropFilter: 'blur(8px)',
+                padding: 0,
+                transition: 'transform 0.15s ease',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'scale(1.08)'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'scale(1)'
+              }}
+            >
+              <IconShare color={theme.textColor} size={isEmbedded ? 14 : 17} />
+            </button>
+          </div>
 
           {/* Header info */}
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', position: 'relative', width: '100%' }}>
@@ -783,12 +890,12 @@ export function LivePagePreview({ profile, links = [], products = [], socials = 
                 }}
               >
                 <span>📇</span>
-                <span>{copiedContact ? '✓ Saved!' : 'Save Contact'}</span>
+                <span>{copiedContact ? t('preview.savedContact') : t('preview.saveContact')}</span>
               </button>
 
               <button
                 onClick={() => setShowQrModal(true)}
-                title="View QR Code"
+                title={t('preview.qrCode')}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -805,7 +912,7 @@ export function LivePagePreview({ profile, links = [], products = [], socials = 
                 }}
               >
                 <span>🔲</span>
-                <span>QR Code</span>
+                <span>{t('preview.qrCode')}</span>
               </button>
 
               {whatsappLink && (
@@ -903,7 +1010,7 @@ export function LivePagePreview({ profile, links = [], products = [], socials = 
                     transition: 'all 0.15s ease',
                   }}
                 >
-                  Links
+                  {t('preview.links')}
                 </button>
                 <button
                   onClick={() => setTab('shop')}
@@ -921,7 +1028,7 @@ export function LivePagePreview({ profile, links = [], products = [], socials = 
                     transition: 'all 0.15s ease',
                   }}
                 >
-                  Shop ({products.length})
+                  {t('preview.shop')} ({products.length})
                 </button>
               </div>
             )}
@@ -1018,7 +1125,7 @@ export function LivePagePreview({ profile, links = [], products = [], socials = 
 
               {buttonLinks.length === 0 && topIcons.length === 0 && bottomIcons.length === 0 && (
                 <div style={{ textAlign: 'center', padding: '24px 0', color: theme.subTextColor, fontSize: 13 }}>
-                  No links added yet.
+                  {t('preview.noLinks')}
                 </div>
               )}
             </div>
@@ -1162,7 +1269,7 @@ export function LivePagePreview({ profile, links = [], products = [], socials = 
                             borderRadius: 5,
                           }}
                         >
-                          SALE
+                          {t('preview.sale')}
                         </span>
                       )}
                     </div>
@@ -1219,7 +1326,7 @@ export function LivePagePreview({ profile, links = [], products = [], socials = 
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto', paddingTop: 4 }}>
                         <div>
                           <span style={{ fontSize: isEmbedded ? 11 : 13, color: color, fontWeight: 800 }}>
-                            {p.price || 'Free'}
+                            {p.price || t('preview.free')}
                           </span>
                           {p.original_price && (
                             <span style={{ fontSize: 9.5, color: '#94A3B8', textDecoration: 'line-through', marginLeft: 4 }}>
@@ -1240,7 +1347,7 @@ export function LivePagePreview({ profile, links = [], products = [], socials = 
                             gap: 3,
                           }}
                         >
-                          {isDigital ? 'Get' : 'Buy ↗'}
+                          {isDigital ? t('preview.get') : t('preview.buy')}
                         </span>
                       </div>
                     </div>
@@ -1249,7 +1356,7 @@ export function LivePagePreview({ profile, links = [], products = [], socials = 
               })}
               {products.length === 0 && (
                 <p style={{ gridColumn: '1 / -1', textAlign: 'center', color: theme.subTextColor, fontSize: 13, padding: '20px 0' }}>
-                  No products in store yet.
+                  {t('preview.noProducts')}
                 </p>
               )}
             </div>
@@ -1315,7 +1422,7 @@ export function LivePagePreview({ profile, links = [], products = [], socials = 
               <span style={{ color }}>Socio</span>
             </span>
             <span>·</span>
-            <span>Build your audience</span>
+            <span>{t('preview.buildAudience')}</span>
           </div>
         )}
       </div>
@@ -1372,10 +1479,10 @@ export function LivePagePreview({ profile, links = [], products = [], socials = 
             </button>
 
             <h3 style={{ margin: '0 0 4px', fontSize: 18, fontWeight: 700, color: '#0F172A' }}>
-              Scan QR Code
+              {t('preview.scanQrCode')}
             </h3>
             <p style={{ margin: '0 0 16px', fontSize: 12.5, color: '#64748B' }}>
-              Open <strong>@{profile?.username}</strong> on your phone camera
+              {t('preview.openOnPhone').replace('{username}', profile?.username || '')}
             </p>
 
             {publicQrUrl ? (
@@ -1397,7 +1504,7 @@ export function LivePagePreview({ profile, links = [], products = [], socials = 
               </div>
             ) : (
               <div style={{ height: 190, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94A3B8', fontSize: 13 }}>
-                Generating QR code...
+                {t('preview.generatingQr')}
               </div>
             )}
 
@@ -1417,7 +1524,7 @@ export function LivePagePreview({ profile, links = [], products = [], socials = 
                     textDecoration: 'none',
                   }}
                 >
-                  📥 Save QR Image
+                  {t('preview.saveQrImage')}
                 </a>
               )}
               <button
@@ -1440,7 +1547,7 @@ export function LivePagePreview({ profile, links = [], products = [], socials = 
                   cursor: 'pointer',
                 }}
               >
-                📋 Copy Link
+                {t('preview.copyLink')}
               </button>
             </div>
           </div>

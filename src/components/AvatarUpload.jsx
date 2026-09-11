@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react'
 import { supabase } from '../supabaseClient'
 import confetti from 'canvas-confetti'
+import { useLanguage } from '../context/LanguageContext'
 
 // Compress & crop image to square canvas
 async function compressImage(file, maxSize = 400) {
@@ -50,6 +51,7 @@ async function compressImage(file, maxSize = 400) {
 }
 
 export default function AvatarUpload({ user, profile, onUpdated }) {
+  const { t } = useLanguage()
   const [uploading, setUploading] = useState(false)
   const [dragOver, setDragOver] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
@@ -65,13 +67,13 @@ export default function AvatarUpload({ user, profile, onUpdated }) {
   async function handleFile(file) {
     if (!file) return
     if (!file.type.startsWith('image/')) {
-      setErrorMsg('Please select a valid image file (JPG, PNG, WebP).')
+      setErrorMsg(t('avatar.invalidType', 'Please select a valid image file (JPG, PNG, WebP).'))
       return
     }
 
     // 5MB limit before compression
     if (file.size > 5 * 1024 * 1024) {
-      setErrorMsg('Image size must be less than 5MB.')
+      setErrorMsg(t('avatar.tooLarge', 'Image size must be less than 5MB.'))
       return
     }
 
@@ -120,7 +122,7 @@ export default function AvatarUpload({ user, profile, onUpdated }) {
         throw dbError
       }
 
-      setSuccessMsg('Profile picture updated successfully!')
+      setSuccessMsg(t('avatar.successUpdate', 'Profile picture updated successfully!'))
       try {
         confetti({ particleCount: 35, spread: 50, origin: { y: 0.6 } })
       } catch (e) {}
@@ -129,7 +131,7 @@ export default function AvatarUpload({ user, profile, onUpdated }) {
       setTimeout(() => setSuccessMsg(''), 3000)
     } catch (err) {
       console.error('Avatar update failed:', err)
-      setErrorMsg(err.message || 'Failed to upload photo. Please try again.')
+      setErrorMsg(err.message || t('avatar.failedUpload', 'Failed to upload photo. Please try again.'))
     } finally {
       setUploading(false)
       if (fileInputRef.current) fileInputRef.current.value = ''
@@ -148,11 +150,11 @@ export default function AvatarUpload({ user, profile, onUpdated }) {
 
       if (dbError) throw dbError
 
-      setSuccessMsg('Avatar removed. Restored letter icon.')
+      setSuccessMsg(t('avatar.successRemove', 'Avatar removed. Restored letter icon.'))
       if (onUpdated) await onUpdated()
       setTimeout(() => setSuccessMsg(''), 2500)
     } catch (err) {
-      setErrorMsg('Failed to remove avatar.')
+      setErrorMsg(t('avatar.failedRemove', 'Failed to remove avatar.'))
     } finally {
       setUploading(false)
     }
@@ -245,16 +247,16 @@ export default function AvatarUpload({ user, profile, onUpdated }) {
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
           <p style={{ margin: 0, fontSize: 13.5, fontWeight: 700, color: '#0F172A' }}>
-            Profile Picture / Logo
+            {t('avatar.title', 'Profile Picture / Logo')}
           </p>
           {currentAvatar && (
             <span style={{ fontSize: 11, background: '#E6F7F5', color: '#0D9488', fontWeight: 600, padding: '1px 7px', borderRadius: 100 }}>
-              Custom
+              {t('avatar.customBadge', 'Custom')}
             </span>
           )}
         </div>
         <p style={{ margin: '0 0 10px', fontSize: 12, color: '#64748B' }}>
-          Upload your personal photo or brand logo (JPG, PNG, or WebP).
+          {t('avatar.subtitle', 'Upload your personal photo or brand logo (JPG, PNG, or WebP).')}
         </p>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
@@ -288,7 +290,7 @@ export default function AvatarUpload({ user, profile, onUpdated }) {
             }}
           >
             <span>📷</span>
-            <span>{currentAvatar ? 'Change Photo' : 'Upload Photo'}</span>
+            <span>{currentAvatar ? t('avatar.changePhoto', 'Change Photo') : t('avatar.uploadPhoto', 'Upload Photo')}</span>
           </button>
 
           {currentAvatar && (
@@ -307,7 +309,7 @@ export default function AvatarUpload({ user, profile, onUpdated }) {
                 cursor: uploading ? 'default' : 'pointer',
               }}
             >
-              Remove
+              {t('avatar.remove', 'Remove')}
             </button>
           )}
         </div>
