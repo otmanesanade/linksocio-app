@@ -250,7 +250,6 @@ export function LivePagePreview({ profile, links = [], products = [], socials = 
   const [copiedContact, setCopiedContact] = useState(false)
   const [showQrModal, setShowQrModal] = useState(false)
   const [showShareModal, setShowShareModal] = useState(false)
-  const [showLangMenu, setShowLangMenu] = useState(false)
   const [publicQrUrl, setPublicQrUrl] = useState(null)
   const [selectedProductModal, setSelectedProductModal] = useState(null)
   const [storedSocials, setStoredSocials] = useState(() => (Array.isArray(socials) ? socials : getStoredSocials(profile?.username, profile?.id)))
@@ -614,144 +613,40 @@ export function LivePagePreview({ profile, links = [], products = [], socials = 
             </a>
           )}
 
-          {/* Top-Right Native Share & Language Selector */}
-          <div
+          {/* Top-Right Native Share / Quick Share Button */}
+          <button
+            type="button"
+            onClick={handleShareClick}
+            aria-label="Share profile"
+            title="Share this profile"
             style={{
               position: 'absolute',
               top: isEmbedded ? 12 : 16,
               right: isEmbedded ? 12 : 16,
               display: 'inline-flex',
               alignItems: 'center',
-              gap: 6,
-              zIndex: 15,
+              justifyContent: 'center',
+              width: isEmbedded ? 30 : 36,
+              height: isEmbedded ? 30 : 36,
+              borderRadius: '50%',
+              background: tint,
+              border: '1px solid rgba(0,0,0,0.06)',
+              color: theme.textColor,
+              cursor: 'pointer',
+              zIndex: 10,
+              backdropFilter: 'blur(8px)',
+              padding: 0,
+              transition: 'transform 0.15s ease',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = 'scale(1.08)'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = 'scale(1)'
             }}
           >
-            {/* Quick Language Switcher Dropdown */}
-            <div style={{ position: 'relative' }}>
-              <button
-                type="button"
-                onClick={() => setShowLangMenu(!showLangMenu)}
-                aria-label="Change language"
-                title="Change language"
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 4,
-                  height: isEmbedded ? 30 : 36,
-                  padding: isEmbedded ? '0 8px' : '0 10px',
-                  borderRadius: 100,
-                  background: tint,
-                  border: '1px solid rgba(0,0,0,0.06)',
-                  color: theme.textColor,
-                  cursor: 'pointer',
-                  backdropFilter: 'blur(8px)',
-                  fontSize: isEmbedded ? 11 : 12,
-                  fontWeight: 700,
-                  transition: 'transform 0.15s ease',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.transform = 'scale(1.05)'
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = 'scale(1)'
-                }}
-              >
-                <span style={{ fontSize: isEmbedded ? 12 : 14 }}>
-                  {availableLanguages.find((l) => l.code === language)?.flag || '🌐'}
-                </span>
-                <span style={{ textTransform: 'uppercase', letterSpacing: '0.02em' }}>
-                  {language}
-                </span>
-              </button>
-
-              {showLangMenu && (
-                <>
-                  <div
-                    onClick={() => setShowLangMenu(false)}
-                    style={{ position: 'fixed', inset: 0, zIndex: 40 }}
-                  />
-                  <div
-                    style={{
-                      position: 'absolute',
-                      top: 'calc(100% + 6px)',
-                      right: 0,
-                      background: '#FFFFFF',
-                      borderRadius: 14,
-                      boxShadow: '0 10px 30px rgba(0,0,0,0.18)',
-                      border: '1px solid #E2E8F0',
-                      padding: 5,
-                      minWidth: 130,
-                      zIndex: 50,
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: 2,
-                    }}
-                  >
-                    {availableLanguages.map((l) => (
-                      <button
-                        key={l.code}
-                        type="button"
-                        onClick={() => {
-                          setLanguage(l.code)
-                          setShowLangMenu(false)
-                        }}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 8,
-                          padding: '7px 10px',
-                          borderRadius: 10,
-                          border: 'none',
-                          background: language === l.code ? '#F1F5F9' : 'transparent',
-                          color: '#0F172A',
-                          fontSize: 12.5,
-                          fontWeight: language === l.code ? 750 : 500,
-                          cursor: 'pointer',
-                          width: '100%',
-                          textAlign: 'left',
-                          transition: 'background 0.1s ease',
-                        }}
-                      >
-                        <span style={{ fontSize: 15 }}>{l.flag}</span>
-                        <span>{l.name}</span>
-                      </button>
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
-
-            {/* Share Button */}
-            <button
-              type="button"
-              onClick={handleShareClick}
-              aria-label="Share profile"
-              title="Share this profile"
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                width: isEmbedded ? 30 : 36,
-                height: isEmbedded ? 30 : 36,
-                borderRadius: '50%',
-                background: tint,
-                border: '1px solid rgba(0,0,0,0.06)',
-                color: theme.textColor,
-                cursor: 'pointer',
-                backdropFilter: 'blur(8px)',
-                padding: 0,
-                transition: 'transform 0.15s ease',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = 'scale(1.08)'
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = 'scale(1)'
-              }}
-            >
-              <IconShare color={theme.textColor} size={isEmbedded ? 14 : 17} />
-            </button>
-          </div>
+            <IconShare color={theme.textColor} size={isEmbedded ? 14 : 17} />
+          </button>
 
           {/* Header info */}
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', position: 'relative', width: '100%' }}>
@@ -1402,6 +1297,69 @@ export function LivePagePreview({ profile, links = [], products = [], socials = 
               })}
             </div>
           )}
+        </div>
+
+        {/* Language Selector Capsule (Footer) */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginTop: isEmbedded ? 16 : 24,
+            marginBottom: isEmbedded ? 6 : 8,
+            padding: '0 8px',
+          }}
+        >
+          <div
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 3,
+              background: theme.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)',
+              padding: isEmbedded ? '3px 5px' : '4px 6px',
+              borderRadius: 100,
+              border: '1px solid rgba(148,163,184,0.18)',
+              backdropFilter: 'blur(8px)',
+              maxWidth: '100%',
+              flexWrap: 'wrap',
+              justifyContent: 'center',
+            }}
+          >
+            <span style={{ fontSize: isEmbedded ? 11 : 13, padding: '0 4px', opacity: 0.7 }}>🌐</span>
+            {availableLanguages.map((l) => {
+              const isSelected = language === l.code
+              return (
+                <button
+                  key={l.code}
+                  type="button"
+                  onClick={() => setLanguage(l.code)}
+                  aria-label={`Switch to ${l.name}`}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 3,
+                    padding: isEmbedded ? '3px 7px' : '4px 10px',
+                    borderRadius: 100,
+                    border: 'none',
+                    background: isSelected
+                      ? (theme.isDark ? '#FFFFFF' : '#0F172A')
+                      : 'transparent',
+                    color: isSelected
+                      ? (theme.isDark ? '#0F172A' : '#FFFFFF')
+                      : theme.textColor,
+                    fontSize: isEmbedded ? 10.5 : 12,
+                    fontWeight: isSelected ? 750 : 500,
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                    opacity: isSelected ? 1 : 0.7,
+                  }}
+                >
+                  <span style={{ fontSize: isEmbedded ? 11 : 13 }}>{l.flag}</span>
+                  <span>{l.name}</span>
+                </button>
+              )
+            })}
+          </div>
         </div>
 
         {/* Branding Footer (Removable via Pro / Settings) */}

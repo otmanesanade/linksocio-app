@@ -4,7 +4,7 @@ import { getSocialIcon } from './LivePagePreview'
 import { useLanguage } from '../context/LanguageContext'
 
 export default function ShareModal({ profile, isOpen, onClose, onOpenQr }) {
-  const { t } = useLanguage()
+  const { t, language, setLanguage, availableLanguages } = useLanguage()
   const [copied, setCopied] = useState(false)
 
   if (!isOpen) return null
@@ -252,6 +252,43 @@ export default function ShareModal({ profile, isOpen, onClose, onOpenQr }) {
             <span>{t('shareModal.showQr', 'Show QR Code & Scan')}</span>
           </button>
         )}
+
+        {/* Quick Language Switcher in Share Modal */}
+        <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid #F1F5F9' }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: '#64748B', marginBottom: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+            <span>🌐</span>
+            <span>{t('shareModal.selectLanguage', 'Page Language')}</span>
+          </div>
+          <div style={{ display: 'flex', gap: 6, justifyContent: 'center', flexWrap: 'wrap' }}>
+            {availableLanguages.map((l) => {
+              const isCurrent = language === l.code
+              return (
+                <button
+                  key={l.code}
+                  type="button"
+                  onClick={() => setLanguage(l.code)}
+                  style={{
+                    padding: '5px 9px',
+                    borderRadius: 8,
+                    border: isCurrent ? '1.5px solid #14B8A6' : '1px solid #E2E8F0',
+                    background: isCurrent ? '#F0FDFA' : '#FFFFFF',
+                    color: isCurrent ? '#0F766E' : '#334155',
+                    fontSize: 11.5,
+                    fontWeight: isCurrent ? 750 : 500,
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 4,
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  <span>{l.flag}</span>
+                  <span>{l.name}</span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
       </div>
 
       <style>{`
