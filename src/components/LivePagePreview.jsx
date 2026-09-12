@@ -357,6 +357,17 @@ export function LivePagePreview({ profile, links = [], products = [], socials = 
   const color = theme.accent || '#14B8A6'
   const tint = theme.buttonBg || `${color}1A`
 
+  const headerCoverPref =
+    profile?.header_cover_style ||
+    (profile?.username && typeof window !== 'undefined' && localStorage.getItem(`linksocio_header_cover_${profile.username}`)) ||
+    (profile?.id && typeof window !== 'undefined' && localStorage.getItem(`linksocio_header_cover_${profile.id}`)) ||
+    'auto'
+
+  const shouldShowCover = Boolean(
+    profile?.avatar_url &&
+    (headerCoverPref === 'always' || (headerCoverPref !== 'avatar_only' && theme?.hasHeaderCover))
+  )
+
   const enrichedLinks = (links || []).map((l) => {
     const m = (linksMeta && linksMeta[l.id]) || {}
     return {
@@ -578,7 +589,29 @@ export function LivePagePreview({ profile, links = [], products = [], socials = 
         position: 'relative',
       }}
     >
-      <div style={{ width: '100%', maxWidth: isEmbedded ? 290 : 420 }}>
+      {/* Ambient Top Photo Glow behind card when photo cover is active */}
+      {shouldShowCover && profile?.avatar_url && (
+        <div
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            width: '100%',
+            maxWidth: isEmbedded ? 320 : 490,
+            height: isEmbedded ? 190 : 280,
+            backgroundImage: `url(${profile.avatar_url})`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            filter: 'blur(45px)',
+            opacity: 0.28,
+            pointerEvents: 'none',
+            zIndex: 0,
+          }}
+        />
+      )}
+
+      <div style={{ width: '100%', maxWidth: isEmbedded ? 290 : 420, position: 'relative', zIndex: 1 }}>
         {/* Main Profile Card Container */}
         <div
           style={{
@@ -592,8 +625,64 @@ export function LivePagePreview({ profile, links = [], products = [], socials = 
             padding: isEmbedded ? '24px 18px' : '36px 26px',
             color: theme.textColor,
             boxSizing: 'border-box',
+            overflow: 'hidden',
           }}
         >
+          {/* Top Big Cover Background Banner from Profile Avatar */}
+          {shouldShowCover && profile?.avatar_url && (
+            <div
+              style={{
+                margin: isEmbedded ? '-24px -18px 0 -18px' : '-36px -26px 0 -26px',
+                height: isEmbedded
+                  ? (theme.coverHeight ? Math.round(theme.coverHeight * 0.72) : 130)
+                  : (theme.coverHeight || 185),
+                position: 'relative',
+                overflow: 'hidden',
+                borderTopLeftRadius: isEmbedded ? 22 : 32,
+                borderTopRightRadius: isEmbedded ? 22 : 32,
+              }}
+            >
+              <img
+                src={profile.avatar_url}
+                alt="Profile Cover"
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'cover',
+                  objectPosition: 'center 20%',
+                  filter: theme.coverFilter || 'brightness(0.92) contrast(1.04)',
+                  transform: 'scale(1.05)',
+                  display: 'block',
+                }}
+              />
+              {/* Top gradient for pill contrast */}
+              <div
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  height: 64,
+                  background: 'linear-gradient(180deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.15) 65%, transparent 100%)',
+                  pointerEvents: 'none',
+                }}
+              />
+              {/* Bottom fade gradient into the theme card background */}
+              <div
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  background: `linear-gradient(180deg, rgba(0,0,0,0.01) 0%, rgba(0,0,0,0.18) 45%, ${
+                    theme.cardBg?.startsWith('rgba')
+                      ? theme.cardBg
+                      : theme.cardBg || '#FFFFFF'
+                  } 100%)`,
+                  pointerEvents: 'none',
+                }}
+              />
+            </div>
+          )}
+
           {/* Top-Left LinkSocio Badge (Removable via Pro / Watermark Settings) */}
           {!hideBranding && (
             <a
@@ -608,16 +697,17 @@ export function LivePagePreview({ profile, links = [], products = [], socials = 
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: 5,
-                background: tint,
+                background: shouldShowCover ? 'rgba(0,0,0,0.52)' : tint,
                 padding: isEmbedded ? '3px 8px' : '4px 10px',
                 borderRadius: 100,
                 textDecoration: 'none',
-                border: '1px solid rgba(0,0,0,0.05)',
+                border: shouldShowCover ? '1px solid rgba(255,255,255,0.25)' : '1px solid rgba(0,0,0,0.05)',
                 fontSize: isEmbedded ? 9.5 : 11,
                 fontWeight: 700,
-                color: theme.textColor,
+                color: shouldShowCover ? '#FFFFFF' : theme.textColor,
                 zIndex: 10,
-                backdropFilter: 'blur(8px)',
+                backdropFilter: 'blur(10px)',
+                WebkitBackdropFilter: 'blur(10px)',
                 transition: 'transform 0.15s ease, opacity 0.15s ease',
               }}
             >
@@ -638,8 +728,8 @@ export function LivePagePreview({ profile, links = [], products = [], socials = 
                 </svg>
               </div>
               <span>
-                <span style={{ color: theme.textColor }}>Link</span>
-                <span style={{ color }}>Socio</span>
+                <span style={{ color: shouldShowCover ? '#FFFFFF' : theme.textColor }}>Link</span>
+                <span style={{ color: shouldShowCover ? '#2DD4BF' : color }}>Socio</span>
               </span>
             </a>
           )}
@@ -660,12 +750,13 @@ export function LivePagePreview({ profile, links = [], products = [], socials = 
               width: isEmbedded ? 30 : 36,
               height: isEmbedded ? 30 : 36,
               borderRadius: '50%',
-              background: tint,
-              border: '1px solid rgba(0,0,0,0.06)',
-              color: theme.textColor,
+              background: shouldShowCover ? 'rgba(0,0,0,0.52)' : tint,
+              border: shouldShowCover ? '1px solid rgba(255,255,255,0.25)' : '1px solid rgba(0,0,0,0.06)',
+              color: shouldShowCover ? '#FFFFFF' : theme.textColor,
               cursor: 'pointer',
               zIndex: 10,
-              backdropFilter: 'blur(8px)',
+              backdropFilter: 'blur(10px)',
+              WebkitBackdropFilter: 'blur(10px)',
               padding: 0,
               transition: 'transform 0.15s ease',
             }}
@@ -676,13 +767,13 @@ export function LivePagePreview({ profile, links = [], products = [], socials = 
               e.currentTarget.style.transform = 'scale(1)'
             }}
           >
-            <IconShare color={theme.textColor} size={isEmbedded ? 14 : 17} />
+            <IconShare color={shouldShowCover ? '#FFFFFF' : theme.textColor} size={isEmbedded ? 14 : 17} />
           </button>
 
           {/* Header info */}
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', position: 'relative', width: '100%' }}>
             {/* Ambient spotlight behind avatar for photo themes */}
-            {theme.avatarSpotlight && (
+            {theme.avatarSpotlight && !shouldShowCover && (
               <div
                 style={{
                   position: 'absolute',
@@ -700,14 +791,25 @@ export function LivePagePreview({ profile, links = [], products = [], socials = 
 
             <div
               style={{
-                width: theme.avatarSize === 'hero' ? (isEmbedded ? 82 : 108) : theme.avatarSize === 'large' ? (isEmbedded ? 74 : 96) : (isEmbedded ? 64 : 88),
-                height: theme.avatarSize === 'hero' ? (isEmbedded ? 82 : 108) : theme.avatarSize === 'large' ? (isEmbedded ? 74 : 96) : (isEmbedded ? 64 : 88),
+                width: shouldShowCover
+                  ? (isEmbedded ? 78 : 104)
+                  : (theme.avatarSize === 'hero' ? (isEmbedded ? 82 : 108) : theme.avatarSize === 'large' ? (isEmbedded ? 74 : 96) : (isEmbedded ? 64 : 88)),
+                height: shouldShowCover
+                  ? (isEmbedded ? 78 : 104)
+                  : (theme.avatarSize === 'hero' ? (isEmbedded ? 82 : 108) : theme.avatarSize === 'large' ? (isEmbedded ? 74 : 96) : (isEmbedded ? 64 : 88)),
+                marginTop: shouldShowCover
+                  ? (isEmbedded ? -44 : -58)
+                  : 0,
                 borderRadius: theme.avatarShape === 'squircle' ? (isEmbedded ? 22 : 30) : '50%',
                 background: profile?.avatar_url
                   ? '#F1F5F9'
                   : `linear-gradient(135deg, ${color}, #0F172A)`,
-                border: theme.avatarBorder || '3px solid white',
-                boxShadow: theme.avatarRing || `0 4px 16px ${color}33`,
+                border: shouldShowCover
+                  ? (isEmbedded ? '3.5px solid ' + (theme.cardBg?.startsWith('rgba') ? '#FFFFFF' : (theme.cardBg || '#FFFFFF')) : '4.5px solid ' + (theme.cardBg?.startsWith('rgba') ? '#FFFFFF' : (theme.cardBg || '#FFFFFF')))
+                  : (theme.avatarBorder || '3px solid white'),
+                boxShadow: shouldShowCover
+                  ? '0 10px 28px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,255,255,0.2)'
+                  : (theme.avatarRing || `0 4px 16px ${color}33`),
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -717,7 +819,7 @@ export function LivePagePreview({ profile, links = [], products = [], socials = 
                 marginBottom: isEmbedded ? 11 : 15,
                 overflow: 'hidden',
                 position: 'relative',
-                zIndex: 1,
+                zIndex: 2,
                 transition: 'all 0.25s ease',
               }}
             >

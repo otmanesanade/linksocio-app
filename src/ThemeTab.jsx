@@ -16,6 +16,17 @@ export default function ThemeTab({ user, profile, onUpdated }) {
     }
     return false
   })
+  const [headerCoverStyle, setHeaderCoverStyle] = useState(() => {
+    if (profile?.username && typeof window !== 'undefined') {
+      const stored = localStorage.getItem(`linksocio_header_cover_${profile.username}`)
+      if (stored) return stored
+    }
+    if (user?.id && typeof window !== 'undefined') {
+      const stored = localStorage.getItem(`linksocio_header_cover_${user.id}`)
+      if (stored) return stored
+    }
+    return profile?.header_cover_style || 'auto'
+  })
   const [activeSubTab, setActiveSubTab] = useState('themes')
   const [themeCategory, setThemeCategory] = useState('all')
   const [saved, setSaved] = useState(false)
@@ -41,6 +52,15 @@ export default function ThemeTab({ user, profile, onUpdated }) {
       }
       if (user?.id) {
         localStorage.setItem(`linksocio_hide_branding_${user.id}`, String(value))
+      }
+    }
+    if (field === 'header_cover_style') {
+      setHeaderCoverStyle(value)
+      if (profile?.username) {
+        localStorage.setItem(`linksocio_header_cover_${profile.username}`, String(value))
+      }
+      if (user?.id) {
+        localStorage.setItem(`linksocio_header_cover_${user.id}`, String(value))
       }
     }
 
@@ -102,11 +122,92 @@ export default function ThemeTab({ user, profile, onUpdated }) {
               </div>
             </div>
 
+            {/* Profile Photo as Big Top Cover Background Option */}
+            <div
+              style={{
+                background: '#F8FAFC',
+                border: '1px solid #E2E8F0',
+                borderRadius: 14,
+                padding: '12px 16px',
+                marginBottom: 16,
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: 12,
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 10,
+                    background: '#0F172A',
+                    color: '#38BDF8',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: 18,
+                    flexShrink: 0,
+                  }}
+                >
+                  🖼️
+                </div>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <h4 style={{ margin: 0, fontSize: 13.5, fontWeight: 700, color: '#0F172A' }}>
+                      {t('themeTab.coverHeaderTitle', 'Hero Cover Photo (صورة الغلاف العلوية)')}
+                    </h4>
+                    <span style={{ fontSize: 10.5, fontWeight: 700, background: '#E0F2FE', color: '#0284C7', padding: '1px 6px', borderRadius: 100 }}>
+                      New
+                    </span>
+                  </div>
+                  <p style={{ margin: '2px 0 0', fontSize: 12, color: '#64748B' }}>
+                    {t('themeTab.coverHeaderDesc', 'Show profile photo as a large cinematic background from the top with avatar overlap.')}
+                  </p>
+                </div>
+              </div>
+
+              {/* Mode toggle */}
+              <div style={{ display: 'inline-flex', background: '#E2E8F0', padding: 3, borderRadius: 10 }}>
+                {[
+                  { id: 'auto', label: t('themeTab.coverModeAuto', 'Auto (Cover Themes)') },
+                  { id: 'always', label: t('themeTab.coverModeAlways', '⚡ Always On') },
+                  { id: 'avatar_only', label: t('themeTab.coverModeOff', 'Avatar Only') },
+                ].map((mode) => {
+                  const isCurrent = headerCoverStyle === mode.id
+                  return (
+                    <button
+                      key={mode.id}
+                      type="button"
+                      onClick={() => updateSetting('header_cover_style', mode.id)}
+                      style={{
+                        padding: '5px 11px',
+                        borderRadius: 8,
+                        border: 'none',
+                        background: isCurrent ? '#FFFFFF' : 'transparent',
+                        color: isCurrent ? '#0F172A' : '#64748B',
+                        fontWeight: isCurrent ? 700 : 500,
+                        fontSize: 11.5,
+                        cursor: 'pointer',
+                        boxShadow: isCurrent ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                        transition: 'all 0.15s ease',
+                      }}
+                    >
+                      {mode.label}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
             {/* Category Filter Chips */}
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 16 }}>
               {[
                 { id: 'all', label: t('themeTab.catAll', 'All Themes') },
-                { id: 'photo', label: t('themeTab.catPhoto', '📸 Photo Focus (New)') },
+                { id: 'cover', label: t('themeTab.catCover', '🖼️ Hero Cover (خلفية من الفوق)') },
+                { id: 'photo', label: t('themeTab.catPhoto', '📸 Photo Focus') },
                 { id: 'luxury', label: t('themeTab.catLuxury', '👑 Luxury & VIP') },
                 { id: 'animated', label: t('themeTab.catAnimated', '⚡ Animated Glow') },
                 { id: 'minimal', label: t('themeTab.catMinimal', '✨ Minimal & Clean') },
@@ -138,7 +239,8 @@ export default function ThemeTab({ user, profile, onUpdated }) {
               {Object.entries(THEMES)
                 .filter(([key, theme]) => {
                   if (themeCategory === 'all') return true
-                  if (themeCategory === 'photo') return theme.category === 'Photo Focus' || theme.badge?.includes('Photo')
+                  if (themeCategory === 'cover') return theme.hasHeaderCover || theme.category === 'Hero Cover'
+                  if (themeCategory === 'photo') return theme.category === 'Photo Focus' || theme.badge?.includes('Photo') || theme.hasHeaderCover
                   if (themeCategory === 'luxury') return theme.category === 'Luxury' || theme.category === 'Photo Focus' || key.includes('gold') || key.includes('monaco') || key.includes('sapphire')
                   if (themeCategory === 'animated') return theme.isAnimated || theme.category === 'Animated Gradient' || key.includes('cyber') || key.includes('aurora') || key.includes('cosmic')
                   if (themeCategory === 'minimal') return theme.category === 'Minimal' || theme.category === 'Pastel'
@@ -174,11 +276,39 @@ export default function ThemeTab({ user, profile, onUpdated }) {
                           padding: 10,
                           boxSizing: 'border-box',
                           position: 'relative',
+                          overflow: 'hidden',
                           boxShadow: isSelected ? '0 6px 18px rgba(15,23,42,0.18)' : '0 1px 3px rgba(0,0,0,0.03)',
                           transition: 'transform 0.15s ease, box-shadow 0.15s ease',
                         }}
                       >
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                        {/* Mini Top Cover Banner Preview in Card */}
+                        {theme.hasHeaderCover && (
+                          <div
+                            style={{
+                              position: 'absolute',
+                              top: 0,
+                              left: 0,
+                              right: 0,
+                              height: 38,
+                              backgroundImage: profile?.avatar_url
+                                ? `url(${profile.avatar_url})`
+                                : `linear-gradient(135deg, ${theme.accent}66, #0F172A99)`,
+                              backgroundSize: 'cover',
+                              backgroundPosition: 'center 25%',
+                              opacity: 0.85,
+                            }}
+                          >
+                            <div
+                              style={{
+                                position: 'absolute',
+                                inset: 0,
+                                background: `linear-gradient(180deg, rgba(0,0,0,0.2) 0%, ${theme.cardBg?.startsWith('rgba') ? theme.cardBg : (theme.cardBg || '#000000')} 100%)`,
+                              }}
+                            />
+                          </div>
+                        )}
+
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', position: 'relative', zIndex: 1 }}>
                           {theme.badge ? (
                             <span style={{ fontSize: 9, fontWeight: 700, padding: '2.5px 7px', borderRadius: 6, background: theme.accent, color: '#fff', letterSpacing: '0.02em' }}>
                               {theme.badge}
@@ -207,7 +337,7 @@ export default function ThemeTab({ user, profile, onUpdated }) {
                         </div>
 
                         {/* Mini realistic avatar & layout preview */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 2px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 2px', position: 'relative', zIndex: 1 }}>
                           <div
                             style={{
                               width: 26,

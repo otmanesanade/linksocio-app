@@ -3,8 +3,8 @@ import { supabase } from '../supabaseClient'
 import confetti from 'canvas-confetti'
 import { useLanguage } from '../context/LanguageContext'
 
-// Compress & crop image to square canvas
-async function compressImage(file, maxSize = 400) {
+// Compress & crop image to square canvas (700px for high-definition cover backgrounds and avatars)
+async function compressImage(file, maxSize = 700) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
     reader.onload = (e) => {
@@ -32,14 +32,14 @@ async function compressImage(file, maxSize = 400) {
             if (blob) {
               resolve({
                 blob,
-                dataUrl: canvas.toDataURL('image/jpeg', 0.88),
+                dataUrl: canvas.toDataURL('image/jpeg', 0.9),
               })
             } else {
               reject(new Error('Canvas compression failed'))
             }
           },
           'image/jpeg',
-          0.88
+          0.9
         )
       }
       img.onerror = reject
@@ -252,6 +252,11 @@ export default function AvatarUpload({ user, profile, onUpdated }) {
           {currentAvatar && (
             <span style={{ fontSize: 11, background: '#E6F7F5', color: '#0D9488', fontWeight: 600, padding: '1px 7px', borderRadius: 100 }}>
               {t('avatar.customBadge', 'Custom')}
+            </span>
+          )}
+          {currentAvatar && (
+            <span style={{ fontSize: 11, background: '#E0F2FE', color: '#0369A1', fontWeight: 600, padding: '1px 7px', borderRadius: 100, display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+              <span>🖼️</span> {t('avatar.coverCapable', 'Hero Cover Ready')}
             </span>
           )}
         </div>
