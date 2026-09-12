@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from './supabaseClient'
 import AvatarUpload from './components/AvatarUpload'
-import BillingSettings from './components/BillingSettings'
 import { fetchServerProfileMeta, saveServerProfileMeta, getStoredSocials, saveStoredSocials } from './utils/socialPlatforms'
 import { useLanguage } from './context/LanguageContext'
 
@@ -259,7 +258,7 @@ export default function SettingsTab({ user, profile, onSaved, initialSubTab = 'p
           ⚙️ {t('settingsTab.headerTitle', 'Account & Profile Settings')}
         </h2>
         <p style={{ margin: 0, fontSize: 13, color: '#64748B' }}>
-          {t('settingsTab.headerDesc', 'Manage your public username URL, display identity, membership subscription, and security.')}
+          {t('settingsTab.headerDesc', 'Manage your public username URL, display identity, and security.')}
         </p>
       </div>
 
@@ -276,7 +275,6 @@ export default function SettingsTab({ user, profile, onSaved, initialSubTab = 'p
       >
         {[
           { key: 'profile', label: `👤 ${t('settingsTab.profileTab', 'Profile & Identity')}` },
-          { key: 'billing', label: `💳 ${t('settingsTab.billingTab', 'Billing & Subscription (Plans / Invoices)')}` },
           { key: 'security', label: `🔒 ${t('settingsTab.securityTab', 'Security & Password')}` },
         ].map((tab) => {
           const isActive = activeSubTab === tab.key
@@ -306,12 +304,7 @@ export default function SettingsTab({ user, profile, onSaved, initialSubTab = 'p
         })}
       </div>
 
-      {/* SUB-TAB 1: Billing & Subscription */}
-      {activeSubTab === 'billing' && (
-        <BillingSettings user={user} profile={profile} onSaved={onSaved} />
-      )}
-
-      {/* SUB-TAB 2: Profile & Identity */}
+      {/* SUB-TAB: Profile & Identity */}
       {activeSubTab === 'profile' && (
         <div style={{ background: 'white', border: '1px solid #E7EDEC', borderRadius: 20, padding: 24 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>

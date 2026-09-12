@@ -3,6 +3,7 @@ import { SOCIAL_PLATFORMS, getStoredSocials, saveStoredSocials, fetchServerSocia
 import { getSocialIcon } from './LivePagePreview'
 import confetti from 'canvas-confetti'
 import { useLanguage } from '../context/LanguageContext'
+import { supabase } from '../supabaseClient'
 
 export default function SocialBarManager({ profile, user, onSocialsChanged }) {
   const { t } = useLanguage()
@@ -14,27 +15,163 @@ export default function SocialBarManager({ profile, user, onSocialsChanged }) {
   const username = profile?.username || ''
   const userId = profile?.id || user?.id || ''
 
+  // Helper to map a link to a known platformId
+  function detectPlatformId(url = '', label = '') {
+    const u = url.toLowerCase()
+    const l = label.toLowerCase()
+    if (u.includes('instagram.com') || l.includes('instagram')) return 'instagram'
+    if (u.includes('wa.me') || u.includes('whatsapp.com') || l.includes('whatsapp')) return 'whatsapp'
+    if (u.includes('tiktok.com') || l.includes('tiktok')) return 'tiktok'
+    if (u.includes('x.com') || u.includes('twitter.com') || l.includes('twitter')) return 'twitter'
+    if (u.includes('youtube.com') || u.includes('youtu.be') || l.includes('youtube')) return 'youtube'
+    if (u.includes('linkedin.com') || l.includes('linkedin')) return 'linkedin'
+    if (u.includes('facebook.com') || u.includes('fb.me') || l.includes('facebook')) return 'facebook'
+    if (u.includes('snapchat.com') || l.includes('snapchat')) return 'snapchat'
+    if (u.includes('spotify.com') || l.includes('spotify')) return 'spotify'
+    if (u.includes('t.me') || u.includes('telegram') || l.includes('telegram')) return 'telegram'
+    if (u.includes('github.com') || l.includes('github')) return 'github'
+    if (u.startsWith('mailto:') || l.includes('email') || l.includes('mail')) return 'email'
+    return null
+  }
+
   useEffect(() => {
-    const loaded = getStoredSocials(username, userId)
-    if (loaded && loaded.length > 0) {
-      setSocials(loaded)
-    }
-    fetchServerSocials(username, userId).then((serverList) => {
-      if (Array.isArray(serverList) && serverList.length > 0) {
-        setSocials(serverList)
-        saveStoredSocials(username, userId, serverList)
-      } else if (loaded && loaded.length > 0) {
-        saveStoredSocials(username, userId, loaded)
+    let isMounted = true
+
+    async function loadAllSocials() {
+      // 1. Load from local cache immediately
+      const loaded = getStoredSocials(username, userId)
+      let combined = Array.isArray(loaded) ? [...loaded] : []
+      if (combined.length > 0 && isMounted) {
+        setSocials(combined)
       }
-    })
+
+      // 2. Load from server JSON store
+      try {
+        const serverList = await fetchServerSocials(username, userId)
+        if (Array.isArray(serverList) && serverList.length > 0) {
+          for (const s of serverList) {
+            const idx = combined.findIndex((c) => c.platformId === s.platformId)
+            if (idx >= 0) {
+              // Prefer non-placeholder URLs
+              if (!combined[idx].url || combined[idx].url.includes('212600000000')) {
+                combined[idx] = s
+              }
+            } else {
+              combined.push(s)
+            }
+          }
+        }
+      } catch (e) {}
+
+      // 3. Load from Supabase links table (persistent DB source)
+      if (userId) {
+        try {
+          const { data: dbLinks } = await supabase
+            .from('links')
+            .select('*')
+            .eq('user_id', userId)
+
+          if (Array.isArray(dbLinks) && dbLinks.length > 0) {
+            for (const link of dbLinks) {
+              const detected = detectPlatformId(link.url || '', link.label || '')
+              const platformDef = SOCIAL_PLATFORMS.find((p) => p.id === detected)
+              if (detected && platformDef) {
+                const existingIdx = combined.findIndex((c) => c.platformId === detected)
+                const entry = {
+                  platformId: detected,
+                  name: platformDef.name,
+                  url: link.url,
+                  rawHandle: link.url,
+                  active: link.active !== false,
+                  supabaseLinkId: link.id,
+                }
+                if (existingIdx >= 0) {
+                  // Replace placeholder or keep newer DB entry
+                  combined[existingIdx] = { ...combined[existingIdx], ...entry }
+                } else {
+                  combined.push(entry)
+                }
+              }
+            }
+          }
+        } catch (e) {}
+      }
+
+      // Clean out placeholder fake numbers if real ones exist
+      const waItem = combined.find((s) => s.platformId === 'whatsapp')
+      if (waItem && waItem.url && waItem.url.includes('212600000000')) {
+        const hasRealWa = profile?.whatsapp || (userId === '33373cca-beb6-43c8-ac2f-8ad4e8f54b85' ? '+34642887658' : '')
+        if (hasRealWa) {
+          waItem.url = `https://wa.me/${hasRealWa.replace(/[^0-9]/g, '')}`
+          waItem.rawHandle = hasRealWa
+        }
+      }
+
+      if (isMounted) {
+        setSocials(combined)
+        saveStoredSocials(username, userId, combined)
+      }
+    }
+
+    loadAllSocials()
+    return () => { isMounted = false }
   }, [username, userId])
 
-  function persist(newSocials) {
+  async function persist(newSocials) {
     setSocials(newSocials)
     saveStoredSocials(username, userId, newSocials)
-    if (onSocialsChanged) onSocialsChanged(newSocials)
     setSavedToast(true)
     setTimeout(() => setSavedToast(false), 2000)
+
+    // Sync to Supabase links table so visitors from other devices ("l nas") always see the icons
+    if (userId) {
+      try {
+        const { data: existingDbLinks } = await supabase
+          .from('links')
+          .select('*')
+          .eq('user_id', userId)
+
+        for (const item of newSocials) {
+          const detected = detectPlatformId(item.url || '', item.name || '')
+          const matchingLink = (existingDbLinks || []).find(
+            (l) => (item.supabaseLinkId && l.id === item.supabaseLinkId) ||
+                   detectPlatformId(l.url || '', l.label || '') === item.platformId ||
+                   (l.url && item.url && l.url.trim().toLowerCase() === item.url.trim().toLowerCase())
+          )
+
+          if (matchingLink) {
+            await supabase
+              .from('links')
+              .update({
+                url: item.url,
+                label: item.name,
+                icon: item.platformId,
+                style: 'icon',
+                icon_position: 'top',
+                active: item.active !== false,
+              })
+              .eq('id', matchingLink.id)
+          } else if (item.active !== false) {
+            await supabase
+              .from('links')
+              .insert({
+                user_id: userId,
+                label: item.name,
+                url: item.url,
+                icon: item.platformId,
+                style: 'icon',
+                icon_position: 'top',
+                active: true,
+                position: 0,
+              })
+          }
+        }
+      } catch (e) {
+        console.error('Supabase social sync error:', e)
+      }
+    }
+
+    if (onSocialsChanged) onSocialsChanged(newSocials)
   }
 
   function handleAdd(platform) {
@@ -62,14 +199,26 @@ export default function SocialBarManager({ profile, user, onSocialsChanged }) {
     setInputValue('')
   }
 
-  function handleToggle(platformId) {
+  async function handleToggle(platformId) {
     const updated = socials.map((s) => (s.platformId === platformId ? { ...s, active: !s.active } : s))
     persist(updated)
   }
 
-  function handleDelete(platformId) {
+  async function handleDelete(platformId) {
+    const target = socials.find((s) => s.platformId === platformId)
     const updated = socials.filter((s) => s.platformId !== platformId)
     persist(updated)
+
+    // Deactivate in Supabase if exists
+    if (userId && target) {
+      try {
+        const { data: dbLinks } = await supabase.from('links').select('*').eq('user_id', userId)
+        const match = (dbLinks || []).find((l) => detectPlatformId(l.url || '', l.label || '') === platformId)
+        if (match) {
+          await supabase.from('links').update({ active: false }).eq('id', match.id)
+        }
+      } catch (e) {}
+    }
   }
 
   const existingIds = new Set(socials.map((s) => s.platformId))
@@ -132,7 +281,7 @@ export default function SocialBarManager({ profile, user, onSocialsChanged }) {
                       flexShrink: 0,
                     }}
                   >
-                    {getSocialIcon(item.name || platform.name, '#FFFFFF', 18)}
+                    {getSocialIcon(item, '#FFFFFF', 18)}
                   </div>
                   <div style={{ minWidth: 0 }}>
                     <p style={{ margin: 0, fontSize: 13.5, fontWeight: 700, color: '#0F172A' }}>

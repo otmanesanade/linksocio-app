@@ -4,7 +4,7 @@ import { getSocialIcon } from './LivePagePreview'
 import { getMediaEmbedInfo } from '../utils/mediaEmbed'
 import SocialBarManager from './SocialBarManager'
 import ShareModal from './ShareModal'
-import { getStoredLinksMeta, saveStoredLinksMeta, inferIconFromLink } from '../utils/socialPlatforms'
+import { getStoredLinksMeta, saveStoredLinksMeta, inferIconFromLink, getStoredSocials, saveStoredSocials } from '../utils/socialPlatforms'
 import { useLanguage } from '../context/LanguageContext'
 
 const QUICK_PRESETS = [
@@ -132,25 +132,71 @@ export default function LinksManager({
     setPresetInput('')
   }
 
-  function handleApplyPreset() {
-    if (!presetInput) return
-    const cleanInput = presetInput.replace(/^@/, '')
-    let fullUrl = ''
+  function computePresetUrl() {
+    if (!presetInput || !activePreset) return ''
+    const cleanInput = presetInput.replace(/^@/, '').trim()
     if (activePreset.label === 'WhatsApp') {
       const cleanPhone = cleanInput.replace(/[^0-9]/g, '')
-      fullUrl = `https://wa.me/${cleanPhone}`
+      return `https://wa.me/${cleanPhone}`
     } else if (activePreset.label.includes('Google Maps') || activePreset.label.includes('Location')) {
       if (/^https?:\/\//i.test(cleanInput)) {
-        fullUrl = cleanInput
+        return cleanInput
       } else {
-        fullUrl = `https://maps.google.com/?q=${encodeURIComponent(cleanInput)}`
+        return `https://maps.google.com/?q=${encodeURIComponent(cleanInput)}`
       }
     } else if (activePreset.prefix.startsWith('http')) {
-      fullUrl = activePreset.prefix.endsWith('/') || activePreset.prefix.endsWith('@')
+      return activePreset.prefix.endsWith('/') || activePreset.prefix.endsWith('@')
         ? `${activePreset.prefix}${cleanInput}`
         : `${activePreset.prefix}/${cleanInput}`
     }
+    return cleanInput.startsWith('http') ? cleanInput : `https://${cleanInput}`
+  }
+
+  function handleApplyPreset() {
+    const fullUrl = computePresetUrl()
+    if (!fullUrl) return
     setUrl(fullUrl)
+  }
+
+  async function handleAddDirectToIconBar() {
+    const fullUrl = computePresetUrl()
+    if (!fullUrl || !activePreset) return
+
+    const targetUserId = profile?.id || user?.id
+    if (!targetUserId) return
+
+    // Save to Supabase links with style: 'icon'
+    const iconName = inferIconFromLink(fullUrl, activePreset.label)
+    await supabase.from('links').insert({
+      user_id: targetUserId,
+      label: activePreset.label,
+      url: fullUrl,
+      icon: iconName,
+      style: 'icon',
+      icon_position: 'top',
+      active: true,
+      position: links.length,
+    })
+
+    // Also update socials store & localStorage
+    const username = profile?.username || ''
+    const currentSocials = getStoredSocials(username, targetUserId)
+    const filtered = (currentSocials || []).filter((s) => s.name?.toLowerCase() !== activePreset.label.toLowerCase())
+    const updated = [
+      ...filtered,
+      {
+        platformId: (activePreset.label || '').toLowerCase(),
+        name: activePreset.label,
+        url: fullUrl,
+        rawHandle: presetInput.trim(),
+        active: true,
+      },
+    ]
+    saveStoredSocials(username, targetUserId, updated)
+
+    setActivePreset(null)
+    setPresetInput('')
+    onLinksChanged()
   }
 
   async function deleteLink(id) {
@@ -586,19 +632,50 @@ export default function LinksManager({
             <span style={{ fontSize: 12, fontWeight: 600, color: '#0F172A' }}>
               {activePreset.label}:
             </span>
-            <div style={{ display: 'flex', gap: 8 }}>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               <input
                 placeholder={activePreset.placeholder}
                 value={presetInput}
                 onChange={(e) => setPresetInput(e.target.value)}
-                style={{ ...inputStyle, flex: 1 }}
+                style={{ ...inputStyle, flex: '1 1 200px' }}
               />
               <button
                 type="button"
-                onClick={handleApplyPreset}
-                style={{ background: '#14B8A6', color: 'white', border: 'none', borderRadius: 10, padding: '0 16px', fontSize: 12.5, fontWeight: 600, cursor: 'pointer' }}
+                onClick={handleAddDirectToIconBar}
+                style={{
+                  background: '#0F172A',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: 10,
+                  padding: '9px 14px',
+                  fontSize: 12.5,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  whiteSpace: 'nowrap',
+                }}
               >
-                {t('common.save', 'Set URL')}
+                <span>⚡</span>
+                <span>{t('linksManager.addToIconBar', 'Add to Social Icons Bar')}</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleApplyPreset}
+                style={{
+                  background: '#14B8A6',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: 10,
+                  padding: '9px 14px',
+                  fontSize: 12.5,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {t('linksManager.setAsButton', 'Use as Button Link')}
               </button>
             </div>
           </div>

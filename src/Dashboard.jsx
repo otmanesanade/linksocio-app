@@ -13,6 +13,7 @@ import RestaurantTab, { fetchServerRestaurantMenu } from './RestaurantTab'
 import NotificationTab from './NotificationTab'
 import PayoutsTab from './PayoutsTab'
 import SettingsTab from './SettingsTab'
+import BillingSettings from './components/BillingSettings'
 import { getNotificationSettings, playNotificationSound } from './notificationService'
 import { LivePagePreview } from './components/LivePagePreview'
 import confetti from 'canvas-confetti'
@@ -467,6 +468,28 @@ export default function Dashboard({ user, initialTab }) {
       custom_icon: l.custom_icon || meta[l.id]?.icon || null,
     }))
     setLinks(enriched)
+
+    // Automatically sync any icon links into socials so preview and visitor pages display them seamlessly
+    const iconLinks = enriched.filter((l) => l.style === 'icon')
+    if (iconLinks.length > 0) {
+      setSocials((prev) => {
+        const merged = Array.isArray(prev) ? [...prev] : []
+        for (const il of iconLinks) {
+          const normUrl = (il.url || '').toLowerCase().trim()
+          const exists = merged.some((m) => (m.url && m.url.toLowerCase().trim() === normUrl) || (m.name && m.name.toLowerCase() === il.label?.toLowerCase()))
+          if (!exists) {
+            merged.push({
+              platformId: il.icon || 'globe',
+              name: il.label,
+              url: il.url,
+              rawHandle: il.url,
+              active: il.active !== false,
+            })
+          }
+        }
+        return merged
+      })
+    }
   }
 
   async function loadProducts() {
@@ -1261,7 +1284,7 @@ export default function Dashboard({ user, initialTab }) {
             <Analytics links={links} />
           )}
           {tab === 'billing' && (
-            <SettingsTab user={user} profile={profile} onSaved={loadProfile} initialSubTab="billing" />
+            <BillingSettings user={user} profile={profile} onSaved={loadProfile} />
           )}
           {tab === 'settings' && (
             <SettingsTab user={user} profile={profile} onSaved={loadProfile} initialSubTab="profile" />

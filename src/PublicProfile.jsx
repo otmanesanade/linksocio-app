@@ -115,6 +115,36 @@ export default function PublicProfile({ username }) {
         active: true,
       })
     }
+
+    const contactWa = profileData.whatsapp || (isOwnerAccount ? '+34642887658' : '')
+    if (contactWa) {
+      const cleanWa = contactWa.replace(/[^0-9]/g, '')
+      const waIdx = finalSocials.findIndex((s) => s.platformId === 'whatsapp')
+      if (waIdx >= 0) {
+        if (!finalSocials[waIdx].url || finalSocials[waIdx].url.includes('212600000000')) {
+          finalSocials[waIdx].url = `https://wa.me/${cleanWa}`
+          finalSocials[waIdx].rawHandle = contactWa
+        }
+      } else {
+        finalSocials.push({
+          platformId: 'whatsapp',
+          name: 'WhatsApp',
+          url: `https://wa.me/${cleanWa}`,
+          rawHandle: contactWa,
+          active: true,
+        })
+      }
+    }
+
+    if (isOwnerAccount && !finalSocials.some((s) => s.platformId === 'instagram')) {
+      finalSocials.push({
+        platformId: 'instagram',
+        name: 'Instagram',
+        url: 'https://instagram.com/Sa_GP06',
+        rawHandle: 'Sa_GP06',
+        active: true,
+      })
+    }
     setSocials(finalSocials)
 
     if (inquirySettings) {
@@ -212,6 +242,33 @@ export default function PublicProfile({ username }) {
         custom_icon: l.custom_icon || m.icon || null,
       }
     })
+
+    // Guarantee that any icon links saved in Supabase are also merged into socials for visitors
+    for (const l of enrichedLinks) {
+      if (l.style === 'icon' || l.icon_position === 'top') {
+        const normUrl = (l.url || '').toLowerCase().trim()
+        const matchIdx = finalSocials.findIndex(
+          (s) => (s.url && s.url.toLowerCase().trim() === normUrl) ||
+                 (s.name && l.label && s.name.toLowerCase() === l.label.toLowerCase()) ||
+                 (s.platformId && l.icon && s.platformId === l.icon)
+        )
+        if (matchIdx >= 0) {
+          if (!finalSocials[matchIdx].url || finalSocials[matchIdx].url.includes('212600000000')) {
+            finalSocials[matchIdx].url = l.url
+            finalSocials[matchIdx].rawHandle = l.url
+          }
+        } else {
+          finalSocials.push({
+            platformId: l.icon || 'globe',
+            name: l.label,
+            url: l.url,
+            rawHandle: l.url,
+            active: l.active !== false,
+          })
+        }
+      }
+    }
+    setSocials([...finalSocials])
 
     setLinks(enrichedLinks)
     setProducts(finalProducts)

@@ -376,25 +376,56 @@ export function LivePagePreview({ profile, links = [], products = [], socials = 
   // Merge dedicated social platforms from SocialBarManager with custom icon links
   const activeSocialPlatforms = (storedSocials || []).filter((s) => s && s.active !== false)
   const seenUrls = new Set()
+  const seenPlatforms = new Set()
   const combinedTopIcons = []
 
-  for (const s of activeSocialPlatforms) {
-    const norm = (s.url || '').toLowerCase().trim().replace(/\/$/, '')
-    if (norm) seenUrls.add(norm)
-    combinedTopIcons.push({
-      id: `social_platform_${s.platformId}`,
-      label: s.name,
-      url: s.url,
-      isPlatform: true,
-      platformId: s.platformId,
-    })
+  // Helper to extract platform name
+  const getPlatformKey = (item) => {
+    const raw = (item.platformId || item.icon || item.label || item.name || '').toLowerCase()
+    if (raw.includes('insta')) return 'instagram'
+    if (raw.includes('wa.me') || raw.includes('whatsapp')) return 'whatsapp'
+    if (raw.includes('tiktok')) return 'tiktok'
+    if (raw.includes('twitter') || raw.includes('x.com')) return 'twitter'
+    if (raw.includes('youtube')) return 'youtube'
+    if (raw.includes('linkedin')) return 'linkedin'
+    if (raw.includes('facebook') || raw.includes('fb.me')) return 'facebook'
+    if (raw.includes('snapchat')) return 'snapchat'
+    if (raw.includes('spotify')) return 'spotify'
+    if (raw.includes('telegram') || raw.includes('t.me')) return 'telegram'
+    if (raw.includes('github')) return 'github'
+    if (raw.includes('email') || raw.includes('mailto:')) return 'email'
+    return raw
   }
 
+  // 1. Process custom top icons from Supabase links first (highest priority)
   for (const t of topIcons) {
     const norm = (t.url || '').toLowerCase().trim().replace(/\/$/, '')
-    if (!norm || !seenUrls.has(norm)) {
+    const platKey = getPlatformKey(t)
+    if (norm) seenUrls.add(norm)
+    if (platKey) seenPlatforms.add(platKey)
+    combinedTopIcons.push(t)
+  }
+
+  // 2. Process active social platforms from SocialBarManager / server store
+  for (const s of activeSocialPlatforms) {
+    const norm = (s.url || '').toLowerCase().trim().replace(/\/$/, '')
+    const platKey = getPlatformKey(s)
+
+    // Skip placeholder fake numbers if real wa.me already exists
+    if (platKey === 'whatsapp' && norm.includes('212600000000') && seenPlatforms.has('whatsapp')) {
+      continue
+    }
+
+    if ((!norm || !seenUrls.has(norm)) && (!platKey || !seenPlatforms.has(platKey))) {
       if (norm) seenUrls.add(norm)
-      combinedTopIcons.push(t)
+      if (platKey) seenPlatforms.add(platKey)
+      combinedTopIcons.push({
+        id: `social_platform_${s.platformId}`,
+        label: s.name,
+        url: s.url,
+        isPlatform: true,
+        platformId: s.platformId,
+      })
     }
   }
 
