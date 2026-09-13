@@ -338,29 +338,31 @@ export default function ThemeTab({ user, profile, onUpdated }) {
 
                         {/* Mini realistic avatar & layout preview */}
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 2px', position: 'relative', zIndex: 1 }}>
-                          <div
-                            style={{
-                              width: 26,
-                              height: 26,
-                              borderRadius: theme.avatarShape === 'squircle' ? 8 : '50%',
-                              background: profile?.avatar_url ? '#FFF' : `linear-gradient(135deg, ${theme.accent}, #0F172A)`,
-                              border: theme.avatarBorder || '2px solid white',
-                              boxShadow: theme.avatarRing ? '0 0 8px rgba(0,0,0,0.3)' : '0 1px 4px rgba(0,0,0,0.15)',
-                              overflow: 'hidden',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              flexShrink: 0,
-                            }}
-                          >
-                            {profile?.avatar_url ? (
-                              <img src={profile.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                            ) : (
-                              <span style={{ fontSize: 10, color: 'white', fontWeight: 800 }}>
-                                {profile?.display_name?.[0]?.toUpperCase() || 'P'}
-                              </span>
-                            )}
-                          </div>
+                          {!theme.hasHeaderCover && (
+                            <div
+                              style={{
+                                width: 26,
+                                height: 26,
+                                borderRadius: theme.avatarShape === 'squircle' ? 8 : '50%',
+                                background: profile?.avatar_url ? '#FFF' : `linear-gradient(135deg, ${theme.accent}, #0F172A)`,
+                                border: theme.avatarBorder || '2px solid white',
+                                boxShadow: theme.avatarRing ? '0 0 8px rgba(0,0,0,0.3)' : '0 1px 4px rgba(0,0,0,0.15)',
+                                overflow: 'hidden',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                flexShrink: 0,
+                              }}
+                            >
+                              {profile?.avatar_url ? (
+                                <img src={profile.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                              ) : (
+                                <span style={{ fontSize: 10, color: 'white', fontWeight: 800 }}>
+                                  {profile?.display_name?.[0]?.toUpperCase() || 'P'}
+                                </span>
+                              )}
+                            </div>
+                          )}
                           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 3.5 }}>
                             <div style={{ width: '50%', height: 5, borderRadius: 3, background: theme.textColor, opacity: 0.85 }} />
                             <div style={{ width: '90%', height: 12, borderRadius: 5, background: theme.cardBg, border: '1px solid rgba(0,0,0,0.08)' }} />
