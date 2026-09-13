@@ -1,0 +1,18 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512' width='512' height='512'>
+  <defs>
+    <linearGradient id='bg' x1='0%' y1='0%' x2='100%' y2='100%'>
+      <stop offset='0%' stop-color='#0F172A' />
+      <stop offset='100%' stop-color='#1E293B' />
+    </linearGradient>
+    <linearGradient id='tealG' x1='0%' y1='0%' x2='100%' y2='100%'>
+      <stop offset='0%' stop-color='#2DD4BF' />
+      <stop offset='100%' stop-color='#0D9488' />
+    </linearGradient>
+  </defs>
+  <rect width='512' height='512' rx='112' fill='url(#bg)' />
+  <g transform='translate(80, 80)'>
+    <!-- Connected Modern Interlocking Rings Logo -->
+    <rect x='40' y='40' width='180' height='180' rx='90' fill='none' stroke='url(#tealG)' stroke-width='42' />
+    <rect x='132' y='132' width='180' height='180' rx='90' fill='none' stroke='#FFFFFF' stroke-width='42' />
+  </g>
+</svg>

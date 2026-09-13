@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from './supabaseClient'
-import { THEMES, FONTS, BUTTON_STYLES } from './themes'
+import { THEMES, FONTS, FONT_COLORS, BUTTON_STYLES } from './themes'
 import AvatarUpload from './components/AvatarUpload'
 import { useLanguage } from './context/LanguageContext'
 
@@ -8,6 +8,18 @@ export default function ThemeTab({ user, profile, onUpdated }) {
   const { t, isRTL } = useLanguage()
   const [selectedTheme, setSelectedTheme] = useState(profile?.theme_preset || 'default')
   const [selectedFont, setSelectedFont] = useState(profile?.font_family || 'default')
+  const [selectedFontColor, setSelectedFontColor] = useState(() => {
+    if (profile?.font_color !== undefined && profile?.font_color !== null) return profile.font_color
+    if (profile?.username && typeof window !== 'undefined') {
+      const stored = localStorage.getItem(`linksocio_font_color_${profile.username}`)
+      if (stored !== null) return stored
+    }
+    if (user?.id && typeof window !== 'undefined') {
+      const stored = localStorage.getItem(`linksocio_font_color_${user.id}`)
+      if (stored !== null) return stored
+    }
+    return ''
+  })
   const [selectedButtonStyle, setSelectedButtonStyle] = useState(profile?.button_style || 'rounded')
   const [hideBranding, setHideBranding] = useState(() => {
     if (profile?.hide_branding !== undefined) return Boolean(profile.hide_branding)
@@ -44,6 +56,15 @@ export default function ThemeTab({ user, profile, onUpdated }) {
       if (user?.id) localStorage.setItem(`linksocio_theme_preset_${user.id}`, value)
     }
     if (field === 'font_family') setSelectedFont(value)
+    if (field === 'font_color') {
+      setSelectedFontColor(value)
+      if (profile?.username) {
+        localStorage.setItem(`linksocio_font_color_${profile.username}`, value || '')
+      }
+      if (user?.id) {
+        localStorage.setItem(`linksocio_font_color_${user.id}`, value || '')
+      }
+    }
     if (field === 'button_style') setSelectedButtonStyle(value)
     if (field === 'hide_branding') {
       setHideBranding(value)
@@ -423,6 +444,160 @@ export default function ThemeTab({ user, profile, onUpdated }) {
                   </button>
                 )
               })}
+            </div>
+
+            {/* Font Colors Section */}
+            <div style={{ marginTop: 28, paddingTop: 22, borderTop: '1px solid #E2E8F0' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                <div>
+                  <p style={{ margin: '0 0 2px', fontSize: 15, fontWeight: 600, color: '#0F172A' }}>
+                    {t('themeTab.fontColorTitle', 'Font & Text Color')}
+                  </p>
+                  <p style={{ margin: 0, fontSize: 13, color: '#8A97A3' }}>
+                    {t('themeTab.fontColorDesc', 'Choose custom text colors or select a preset to match your aesthetic.')}
+                  </p>
+                </div>
+                {selectedFontColor && (
+                  <button
+                    type="button"
+                    onClick={() => updateSetting('font_color', '')}
+                    style={{
+                      border: 'none',
+                      background: '#F1F5F9',
+                      color: '#475569',
+                      padding: '5px 10px',
+                      borderRadius: 8,
+                      fontSize: 12,
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {t('themeTab.resetToDefault', 'Reset to Theme Auto')}
+                  </button>
+                )}
+              </div>
+
+              {/* Color Presets Grid */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: 10, marginTop: 14 }}>
+                {FONT_COLORS.map((fc) => {
+                  const isSelected = selectedFontColor === fc.value
+                  return (
+                    <button
+                      key={fc.id}
+                      type="button"
+                      onClick={() => updateSetting('font_color', fc.value)}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        padding: '10px 12px',
+                        borderRadius: 12,
+                        border: isSelected ? '2px solid #14B8A6' : '1px solid #E2E8F0',
+                        background: isSelected ? '#F0FDFA' : '#FFFFFF',
+                        cursor: 'pointer',
+                        textAlign: isRTL ? 'right' : 'left',
+                        transition: 'all 0.15s ease',
+                      }}
+                    >
+                      <span
+                        style={{
+                          width: 20,
+                          height: 20,
+                          borderRadius: '50%',
+                          background: fc.preview,
+                          border: fc.border ? '1px solid #CBD5E1' : 'none',
+                          boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+                          flexShrink: 0,
+                        }}
+                      />
+                      <span
+                        style={{
+                          fontSize: 12,
+                          fontWeight: isSelected ? 700 : 500,
+                          color: isSelected ? '#0D9488' : '#334155',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {fc.name}
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+
+              {/* Custom Color Input */}
+              <div
+                style={{
+                  marginTop: 14,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 12,
+                  background: '#F8FAFC',
+                  padding: '10px 14px',
+                  borderRadius: 12,
+                  border: '1px solid #E2E8F0',
+                  flexWrap: 'wrap',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <input
+                    type="color"
+                    id="custom-font-color-picker"
+                    value={selectedFontColor || '#0F172A'}
+                    onChange={(e) => updateSetting('font_color', e.target.value)}
+                    style={{
+                      width: 34,
+                      height: 34,
+                      borderRadius: 8,
+                      border: '1px solid #CBD5E1',
+                      cursor: 'pointer',
+                      padding: 0,
+                      background: 'none',
+                    }}
+                  />
+                  <label
+                    htmlFor="custom-font-color-picker"
+                    style={{ fontSize: 13, fontWeight: 600, color: '#334155', cursor: 'pointer' }}
+                  >
+                    {t('themeTab.customColor', 'Custom Color')}
+                  </label>
+                </div>
+
+                <input
+                  type="text"
+                  placeholder="#000000"
+                  value={selectedFontColor}
+                  onChange={(e) => updateSetting('font_color', e.target.value)}
+                  style={{
+                    padding: '6px 10px',
+                    borderRadius: 8,
+                    border: '1px solid #CBD5E1',
+                    fontSize: 12.5,
+                    fontFamily: 'monospace',
+                    width: 90,
+                    background: 'white',
+                    color: '#0F172A',
+                  }}
+                />
+
+                {selectedFontColor && (
+                  <span
+                    style={{
+                      fontSize: 12.5,
+                      color: selectedFontColor,
+                      fontWeight: 700,
+                      marginLeft: 'auto',
+                      padding: '4px 10px',
+                      borderRadius: 6,
+                      background: 'rgba(0,0,0,0.04)',
+                    }}
+                  >
+                    Preview: The quick brown fox
+                  </span>
+                )}
+              </div>
             </div>
           </div>
         )}

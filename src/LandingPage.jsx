@@ -3,6 +3,7 @@ import confetti from 'canvas-confetti'
 import { THEMES, FONTS, BUTTON_STYLES } from './themes'
 import LanguageSwitcher from './components/LanguageSwitcher'
 import { useLanguage } from './context/LanguageContext'
+import PWAInstallButton from './components/PWAInstallButton'
 
 // Social SVG Icons
 // Social SVG Icons
@@ -396,6 +397,7 @@ export default function LandingPage({ goToLogin, goToSignUp, goTo }) {
 
           {/* Action CTAs & Language Switcher */}
           <div className="landing-header-actions" style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
+            <PWAInstallButton variant="landing" />
             <LanguageSwitcher variant="compact" />
             <button
               onClick={goToLogin}

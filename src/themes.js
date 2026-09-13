@@ -29,6 +29,21 @@ export const FONTS = {
   },
 }
 
+export const FONT_COLORS = [
+  { id: 'theme', name: 'Auto (Theme Default)', value: '', preview: 'linear-gradient(135deg, #0F172A 50%, #94A3B8 50%)' },
+  { id: 'dark_slate', name: 'Charcoal Black', value: '#0F172A', preview: '#0F172A' },
+  { id: 'pure_white', name: 'Clean White', value: '#FFFFFF', preview: '#FFFFFF', border: true },
+  { id: 'emerald', name: 'Emerald Green', value: '#0D9488', preview: '#0D9488' },
+  { id: 'teal_glow', name: 'Vibrant Teal', value: '#14B8A6', preview: '#14B8A6' },
+  { id: 'cyan_sky', name: 'Sky Cyan', value: '#0284C7', preview: '#0284C7' },
+  { id: 'indigo_royal', name: 'Royal Indigo', value: '#4F46E5', preview: '#4F46E5' },
+  { id: 'violet_purple', name: 'Deep Violet', value: '#7C3AED', preview: '#7C3AED' },
+  { id: 'rose_pink', name: 'Rose Petal', value: '#E11D48', preview: '#E11D48' },
+  { id: 'amber_gold', name: 'Sunset Gold', value: '#D97706', preview: '#D97706' },
+  { id: 'warm_yellow', name: 'Pure Gold', value: '#FACC15', preview: '#FACC15' },
+  { id: 'cool_gray', name: 'Steel Gray', value: '#475569', preview: '#475569' },
+]
+
 export const BUTTON_STYLES = {
   rounded: {
     name: 'Rounded Card',

@@ -336,17 +336,27 @@ export function LivePagePreview({ profile, links = [], products = [], socials = 
     (profile?.username && typeof window !== 'undefined' && localStorage.getItem(`linksocio_theme_preset_${profile.username}`)) ||
     (profile?.id && typeof window !== 'undefined' && localStorage.getItem(`linksocio_theme_preset_${profile.id}`)) ||
     'default'
+  const rawTheme = getTheme(themeKey)
   const fontKey =
     profile?.font_family ||
     (profile?.username && typeof window !== 'undefined' && localStorage.getItem(`linksocio_font_family_${profile.username}`)) ||
     'default'
+  const customFontColor =
+    profile?.font_color ||
+    (profile?.username && typeof window !== 'undefined' && localStorage.getItem(`linksocio_font_color_${profile.username}`)) ||
+    (profile?.id && typeof window !== 'undefined' && localStorage.getItem(`linksocio_font_color_${profile.id}`)) ||
+    ''
+
+  const theme = {
+    ...rawTheme,
+    textColor: customFontColor || rawTheme.textColor,
+    subTextColor: customFontColor ? `${customFontColor}CC` : rawTheme.subTextColor,
+  }
+  const font = getFont(fontKey)
   const buttonKey =
     profile?.button_style ||
     (profile?.username && typeof window !== 'undefined' && localStorage.getItem(`linksocio_button_style_${profile.username}`)) ||
     'rounded'
-
-  const theme = getTheme(themeKey)
-  const font = getFont(fontKey)
   const btnStyle = getButtonStyle(buttonKey)
 
   const hideBranding =

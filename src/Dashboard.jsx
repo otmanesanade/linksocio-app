@@ -22,6 +22,7 @@ import TrialExpiredPaywall from './components/TrialExpiredPaywall'
 import { getStoredLinksMeta, fetchServerLinksMeta, getStoredSocials, fetchServerSocials } from './utils/socialPlatforms'
 import LanguageSwitcher from './components/LanguageSwitcher'
 import { useLanguage } from './context/LanguageContext'
+import PWAInstallButton from './components/PWAInstallButton'
 
 function ProfileCard({ user, profile, onSaved }) {
   const { t } = useLanguage()
@@ -758,6 +759,7 @@ export default function Dashboard({ user, initialTab }) {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <PWAInstallButton variant="badge" />
           <LanguageSwitcher variant="compact" />
           <button
             onClick={() => setShowMobilePreviewModal(true)}
@@ -912,6 +914,9 @@ export default function Dashboard({ user, initialTab }) {
 
             {/* Profile & Logout in Drawer */}
             <div style={{ padding: '14px 16px', borderTop: '1px solid #F1F5F9', background: '#FAFAFA' }}>
+              <div style={{ marginBottom: 12 }}>
+                <PWAInstallButton variant="sidebar" />
+              </div>
               {profile && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
                   <div
@@ -1062,7 +1067,10 @@ export default function Dashboard({ user, initialTab }) {
             })}
           </div>
 
-          <div style={{ marginTop: 24, paddingTop: 16, borderTop: '1px solid #F1F5F9' }}>
+          <div style={{ marginTop: 20, paddingTop: 16, borderTop: '1px solid #F1F5F9' }}>
+            <div style={{ marginBottom: 12 }}>
+              <PWAInstallButton variant="sidebar" />
+            </div>
             {profile && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, padding: '4px 6px' }}>
                 <div
