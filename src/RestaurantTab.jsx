@@ -14,6 +14,47 @@ export async function fetchServerRestaurantMenu(username, userId) {
   return null
 }
 
+export async function compressImageFile(file, maxSize = 1200, quality = 0.85) {
+  return new Promise((resolve, reject) => {
+    if (!file) return reject(new Error('No file provided'))
+    if (!file.type || !file.type.startsWith('image/')) {
+      return reject(new Error('File is not an image'))
+    }
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const img = new Image()
+      img.onload = () => {
+        const canvas = document.createElement('canvas')
+        let width = img.width
+        let height = img.height
+
+        if (width > height) {
+          if (width > maxSize) {
+            height = Math.round((height * maxSize) / width)
+            width = maxSize
+          }
+        } else {
+          if (height > maxSize) {
+            width = Math.round((width * maxSize) / height)
+            height = maxSize
+          }
+        }
+
+        canvas.width = width
+        canvas.height = height
+        const ctx = canvas.getContext('2d')
+        ctx.drawImage(img, 0, 0, width, height)
+        const dataUrl = canvas.toDataURL('image/jpeg', quality)
+        resolve(dataUrl)
+      }
+      img.onerror = () => reject(new Error('Failed to load image'))
+      img.src = e.target.result
+    }
+    reader.onerror = () => reject(new Error('Failed to read file'))
+    reader.readAsDataURL(file)
+  })
+}
+
 const DEFAULT_CATEGORIES = [
   'Burgers & Sandwiches 🍔',
   'Pizzas & Pastas 🍕',
@@ -52,6 +93,7 @@ const SAMPLE_DEMO_MENU = {
   wifiName: 'LeGourmet_Guest',
   wifiPass: 'welcome2026',
   openingHours: '11:30 AM - 11:30 PM (Daily)',
+  menuPhotoUrl: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=1200&auto=format&fit=crop&q=80',
   pdfMenuUrl: '',
   categories: [
     'Burgers & Sandwiches 🍔',
@@ -127,6 +169,10 @@ export default function RestaurantTab({ profile, onUpdated }) {
   const [wifiPass, setWifiPass] = useState('')
   const [openingHours, setOpeningHours] = useState('11:00 - 23:30')
   const [pdfMenuUrl, setPdfMenuUrl] = useState('')
+  const [menuPhotoUrl, setMenuPhotoUrl] = useState('')
+  const [uploadingMenuPhoto, setUploadingMenuPhoto] = useState(false)
+  const [uploadingDishPhoto, setUploadingDishPhoto] = useState(false)
+  const [tabZoomPhoto, setTabZoomPhoto] = useState(null)
   const [categories, setCategories] = useState(DEFAULT_CATEGORIES)
   const [items, setItems] = useState([])
 
@@ -188,6 +234,7 @@ export default function RestaurantTab({ profile, onUpdated }) {
     setWifiPass(data.wifiPass || '')
     setOpeningHours(data.openingHours || '11:00 - 23:30')
     setPdfMenuUrl(data.pdfMenuUrl || '')
+    setMenuPhotoUrl(data.menuPhotoUrl || data.menuImageUrl || (data.pdfMenuUrl && !data.pdfMenuUrl.toLowerCase().endsWith('.pdf') ? data.pdfMenuUrl : ''))
     if (Array.isArray(data.categories) && data.categories.length > 0) {
       setCategories(data.categories)
       if (!data.categories.includes(itemCategory)) {
@@ -201,6 +248,7 @@ export default function RestaurantTab({ profile, onUpdated }) {
 
   async function saveAll(overrides = {}) {
     setSaving(true)
+    const currentMenuPhoto = overrides.menuPhotoUrl !== undefined ? overrides.menuPhotoUrl : menuPhotoUrl
     const payload = {
       enabled: overrides.enabled !== undefined ? overrides.enabled : enabled,
       restaurantName: overrides.restaurantName !== undefined ? overrides.restaurantName : restaurantName,
@@ -212,7 +260,8 @@ export default function RestaurantTab({ profile, onUpdated }) {
       wifiName: overrides.wifiName !== undefined ? overrides.wifiName : wifiName,
       wifiPass: overrides.wifiPass !== undefined ? overrides.wifiPass : wifiPass,
       openingHours: overrides.openingHours !== undefined ? overrides.openingHours : openingHours,
-      pdfMenuUrl: overrides.pdfMenuUrl !== undefined ? overrides.pdfMenuUrl : pdfMenuUrl,
+      menuPhotoUrl: currentMenuPhoto,
+      pdfMenuUrl: overrides.pdfMenuUrl !== undefined ? overrides.pdfMenuUrl : (currentMenuPhoto || pdfMenuUrl),
       categories: overrides.categories !== undefined ? overrides.categories : categories,
       items: overrides.items !== undefined ? overrides.items : items,
     }
@@ -237,6 +286,39 @@ export default function RestaurantTab({ profile, onUpdated }) {
     setSavedMsg(true)
     setTimeout(() => setSavedMsg(false), 2000)
     if (onUpdated) onUpdated()
+  }
+
+  async function handleMenuPhotoUpload(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploadingMenuPhoto(true)
+    try {
+      const compressed = await compressImageFile(file, 1200, 0.86)
+      setMenuPhotoUrl(compressed)
+      saveAll({ menuPhotoUrl: compressed })
+    } catch (err) {
+      console.error('Failed to compress menu photo:', err)
+      alert(t('restaurantTab.photoError', 'Failed to upload photo. Please select a valid image.'))
+    } finally {
+      setUploadingMenuPhoto(false)
+      e.target.value = ''
+    }
+  }
+
+  async function handleDishPhotoUpload(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploadingDishPhoto(true)
+    try {
+      const compressed = await compressImageFile(file, 600, 0.88)
+      setItemImage(compressed)
+    } catch (err) {
+      console.error('Failed to compress dish photo:', err)
+      alert(t('restaurantTab.photoError', 'Failed to upload photo.'))
+    } finally {
+      setUploadingDishPhoto(false)
+      e.target.value = ''
+    }
   }
 
   function handleOpenAddItem() {
@@ -551,6 +633,175 @@ export default function RestaurantTab({ profile, onUpdated }) {
             <span>{saving ? t('restaurantTab.saving', 'Saving...') : savedMsg ? t('restaurantTab.saved', '✓ Saved!') : t('restaurantTab.saveChanges', 'Save Settings')}</span>
           </button>
         </div>
+      </div>
+
+      {/* Menu Carte Photo Upload Section */}
+      <div style={{ background: 'white', border: '1px solid #E7EDEC', borderRadius: 20, padding: 22 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, marginBottom: 14 }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 18 }}>📸</span>
+              <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: '#0F172A' }}>
+                {t('restaurantTab.menuPhotoSection', 'Photo de la Carte / Menu papier (صورة المنيو)')}
+              </p>
+            </div>
+            <p style={{ margin: '3px 0 0', fontSize: 12, color: '#64748B' }}>
+              {t('restaurantTab.menuPhotoDesc', 'Téléchargez une photo claire de votre menu imprimé, ardoise ou flyer pour permettre aux clients de consulter toute votre carte.')}
+            </p>
+          </div>
+        </div>
+
+        {menuPhotoUrl ? (
+          <div style={{ border: '1px solid #E2E8F0', borderRadius: 16, overflow: 'hidden', background: '#F8FAFC' }}>
+            <div
+              onClick={() => setTabZoomPhoto(menuPhotoUrl)}
+              style={{
+                position: 'relative',
+                maxHeight: 260,
+                overflow: 'hidden',
+                cursor: 'pointer',
+                background: '#0F172A',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+              title={t('restaurantTab.menuPhotoPreviewHint', 'Cliquez pour agrandir')}
+            >
+              <img
+                src={menuPhotoUrl}
+                alt="Carte Menu Preview"
+                referrerPolicy="no-referrer"
+                style={{ width: '100%', maxHeight: 260, objectFit: 'cover', display: 'block' }}
+              />
+              <div
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  background: 'linear-gradient(180deg, transparent 40%, rgba(15,23,42,0.7) 100%)',
+                  display: 'flex',
+                  alignItems: 'flex-end',
+                  padding: 14,
+                }}
+              >
+                <span style={{ color: 'white', fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(0,0,0,0.5)', padding: '4px 12px', borderRadius: 100, backdropFilter: 'blur(4px)' }}>
+                  🔍 {t('restaurantTab.menuPhotoPreviewHint', 'Cliquer pour voir la photo en grand format')}
+                </span>
+              </div>
+            </div>
+
+            <div style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, background: 'white', borderTop: '1px solid #E2E8F0' }}>
+              <span style={{ fontSize: 12, fontWeight: 600, color: '#16A34A', display: 'flex', alignItems: 'center', gap: 6 }}>
+                ✓ {t('restaurantTab.menuPhotoReady', 'Photo de la carte active et visible sur votre page')}
+              </span>
+
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input
+                  type="file"
+                  id="replace-menu-photo"
+                  accept="image/*"
+                  onChange={handleMenuPhotoUpload}
+                  style={{ display: 'none' }}
+                />
+                <label
+                  htmlFor="replace-menu-photo"
+                  style={{
+                    background: '#F1F5F9',
+                    border: '1px solid #CBD5E1',
+                    borderRadius: 8,
+                    padding: '6px 12px',
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: '#334155',
+                    cursor: uploadingMenuPhoto ? 'wait' : 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6,
+                  }}
+                >
+                  {uploadingMenuPhoto ? 'Chargement...' : `🔄 ${t('restaurantTab.replaceMenuPhotoBtn', 'Changer la photo')}`}
+                </label>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMenuPhotoUrl('')
+                    saveAll({ menuPhotoUrl: '' })
+                  }}
+                  style={{
+                    background: '#FEF2F2',
+                    border: '1px solid #FECACA',
+                    borderRadius: 8,
+                    padding: '6px 12px',
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: '#EF4444',
+                    cursor: 'pointer',
+                  }}
+                >
+                  🗑️ {t('restaurantTab.removeMenuPhotoBtn', 'Supprimer')}
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div
+            style={{
+              border: '2px dashed #CBD5E1',
+              borderRadius: 16,
+              padding: '30px 20px',
+              textAlign: 'center',
+              background: '#F8FAFC',
+            }}
+          >
+            <div style={{ fontSize: 32, marginBottom: 8 }}>📸</div>
+            <p style={{ margin: '0 0 4px', fontSize: 14, fontWeight: 700, color: '#0F172A' }}>
+              {t('restaurantTab.uploadMenuPhotoBtn', '📸 Télécharger la photo du menu')}
+            </p>
+            <p style={{ margin: '0 0 16px', fontSize: 12, color: '#64748B' }}>
+              {t('restaurantTab.uploadMenuPhotoHint', 'Prenez une photo de votre menu ou choisissez depuis la galerie (JPG, PNG, WebP).')}
+            </p>
+
+            <input
+              type="file"
+              id="upload-menu-photo-input"
+              accept="image/*"
+              onChange={handleMenuPhotoUpload}
+              style={{ display: 'none' }}
+            />
+            <label
+              htmlFor="upload-menu-photo-input"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 8,
+                background: '#0F172A',
+                color: 'white',
+                padding: '10px 20px',
+                borderRadius: 10,
+                fontSize: 13,
+                fontWeight: 600,
+                cursor: uploadingMenuPhoto ? 'wait' : 'pointer',
+                boxShadow: '0 2px 6px rgba(0,0,0,0.1)',
+              }}
+            >
+              {uploadingMenuPhoto ? 'Optimisation en cours...' : `📷 ${t('restaurantTab.uploadMenuPhotoBtn', 'Sélectionner / Prendre une photo')}`}
+            </label>
+
+            <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 11, color: '#94A3B8' }}>ou collez l'adresse URL d'une photo / carte :</span>
+              <input
+                type="url"
+                placeholder="https://..."
+                value={menuPhotoUrl}
+                onChange={(e) => {
+                  setMenuPhotoUrl(e.target.value)
+                  saveAll({ menuPhotoUrl: e.target.value })
+                }}
+                style={{ padding: '4px 8px', border: '1px solid #E2E8F0', borderRadius: 6, fontSize: 11.5, width: 220 }}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Menu Categories Management */}
@@ -915,20 +1166,84 @@ export default function RestaurantTab({ profile, onUpdated }) {
               </div>
 
               <div>
-                <label style={{ fontSize: 12, fontWeight: 600, color: '#64748B', display: 'block', marginBottom: 4 }}>
-                  {t('restaurantTab.dishImage', 'Image URL')}
+                <label style={{ fontSize: 12, fontWeight: 600, color: '#64748B', display: 'block', marginBottom: 6 }}>
+                  {t('restaurantTab.dishImage', 'Photo du plat / boisson')}
                 </label>
+
+                {/* Dish Photo Live Preview if set */}
+                {itemImage ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10, padding: 8, background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 10 }}>
+                    <img
+                      src={itemImage}
+                      alt="Dish preview"
+                      referrerPolicy="no-referrer"
+                      style={{ width: 64, height: 64, borderRadius: 8, objectFit: 'cover', border: '1px solid #CBD5E1' }}
+                    />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ margin: 0, fontSize: 12, fontWeight: 600, color: '#16A34A' }}>✓ Photo sélectionnée</p>
+                      <p style={{ margin: '2px 0 0', fontSize: 11, color: '#64748B', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {itemImage.startsWith('data:') ? 'Image importée depuis votre appareil' : itemImage}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setItemImage('')}
+                      style={{
+                        background: '#FEF2F2',
+                        border: '1px solid #FECACA',
+                        color: '#EF4444',
+                        padding: '4px 8px',
+                        borderRadius: 6,
+                        fontSize: 11,
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      ✕ Retirer
+                    </button>
+                  </div>
+                ) : null}
+
+                {/* Dish Upload from Camera/File Button */}
+                <div style={{ display: 'flex', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
+                  <input
+                    type="file"
+                    id="dish-photo-upload-input"
+                    accept="image/*"
+                    onChange={handleDishPhotoUpload}
+                    style={{ display: 'none' }}
+                  />
+                  <label
+                    htmlFor="dish-photo-upload-input"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      background: '#F1F5F9',
+                      border: '1px solid #CBD5E1',
+                      borderRadius: 8,
+                      padding: '7px 14px',
+                      fontSize: 12,
+                      fontWeight: 600,
+                      color: '#0F172A',
+                      cursor: uploadingDishPhoto ? 'wait' : 'pointer',
+                    }}
+                  >
+                    {uploadingDishPhoto ? 'Chargement...' : '📷 Télécharger une photo (Galerie / Caméra)'}
+                  </label>
+                </div>
+
                 <input
                   type="url"
                   value={itemImage}
                   onChange={(e) => setItemImage(e.target.value)}
-                  placeholder={t('restaurantTab.dishImagePlaceholder', 'https://... or choose from presets below')}
+                  placeholder={t('restaurantTab.dishImagePlaceholder', 'ou collez un lien URL d’image (https://...)')}
                   style={{ width: '100%', padding: '9px 12px', border: '1px solid #E2E8F0', borderRadius: 10, fontSize: 13 }}
                 />
 
                 {/* Preset food photo selector */}
                 <div style={{ marginTop: 8 }}>
-                  <p style={{ margin: '0 0 6px', fontSize: 11, color: '#94A3B8' }}>Quick sample photos:</p>
+                  <p style={{ margin: '0 0 6px', fontSize: 11, color: '#94A3B8' }}>Ou choisissez une photo prédéfinie :</p>
                   <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                     {FOOD_PHOTO_PRESETS.map((p) => (
                       <button
@@ -1014,6 +1329,69 @@ export default function RestaurantTab({ profile, onUpdated }) {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Fullscreen Photo Zoom Modal */}
+      {tabZoomPhoto && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(15, 23, 42, 0.9)',
+            backdropFilter: 'blur(8px)',
+            zIndex: 99999,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 16,
+          }}
+          onClick={() => setTabZoomPhoto(null)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              position: 'relative',
+              maxWidth: 800,
+              width: '100%',
+              maxHeight: '85vh',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => setTabZoomPhoto(null)}
+              style={{
+                alignSelf: 'flex-end',
+                background: 'rgba(255,255,255,0.2)',
+                border: 'none',
+                color: 'white',
+                borderRadius: '50%',
+                width: 36,
+                height: 36,
+                fontSize: 18,
+                cursor: 'pointer',
+                marginBottom: 10,
+              }}
+            >
+              ✕
+            </button>
+            <img
+              src={tabZoomPhoto}
+              alt="Zoomed Menu Photo"
+              referrerPolicy="no-referrer"
+              style={{
+                maxWidth: '100%',
+                maxHeight: '75vh',
+                objectFit: 'contain',
+                borderRadius: 12,
+                boxShadow: '0 20px 40px rgba(0,0,0,0.5)',
+              }}
+            />
           </div>
         </div>
       )}

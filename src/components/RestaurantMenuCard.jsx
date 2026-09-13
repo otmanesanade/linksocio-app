@@ -2,6 +2,21 @@ import { useEffect, useState } from 'react'
 import { fetchServerRestaurantMenu } from '../RestaurantTab'
 import CountryPhoneInput from './CountryPhoneInput'
 
+function getCategoryEmoji(cat = '') {
+  const c = String(cat).toLowerCase()
+  if (c.includes('burger')) return '🍔'
+  if (c.includes('pizza')) return '🍕'
+  if (c.includes('salad') || c.includes('salade')) return '🥗'
+  if (c.includes('drink') || c.includes('boisson') || c.includes('cocktail') || c.includes('jus')) return '🍹'
+  if (c.includes('café') || c.includes('cafe') || c.includes('coffee') || c.includes('thé') || c.includes('the')) return '☕'
+  if (c.includes('dessert') || c.includes('cake') || c.includes('pâtisserie') || c.includes('chocolat')) return '🍰'
+  if (c.includes('tacos') || c.includes('sandwich') || c.includes('shawarma')) return '🌯'
+  if (c.includes('grill') || c.includes('meat') || c.includes('viande') || c.includes('steak') || c.includes('plat')) return '🥩'
+  if (c.includes('sushi') || c.includes('poisson') || c.includes('fish')) return '🍣'
+  if (c.includes('breakfast') || c.includes('déjeuner') || c.includes('croissant')) return '🥐'
+  return '🍽️'
+}
+
 export function RestaurantMenuCard({ profile, theme, isEmbedded }) {
   const [menu, setMenu] = useState(null)
   const [activeCategory, setActiveCategory] = useState('all')
@@ -15,6 +30,8 @@ export function RestaurantMenuCard({ profile, theme, isEmbedded }) {
   const [customerAddress, setCustomerAddress] = useState('')
   const [orderNotes, setOrderNotes] = useState('')
   const [wifiCopied, setWifiCopied] = useState(false)
+  const [lightboxImage, setLightboxImage] = useState(null) // { url, title, desc, price }
+  const [zoomLevel, setZoomLevel] = useState(1)
 
   const username = profile?.username || ''
   const userId = profile?.id || ''
@@ -47,12 +64,16 @@ export function RestaurantMenuCard({ profile, theme, isEmbedded }) {
     }
   }
 
-  if (!menu || !menu.enabled || !Array.isArray(menu.items) || menu.items.length === 0) {
+  const items = Array.isArray(menu?.items) ? menu.items : []
+  const menuPhotoUrl = menu?.menuPhotoUrl || menu?.menuImageUrl || (menu?.pdfMenuUrl && !menu?.pdfMenuUrl.toLowerCase().endsWith('.pdf') ? menu.pdfMenuUrl : '')
+  const hasItems = items.length > 0
+  const hasMenuPhoto = Boolean(menuPhotoUrl || menu?.pdfMenuUrl)
+
+  if (!menu || !menu.enabled || (!hasItems && !hasMenuPhoto)) {
     return null
   }
 
   const currency = menu.currency || 'DH'
-  const items = menu.items || []
   const categories = menu.categories || []
 
   // Filter items
@@ -240,11 +261,141 @@ export function RestaurantMenuCard({ profile, theme, isEmbedded }) {
                 gap: 4,
               }}
             >
-              <span>📄 Download PDF Menu</span>
+              <span>📄 Menu PDF</span>
             </a>
           )}
         </div>
       </div>
+
+      {/* Menu Carte Photo Banner / Interactive Preview */}
+      {menuPhotoUrl && (
+        <div
+          style={{
+            marginBottom: 14,
+            borderRadius: 16,
+            overflow: 'hidden',
+            border: '1px solid rgba(0,0,0,0.08)',
+            background: 'rgba(0,0,0,0.02)',
+            position: 'relative',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.04)',
+          }}
+        >
+          <div
+            onClick={() => {
+              setLightboxImage({
+                url: menuPhotoUrl,
+                title: menu.restaurantName ? `Carte / Menu - ${menu.restaurantName}` : 'Photo du Menu / Carte',
+                desc: 'Consultez la carte complète en haute résolution. Utilisez les boutons + / - pour zoomer.',
+              })
+              setZoomLevel(1)
+            }}
+            style={{
+              position: 'relative',
+              cursor: 'pointer',
+              maxHeight: isEmbedded ? 180 : 220,
+              overflow: 'hidden',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: '#0F172A',
+            }}
+            title="Cliquer pour agrandir la photo du menu"
+          >
+            <img
+              src={menuPhotoUrl}
+              alt="Menu / Carte"
+              referrerPolicy="no-referrer"
+              loading="lazy"
+              onError={(e) => {
+                console.warn('Failed to load menu carte photo:', menuPhotoUrl)
+              }}
+              style={{
+                width: '100%',
+                maxHeight: isEmbedded ? 180 : 220,
+                objectFit: 'cover',
+                display: 'block',
+              }}
+            />
+            {/* Gradient Overlay & Action Hint */}
+            <div
+              style={{
+                position: 'absolute',
+                inset: 0,
+                background: 'linear-gradient(180deg, rgba(0,0,0,0.1) 0%, rgba(15,23,42,0.8) 100%)',
+                display: 'flex',
+                alignItems: 'flex-end',
+                justifyContent: 'space-between',
+                padding: '10px 12px',
+              }}
+            >
+              <span
+                style={{
+                  background: 'rgba(255,255,255,0.95)',
+                  color: '#0F172A',
+                  fontSize: isEmbedded ? 11 : 12,
+                  fontWeight: 700,
+                  borderRadius: 100,
+                  padding: '3px 10px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 5,
+                  boxShadow: '0 2px 6px rgba(0,0,0,0.2)',
+                }}
+              >
+                📸 <span>Photo de la Carte</span>
+              </span>
+
+              <span
+                style={{
+                  color: 'white',
+                  fontSize: isEmbedded ? 10.5 : 11.5,
+                  fontWeight: 600,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 4,
+                  background: 'rgba(0,0,0,0.5)',
+                  padding: '4px 10px',
+                  borderRadius: 100,
+                  backdropFilter: 'blur(4px)',
+                }}
+              >
+                🔍 Agrandir / Zoom
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* When no individual dishes typed yet, display quick WhatsApp order trigger */}
+      {items.length === 0 && menuPhotoUrl && (
+        <div style={{ textAlign: 'center', padding: '10px 8px 16px', marginBottom: 12 }}>
+          <p style={{ margin: '0 0 12px', fontSize: 13, color: subColor, lineHeight: 1.4 }}>
+            Consultez notre carte complète en photo ci-dessus ou contactez-nous directement sur WhatsApp pour passer commande.
+          </p>
+          {(menu.whatsappNumber || profile?.whatsapp) && (
+            <a
+              href={`https://wa.me/${(menu.whatsappNumber || profile?.whatsapp || '').replace(/[^0-9]/g, '')}`}
+              target="_blank"
+              rel="noreferrer"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 8,
+                background: '#22C55E',
+                color: 'white',
+                padding: '11px 20px',
+                borderRadius: 12,
+                fontSize: 13.5,
+                fontWeight: 700,
+                textDecoration: 'none',
+                boxShadow: '0 4px 12px rgba(34,197,94,0.3)',
+              }}
+            >
+              <span>📲 Commander sur WhatsApp</span>
+            </a>
+          )}
+        </div>
+      )}
 
       {/* Category Navigation Pills */}
       <div
@@ -323,25 +474,90 @@ export function RestaurantMenuCard({ profile, theme, isEmbedded }) {
                 opacity: item.available === false ? 0.6 : 1,
               }}
             >
-              {/* Dish Thumbnail */}
+              {/* Dish Thumbnail with Click to Zoom */}
               {item.imageUrl ? (
                 <div
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setLightboxImage({
+                      url: item.imageUrl,
+                      title: item.name,
+                      desc: item.description,
+                      price: item.price ? `${item.price} ${currency}` : '',
+                    })
+                    setZoomLevel(1)
+                  }}
                   style={{
-                    width: isEmbedded ? 60 : 70,
-                    height: isEmbedded ? 60 : 70,
+                    width: isEmbedded ? 62 : 72,
+                    height: isEmbedded ? 62 : 72,
                     borderRadius: 12,
                     overflow: 'hidden',
                     flexShrink: 0,
                     position: 'relative',
+                    cursor: 'pointer',
+                    background: 'rgba(0,0,0,0.04)',
                   }}
+                  title="Cliquer pour agrandir la photo"
                 >
                   <img
                     src={item.imageUrl}
                     alt={item.name}
-                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    referrerPolicy="no-referrer"
+                    loading="lazy"
+                    onError={(e) => {
+                      e.currentTarget.onerror = null
+                      e.currentTarget.style.display = 'none'
+                      const fb = e.currentTarget.parentElement?.querySelector('.dish-fallback-emoji')
+                      if (fb) fb.style.display = 'flex'
+                    }}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
                   />
+                  <div
+                    className="dish-fallback-emoji"
+                    style={{
+                      display: 'none',
+                      position: 'absolute',
+                      inset: 0,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: isEmbedded ? 22 : 26,
+                      background: 'rgba(0,0,0,0.04)',
+                    }}
+                  >
+                    {getCategoryEmoji(item.category)}
+                  </div>
+                  <div
+                    style={{
+                      position: 'absolute',
+                      bottom: 2,
+                      right: 2,
+                      background: 'rgba(0,0,0,0.5)',
+                      borderRadius: 4,
+                      padding: '1px 3px',
+                      fontSize: 8,
+                      color: 'white',
+                    }}
+                  >
+                    🔍
+                  </div>
                 </div>
-              ) : null}
+              ) : (
+                <div
+                  style={{
+                    width: isEmbedded ? 48 : 54,
+                    height: isEmbedded ? 48 : 54,
+                    borderRadius: 12,
+                    background: 'rgba(0,0,0,0.03)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: isEmbedded ? 20 : 24,
+                    flexShrink: 0,
+                  }}
+                >
+                  {getCategoryEmoji(item.category)}
+                </div>
+              )}
 
               {/* Dish Info */}
               <div style={{ flex: 1, minWidth: 0 }}>
@@ -724,6 +940,196 @@ export function RestaurantMenuCard({ profile, theme, isEmbedded }) {
               <span>📲 Commander sur WhatsApp</span>
             </button>
           </div>
+        </div>
+      )}
+
+      {/* Lightbox / Zoom Modal for Menu Photo or Dish Photo */}
+      {lightboxImage && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(15, 23, 42, 0.92)',
+            backdropFilter: 'blur(10px)',
+            zIndex: 100000,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 16,
+          }}
+          onClick={() => {
+            setLightboxImage(null)
+            setZoomLevel(1)
+          }}
+        >
+          {/* Lightbox Toolbar */}
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              width: '100%',
+              maxWidth: 760,
+              color: 'white',
+              marginBottom: 10,
+              gap: 10,
+            }}
+          >
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <p style={{ margin: 0, fontSize: 14.5, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {lightboxImage.title || 'Photo'}
+              </p>
+              {lightboxImage.price && (
+                <p style={{ margin: '2px 0 0', fontSize: 13, color: '#38BDF8', fontWeight: 700 }}>
+                  {lightboxImage.price}
+                </p>
+              )}
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+              {/* Zoom Controls */}
+              <button
+                type="button"
+                onClick={() => setZoomLevel((z) => Math.min(z + 0.3, 3))}
+                style={{
+                  background: 'rgba(255,255,255,0.18)',
+                  border: 'none',
+                  color: 'white',
+                  borderRadius: 8,
+                  width: 34,
+                  height: 34,
+                  fontSize: 18,
+                  cursor: 'pointer',
+                  fontWeight: 700,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+                title="Zoomer (+)"
+              >
+                +
+              </button>
+              <button
+                type="button"
+                onClick={() => setZoomLevel((z) => Math.max(z - 0.3, 0.6))}
+                style={{
+                  background: 'rgba(255,255,255,0.18)',
+                  border: 'none',
+                  color: 'white',
+                  borderRadius: 8,
+                  width: 34,
+                  height: 34,
+                  fontSize: 18,
+                  cursor: 'pointer',
+                  fontWeight: 700,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+                title="Dézoomer (-)"
+              >
+                -
+              </button>
+              {zoomLevel !== 1 && (
+                <button
+                  type="button"
+                  onClick={() => setZoomLevel(1)}
+                  style={{
+                    background: 'rgba(255,255,255,0.18)',
+                    border: 'none',
+                    color: 'white',
+                    borderRadius: 8,
+                    padding: '4px 10px',
+                    fontSize: 11.5,
+                    cursor: 'pointer',
+                    fontWeight: 600,
+                  }}
+                  title="Taille réelle"
+                >
+                  100%
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  setLightboxImage(null)
+                  setZoomLevel(1)
+                }}
+                style={{
+                  background: 'rgba(255,255,255,0.25)',
+                  border: 'none',
+                  color: 'white',
+                  borderRadius: '50%',
+                  width: 34,
+                  height: 34,
+                  fontSize: 17,
+                  cursor: 'pointer',
+                  fontWeight: 700,
+                  marginLeft: 4,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+                title="Fermer"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+
+          {/* Lightbox Image Container */}
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              position: 'relative',
+              maxWidth: 760,
+              maxHeight: '78vh',
+              width: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              overflow: 'auto',
+              borderRadius: 14,
+              background: 'rgba(0,0,0,0.4)',
+              padding: 10,
+            }}
+          >
+            <img
+              src={lightboxImage.url}
+              alt={lightboxImage.title || 'Photo'}
+              referrerPolicy="no-referrer"
+              style={{
+                maxWidth: '100%',
+                maxHeight: '74vh',
+                objectFit: 'contain',
+                borderRadius: 8,
+                transform: `scale(${zoomLevel})`,
+                transition: 'transform 0.15s ease-out',
+                transformOrigin: 'center center',
+              }}
+            />
+          </div>
+
+          {lightboxImage.desc && (
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                maxWidth: 760,
+                width: '100%',
+                marginTop: 8,
+                padding: '6px 14px',
+                background: 'rgba(0,0,0,0.5)',
+                borderRadius: 8,
+                color: '#E2E8F0',
+                fontSize: 12,
+                textAlign: 'center',
+              }}
+            >
+              {lightboxImage.desc}
+            </div>
+          )}
         </div>
       )}
     </div>
