@@ -4,23 +4,30 @@ export function usePWAInstall() {
   const [deferredPrompt, setDeferredPrompt] = useState(null)
   const [isInstalled, setIsInstalled] = useState(false)
   const [isIOS, setIsIOS] = useState(false)
-  const [canInstall, setCanInstall] = useState(false)
+  const [canInstall, setCanInstall] = useState(true)
 
   useEffect(() => {
-    // Check if running in standalone mode (already installed as PWA)
+    if (typeof window === 'undefined') return
+
+    // Check if running in standalone mode (already installed on Home Screen)
     const isStandalone =
       window.matchMedia('(display-mode: standalone)').matches ||
-      window.navigator.standalone === true
+      window.navigator.standalone === true ||
+      document.referrer.includes('android-app://')
 
     setIsInstalled(isStandalone)
 
-    // Detect iOS devices (iPhone, iPad, iPod)
-    const ua = window.navigator.userAgent.toLowerCase()
-    const isIOSDevice = /iphone|ipad|ipod/.test(ua) && !window.MSStream
+    // Accurate iOS / iPadOS detection (including modern iPad reporting as Macintosh with maxTouchPoints)
+    const ua = window.navigator.userAgent || ''
+    const isIOSDevice =
+      (/iphone|ipad|ipod/i.test(ua) ||
+        (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)) &&
+      !window.MSStream
+
     setIsIOS(isIOSDevice)
 
     const handleBeforeInstallPrompt = (e) => {
-      // Prevent browser default mini-infobar
+      // Chrome/Edge/Android native prompt
       e.preventDefault()
       setDeferredPrompt(e)
       setCanInstall(true)
@@ -34,11 +41,6 @@ export function usePWAInstall() {
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
     window.addEventListener('appinstalled', handleAppInstalled)
-
-    // On iOS, if not standalone, we can show manual install guidance
-    if (isIOSDevice && !isStandalone) {
-      setCanInstall(true)
-    }
 
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
@@ -64,7 +66,7 @@ export function usePWAInstall() {
     deferredPrompt,
     isInstalled,
     isIOS,
-    canInstall: !isInstalled && (canInstall || deferredPrompt !== null || isIOS),
+    canInstall: !isInstalled,
     promptInstall,
   }
 }

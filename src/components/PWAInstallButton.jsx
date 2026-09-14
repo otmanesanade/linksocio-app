@@ -191,10 +191,12 @@ export default function PWAInstallButton({ variant = 'badge', style = {} }) {
             </div>
 
             <h3 style={{ margin: '0 0 6px', fontSize: 17, fontWeight: 700, color: '#0F172A' }}>
-              {t('pwa.modalTitle', 'Install LinkSocio App')}
+              {isIOS ? '📱 تثبيت التطبيق على iPhone (iOS)' : t('pwa.modalTitle', 'Install LinkSocio App')}
             </h3>
-            <p style={{ margin: '0 0 16px', fontSize: 13, color: '#64748B', lineHeight: 1.5 }}>
-              {t('pwa.modalDesc', 'Install this web app on your home screen for fast fullscreen access without an app store.')}
+            <p style={{ margin: '0 0 14px', fontSize: 12.5, color: '#64748B', lineHeight: 1.5 }}>
+              {isIOS
+                ? 'على نظام iOS (iPhone/iPad)، آبل تتطلب فتح الرابط في متصفح Safari لإضافته إلى الشاشة الرئيسية كـ App بدون App Store:'
+                : t('pwa.modalDesc', 'Install this web app on your home screen for fast fullscreen access without an app store.')}
             </p>
 
             <div
@@ -211,23 +213,28 @@ export default function PWAInstallButton({ variant = 'badge', style = {} }) {
                 color: '#334155',
               }}
             >
+              {isIOS && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#FEF3C7', padding: '8px 10px', borderRadius: 8, color: '#92400E', fontSize: 12 }}>
+                  <span style={{ fontSize: 18 }}>🧭</span>
+                  <span><strong>مهم:</strong> افتح الموقع في متصفح <strong>Safari</strong> (ليس داخل متصفح Instagram أو WhatsApp الداخلي).</span>
+                </div>
+              )}
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span style={{ fontSize: 18 }}>1️⃣</span>
+                <span style={{ fontSize: 20 }}>1️⃣</span>
                 <span>
-                  {t('pwa.step1', 'Tap the')} <strong>{t('pwa.shareIcon', 'Share button')}</strong> (
-                  <span style={{ fontSize: 16 }}>⎋</span> or <span style={{ fontSize: 14 }}>⋮</span>)
+                  اضغط على زر <strong>المشاركة (Share)</strong> في أسفل متصفح Safari (الأيقونة المربعة بسهم للأعلى <span style={{ display: 'inline-block', border: '1px solid #CBD5E1', padding: '1px 5px', borderRadius: 4, background: '#FFF' }}>⎋ / 📤</span>).
                 </span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span style={{ fontSize: 18 }}>2️⃣</span>
+                <span style={{ fontSize: 20 }}>2️⃣</span>
                 <span>
-                  {t('pwa.step2', 'Scroll down and tap')} <strong>"{t('pwa.addToHome', 'Add to Home Screen')}"</strong> (➕)
+                  انزل قليلاً للأسفل واضغط على <strong>"إضافة إلى الصفحة الرئيسية"</strong> أو <strong>"Add to Home Screen"</strong> (➕).
                 </span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span style={{ fontSize: 18 }}>3️⃣</span>
+                <span style={{ fontSize: 20 }}>3️⃣</span>
                 <span>
-                  {t('pwa.step3', 'Tap')} <strong>"{t('pwa.add', 'Add')}"</strong> {t('pwa.step3Done', 'to finish. Ready!')}
+                  اضغط على <strong>"إضافة" (Add)</strong> في الزاوية العلوية. وسيظهر تطبيق LinkSocio مباشرة على شاشة هاتفك مثل أي تطبيق أصلي!
                 </span>
               </div>
             </div>
