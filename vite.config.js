@@ -1665,7 +1665,13 @@ function apiPlugin() {
             const username = (urlObj.searchParams.get('username') || '').toLowerCase().trim().replace(/^@/, '')
             const userId = (urlObj.searchParams.get('userId') || '').trim()
 
-            const settings = (username && pSettingsStore[username]) || (userId && pSettingsStore[userId]) || {
+            const found = (username && pSettingsStore[username]) ||
+              (userId && pSettingsStore[userId]) ||
+              pSettingsStore['default'] ||
+              Object.values(pSettingsStore)[0] ||
+              null
+
+            const settings = found ? { ...found } : {
               stripeAccountId: '',
               stripeConnected: false,
               payoutMethod: 'stripe', // 'stripe' | 'paypal' | 'wise' | 'payoneer' | 'bank_iban' | 'crypto_usdt' | 'local_morocco'
@@ -1702,6 +1708,8 @@ function apiPlugin() {
 
                 if (username) pSettingsStore[username] = settings
                 if (userId) pSettingsStore[userId] = settings
+                // Always store to default fallback as well so refreshes never lose settings
+                pSettingsStore['default'] = settings
 
                 writeJson(PAYOUT_SETTINGS_PATH, pSettingsStore)
 

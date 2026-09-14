@@ -42,29 +42,42 @@ export default function PayoutsTab({ user, profile }) {
   const [platformOverview, setPlatformOverview] = useState({ totalGross: 0, totalFees9Percent: 0, totalTransactions: 0 })
 
   // Settings
-  const [settings, setSettings] = useState({
-    selectedCurrency: 'USD',
-    currencySymbol: '$',
-    payoutMethod: 'stripe', // 'stripe' | 'paypal' | 'wise' | 'payoneer' | 'bank_iban' | 'crypto_usdt' | 'local_morocco'
-    // Stripe
-    stripeAccountId: '',
-    stripeConnected: false,
-    // PayPal
-    paypalEmail: '',
-    // Wise & International Wire
-    accountHolder: '',
-    iban: '',
-    swiftBic: '',
-    bankCountry: 'United States',
-    bankName: '',
-    // Payoneer
-    payoneerEmail: '',
-    // Crypto USDT
-    cryptoAddress: '',
-    cryptoNetwork: 'USDT-TRC20',
-    // Local Moroccan fallback
-    moroccoRib: '',
-    moroccoBankName: 'CIH Bank',
+  const [settings, setSettings] = useState(() => {
+    const base = {
+      selectedCurrency: 'USD',
+      currencySymbol: '$',
+      payoutMethod: 'stripe', // 'stripe' | 'paypal' | 'wise' | 'payoneer' | 'bank_iban' | 'crypto_usdt' | 'local_morocco'
+      // Stripe
+      stripeAccountId: '',
+      stripeConnected: false,
+      // PayPal
+      paypalEmail: '',
+      // Wise & International Wire
+      accountHolder: '',
+      iban: '',
+      swiftBic: '',
+      bankCountry: 'United States',
+      bankName: '',
+      // Payoneer
+      payoneerEmail: '',
+      // Crypto USDT
+      cryptoAddress: '',
+      cryptoNetwork: 'USDT-TRC20',
+      // Local Moroccan fallback
+      moroccoRib: '',
+      moroccoBankName: 'CIH Bank',
+    }
+    if (typeof window !== 'undefined') {
+      try {
+        const u = profile?.username || user?.user_metadata?.username || ''
+        const uid = profile?.id || user?.id || ''
+        const cached = localStorage.getItem(`linksocio_payout_settings_${u || uid || 'default'}`) || localStorage.getItem('linksocio_payout_settings_default')
+        if (cached) {
+          return { ...base, ...JSON.parse(cached) }
+        }
+      } catch (e) {}
+    }
+    return base
   })
 
   // Withdraw Modal State
@@ -72,6 +85,7 @@ export default function PayoutsTab({ user, profile }) {
   const [withdrawAmount, setWithdrawAmount] = useState('')
   const [savingSettings, setSavingSettings] = useState(false)
   const [saveSuccessMsg, setSaveSuccessMsg] = useState('')
+  const [manualStripeId, setManualStripeId] = useState('')
 
   // Interactive Calculator State
   const [calcPrice, setCalcPrice] = useState('100')
@@ -101,7 +115,23 @@ export default function PayoutsTab({ user, profile }) {
 
       if (setRes.ok) {
         const json = await setRes.json()
-        if (json.settings) setSettings((prev) => ({ ...prev, ...json.settings }))
+        if (json.settings) {
+          let merged = { ...json.settings }
+          try {
+            const cacheKey = `linksocio_payout_settings_${username || userId || 'default'}`
+            const cached = localStorage.getItem(cacheKey)
+            if (cached) {
+              const parsed = JSON.parse(cached)
+              if (parsed.stripeAccountId) {
+                merged = { ...merged, ...parsed }
+              }
+            }
+          } catch (e) {}
+          setSettings((prev) => ({ ...prev, ...merged }))
+          if (merged.stripeAccountId) {
+            setManualStripeId(merged.stripeAccountId)
+          }
+        }
       }
     } catch (e) {
       console.error('Failed to load payouts data:', e)
@@ -113,6 +143,10 @@ export default function PayoutsTab({ user, profile }) {
     setSavingSettings(true)
     setSaveSuccessMsg('')
     try {
+      try {
+        localStorage.setItem(`linksocio_payout_settings_${username || userId || 'default'}`, JSON.stringify(settings))
+        localStorage.setItem('linksocio_payout_settings_default', JSON.stringify(settings))
+      } catch (e) {}
       const res = await fetch('/api/payouts/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -242,6 +276,10 @@ export default function PayoutsTab({ user, profile }) {
           payoutMethod: 'stripe',
         }
         setSettings(updated)
+        try {
+          localStorage.setItem(`linksocio_payout_settings_${username || userId || 'default'}`, JSON.stringify(updated))
+          localStorage.setItem('linksocio_payout_settings_default', JSON.stringify(updated))
+        } catch (e) {}
         fetch('/api/payouts/settings', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -260,11 +298,15 @@ export default function PayoutsTab({ user, profile }) {
     if (accountId && typeof accountId === 'string') {
       const updated = {
         ...settings,
-        stripeAccountId: accountId,
+        stripeAccountId: accountId.trim(),
         stripeConnected: true,
         payoutMethod: 'stripe',
       }
       setSettings(updated)
+      try {
+        localStorage.setItem(`linksocio_payout_settings_${username || userId || 'default'}`, JSON.stringify(updated))
+        localStorage.setItem('linksocio_payout_settings_default', JSON.stringify(updated))
+      } catch (e) {}
       await fetch('/api/payouts/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -273,7 +315,7 @@ export default function PayoutsTab({ user, profile }) {
       try {
         confetti({ particleCount: 70, spread: 80, origin: { y: 0.5 } })
       } catch (e) {}
-      alert(`🎉 Stripe Connect Active!\nConnected Account ID: ${accountId}`)
+      alert(`🎉 Stripe Connected Successfully!\nAccount ID: ${accountId.trim()}\nYour Stripe ID is permanently saved and linked.`)
       return
     }
 
@@ -297,7 +339,6 @@ export default function PayoutsTab({ user, profile }) {
       const data = await res.json()
       if (data.configured && data.url) {
         // Redirect creator to the official Stripe Express onboarding flow
-        // Try opening in top frame first (breaks out of iframes) or popup/tab
         if (window.top && window.top !== window) {
           window.top.location.href = data.url
         } else {
@@ -326,6 +367,10 @@ export default function PayoutsTab({ user, profile }) {
         payoutMethod: 'stripe',
       }
       setSettings(updated)
+      try {
+        localStorage.setItem(`linksocio_payout_settings_${username || userId || 'default'}`, JSON.stringify(updated))
+        localStorage.setItem('linksocio_payout_settings_default', JSON.stringify(updated))
+      } catch (e) {}
 
       await fetch('/api/payouts/settings', {
         method: 'POST',
@@ -337,7 +382,7 @@ export default function PayoutsTab({ user, profile }) {
         confetti({ particleCount: 70, spread: 80, origin: { y: 0.5 } })
       } catch (e) {}
       alert(
-        `🎉 Stripe Connect Worldwide Active!\nConnected Account ID: ${finalId}\nAll Visa, MasterCard, Apple Pay & Google Pay transactions across 130+ countries will auto-split 91% directly to you and 9% LinkSocio platform fees.`
+        `🎉 Stripe Connect Worldwide Active!\nConnected Account ID: ${finalId}\nAll transactions will auto-split 91% directly to you and 9% LinkSocio platform fees.`
       )
     } catch (err) {
       console.error('Failed to initiate Stripe connect:', err)
@@ -349,6 +394,10 @@ export default function PayoutsTab({ user, profile }) {
         payoutMethod: 'stripe',
       }
       setSettings(updated)
+      try {
+        localStorage.setItem(`linksocio_payout_settings_${username || userId || 'default'}`, JSON.stringify(updated))
+        localStorage.setItem('linksocio_payout_settings_default', JSON.stringify(updated))
+      } catch (e) {}
       await fetch('/api/payouts/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -992,100 +1041,115 @@ export default function PayoutsTab({ user, profile }) {
                       {settings.stripeAccountId}
                     </p>
                   </div>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const updated = { ...settings, stripeConnected: false, stripeAccountId: '' }
+                        setSettings(updated)
+                        try {
+                          localStorage.setItem(`linksocio_payout_settings_${username || userId || 'default'}`, JSON.stringify(updated))
+                          localStorage.setItem('linksocio_payout_settings_default', JSON.stringify(updated))
+                        } catch (e) {}
+                        await fetch('/api/payouts/settings', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ username, userId, settings: updated }),
+                        })
+                        alert('Stripe account unlinked.')
+                      }}
+                      style={{
+                        background: '#FEE2E2',
+                        color: '#EF4444',
+                        border: 'none',
+                        borderRadius: 8,
+                        padding: '6px 12px',
+                        fontSize: 12,
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Unlink
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 10 }}>
                   <button
                     type="button"
-                    onClick={() => {
-                      setSettings({ ...settings, stripeConnected: false, stripeAccountId: '' })
-                      alert('Stripe account unlinked.')
-                    }}
+                    onClick={() => handleConnectStripe()}
+                    disabled={connectingStripe}
                     style={{
-                      background: '#FEE2E2',
-                      color: '#EF4444',
-                      border: 'none',
-                      borderRadius: 8,
-                      padding: '6px 12px',
-                      fontSize: 12,
-                      fontWeight: 700,
-                      cursor: 'pointer',
-                    }}
-                  >
-                    Unlink
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 10 }}>
-                <button
-                  type="button"
-                  onClick={() => handleConnectStripe()}
-                  disabled={connectingStripe}
-                  style={{
-                    background: '#635BFF',
-                    color: '#FFFFFF',
-                    border: 'none',
-                    borderRadius: 12,
-                    padding: '13px 22px',
-                    fontSize: 14,
-                    fontWeight: 800,
-                    cursor: connectingStripe ? 'wait' : 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: 8,
-                    boxShadow: '0 4px 14px rgba(99,91,255,0.3)',
-                    opacity: connectingStripe ? 0.75 : 1,
-                  }}
-                >
-                  <span>{connectingStripe ? '⏳ Connecting to Stripe...' : '⚡ Open Stripe Connect Onboarding'}</span>
-                  <span>➔</span>
-                </button>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
-                  <div style={{ flex: 1, height: 1, background: '#CBD5E1' }} />
-                  <span style={{ fontSize: 11, fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>OR ENTER STRIPE ACCOUNT ID</span>
-                  <div style={{ flex: 1, height: 1, background: '#CBD5E1' }} />
-                </div>
-
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <input
-                    placeholder="acct_1234567890abcdef..."
-                    value={settings.stripeAccountId || ''}
-                    onChange={(e) => setSettings({ ...settings, stripeAccountId: e.target.value.trim() })}
-                    style={{
-                      flex: 1,
-                      boxSizing: 'border-box',
-                      padding: '10px 14px',
-                      borderRadius: 10,
-                      border: '1px solid #CBD5E1',
-                      fontSize: 13,
-                      fontFamily: 'monospace',
-                      outline: 'none',
-                    }}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (!settings.stripeAccountId || !settings.stripeAccountId.trim()) {
-                        alert('Please enter your Stripe Account ID (e.g. acct_...)')
-                        return
-                      }
-                      handleConnectStripe(settings.stripeAccountId)
-                    }}
-                    style={{
-                      background: '#0F172A',
+                      background: '#635BFF',
                       color: '#FFFFFF',
                       border: 'none',
-                      borderRadius: 10,
-                      padding: '10px 18px',
-                      fontSize: 13,
-                      fontWeight: 700,
-                      cursor: 'pointer',
-                      whiteSpace: 'nowrap',
+                      borderRadius: 12,
+                      padding: '13px 22px',
+                      fontSize: 14,
+                      fontWeight: 800,
+                      cursor: connectingStripe ? 'wait' : 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 8,
+                      boxShadow: '0 4px 14px rgba(99,91,255,0.3)',
+                      opacity: connectingStripe ? 0.75 : 1,
                     }}
                   >
-                    Link ID
+                    <span>{connectingStripe ? '⏳ Connecting to Stripe...' : '⚡ Open Stripe Connect Onboarding'}</span>
+                    <span>➔</span>
                   </button>
-                </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+                    <div style={{ flex: 1, height: 1, background: '#CBD5E1' }} />
+                    <span style={{ fontSize: 11, fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>OR ENTER STRIPE ACCOUNT ID</span>
+                    <div style={{ flex: 1, height: 1, background: '#CBD5E1' }} />
+                  </div>
+
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <input
+                      placeholder="acct_1234567890abcdef..."
+                      value={manualStripeId || settings.stripeAccountId || ''}
+                      onChange={(e) => {
+                        const val = e.target.value.trim()
+                        setManualStripeId(val)
+                        setSettings({ ...settings, stripeAccountId: val })
+                      }}
+                      style={{
+                        flex: 1,
+                        boxSizing: 'border-box',
+                        padding: '10px 14px',
+                        borderRadius: 10,
+                        border: '1px solid #CBD5E1',
+                        fontSize: 13,
+                        fontFamily: 'monospace',
+                        outline: 'none',
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const targetId = (manualStripeId || settings.stripeAccountId || '').trim()
+                        if (!targetId) {
+                          alert('Please enter your Stripe Account ID (e.g. acct_...)')
+                          return
+                        }
+                        handleConnectStripe(targetId)
+                      }}
+                      style={{
+                        background: '#0F172A',
+                        color: '#FFFFFF',
+                        border: 'none',
+                        borderRadius: 10,
+                        padding: '10px 18px',
+                        fontSize: 13,
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      Link ID
+                    </button>
+                  </div>
               </div>
             )}
           </div>
