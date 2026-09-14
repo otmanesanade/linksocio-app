@@ -2310,16 +2310,29 @@ function apiPlugin() {
                 try {
                   account = await stripe.accounts.create(accountParams)
                 } catch (createErr) {
-                  console.warn('Express account create attempt failed, trying without pre-set country/capabilities:', createErr.message)
-                  account = await stripe.accounts.create({
-                    type: 'standard',
-                    email: email && email.includes('@') ? email.trim() : undefined,
-                    metadata: {
-                      username: username || '',
-                      userId: userId || '',
-                      platform: 'LinkSocio',
-                    },
-                  })
+                  console.warn('Express account create attempt failed, trying Standard account creation:', createErr.message)
+                  try {
+                    account = await stripe.accounts.create({
+                      type: 'standard',
+                      email: email && email.includes('@') ? email.trim() : undefined,
+                      metadata: {
+                        username: username || '',
+                        userId: userId || '',
+                        platform: 'LinkSocio',
+                      },
+                    })
+                  } catch (standardErr) {
+                    // If Connect is not enabled on standard mode or country issue, create without country
+                    console.warn('Standard attempt failed too, creating minimal express account:', standardErr.message)
+                    account = await stripe.accounts.create({
+                      type: 'express',
+                      metadata: {
+                        username: username || '',
+                        userId: userId || '',
+                        platform: 'LinkSocio',
+                      },
+                    })
+                  }
                 }
 
                 const hostOrigin = `${req.headers['x-forwarded-proto'] || (req.headers.host?.includes('localhost') ? 'http' : 'https')}://${req.headers.host || 'localhost:3000'}`

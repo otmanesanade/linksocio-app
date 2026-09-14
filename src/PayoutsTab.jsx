@@ -347,7 +347,12 @@ export default function PayoutsTab({ user, profile }) {
         return
       }
 
-      // 2. If Stripe Connect Express is in manual/setup mode or returned an error, prompt creator
+      // If Stripe returned an error or message, notify clearly
+      if (data.error) {
+        console.warn('Stripe Connect notice:', data.error)
+      }
+
+      // 2. If Stripe Connect Express needs account ID or direct entry, prompt creator
       const promptId = window.prompt(
         (data.error ? `Stripe notice: ${data.error}\n\n` : '') +
           'Enter your Stripe Account ID (e.g. acct_1Nx... or your custom Stripe ID) to connect directly, or press OK:',
