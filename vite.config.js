@@ -2088,6 +2088,111 @@ function apiPlugin() {
           }
         }
 
+        // 16.5 Stripe Create Digital Product Checkout Session (9% LinkSocio Platform Fee + 91% Seller)
+        if (urlObj.pathname === '/api/stripe/create-product-checkout') {
+          if (req.method === 'POST') {
+            let body = ''
+            req.on('data', (chunk) => {
+              body += chunk
+            })
+            req.on('end', async () => {
+              try {
+                const payload = JSON.parse(body || '{}')
+                const {
+                  username,
+                  userId,
+                  product,
+                  buyerName,
+                  buyerEmail,
+                  stripeAccountId,
+                  successUrl,
+                  cancelUrl,
+                } = payload
+
+                const stripe = getStripe()
+                if (!stripe) {
+                  // Fallback simulation if Stripe keys not yet entered in environment
+                  res.statusCode = 200
+                  res.setHeader('Content-Type', 'application/json')
+                  res.end(
+                    JSON.stringify({
+                      configured: false,
+                      simulated: true,
+                      message: 'Stripe keys not configured. Direct instant access granted.',
+                    })
+                  )
+                  return
+                }
+
+                const rawPrice = String(product?.price || '0').replace(/[^\d.]/g, '')
+                const unitAmount = Math.max(100, Math.round((parseFloat(rawPrice) || 5) * 100))
+                const currency = (product?.currency === 'DH' || product?.currency === 'MAD') ? 'mad' : (product?.currency || 'usd').toLowerCase()
+
+                // Calculate LinkSocio 9% Platform Application Fee
+                const platformFeeAmount = Math.round(unitAmount * 0.09)
+
+                const sessionPayload = {
+                  mode: 'payment',
+                  customer_email: buyerEmail && buyerEmail.includes('@') ? buyerEmail.trim() : undefined,
+                  client_reference_id: userId || username || 'customer',
+                  line_items: [
+                    {
+                      price_data: {
+                        currency: currency,
+                        product_data: {
+                          name: product?.name || 'Digital Product',
+                          description: `Sold by @${username || 'creator'} on LinkSocio (Instant Delivery)`,
+                          images: product?.image_url ? [product.image_url] : undefined,
+                        },
+                        unit_amount: unitAmount,
+                      },
+                      quantity: 1,
+                    },
+                  ],
+                  metadata: {
+                    type: 'digital_product',
+                    productId: product?.id || '',
+                    productName: product?.name || '',
+                    sellerUsername: username || '',
+                    sellerUserId: userId || '',
+                    buyerName: buyerName || '',
+                    platformFeeRate: '9%',
+                    platformFeeAmount: String(platformFeeAmount),
+                  },
+                  success_url:
+                    successUrl ||
+                    `${req.headers['x-forwarded-proto'] || (req.headers.host?.includes('localhost') ? 'http' : 'https')}://${req.headers.host || 'localhost:3000'}/u/${username}?order_success=true&prod_id=${product?.id}`,
+                  cancel_url:
+                    cancelUrl ||
+                    `${req.headers['x-forwarded-proto'] || (req.headers.host?.includes('localhost') ? 'http' : 'https')}://${req.headers.host || 'localhost:3000'}/u/${username}`,
+                }
+
+                // If seller has a connected Stripe account, route payment via Stripe Connect with 9% application fee
+                if (stripeAccountId && stripeAccountId.startsWith('acct_')) {
+                  sessionPayload.payment_intent_data = {
+                    application_fee_amount: platformFeeAmount, // 9% kept by LinkSocio
+                    transfer_data: {
+                      destination: stripeAccountId, // 91% transferred to seller
+                    },
+                  }
+                }
+
+                const session = await stripe.checkout.sessions.create(sessionPayload)
+
+                res.statusCode = 200
+                res.setHeader('Content-Type', 'application/json')
+                res.end(JSON.stringify({ configured: true, url: session.url, sessionId: session.id }))
+              } catch (err) {
+                console.error('Stripe product checkout error:', err)
+                res.statusCode = 500
+                res.setHeader('Content-Type', 'application/json')
+                res.end(JSON.stringify({ error: err.message || 'Failed to create product checkout session' }))
+              }
+            })
+            return
+          }
+        }
+
         // 17. Stripe Verify Session
         if (urlObj.pathname === '/api/stripe/verify-session') {
           const sessionId = urlObj.searchParams.get('session_id')

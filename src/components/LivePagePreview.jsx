@@ -331,6 +331,24 @@ export function LivePagePreview({ profile, links = [], products = [], socials = 
     }
   }, [profile?.username])
 
+  // Handle post-checkout redirect (?order_success=true&prod_id=...)
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const params = new URLSearchParams(window.location.search)
+    const isSuccess = params.get('order_success') === 'true'
+    const prodId = params.get('prod_id')
+
+    if (isSuccess && Array.isArray(products) && products.length > 0) {
+      const targetProd = (prodId && products.find((p) => String(p.id) === String(prodId))) || products[0]
+      if (targetProd) {
+        setSelectedProductModal(targetProd)
+        try {
+          confetti({ particleCount: 80, spread: 90, origin: { y: 0.5 } })
+        } catch (e) {}
+      }
+    }
+  }, [products])
+
   const themeKey =
     profile?.theme_preset ||
     (profile?.username && typeof window !== 'undefined' && localStorage.getItem(`linksocio_theme_preset_${profile.username}`)) ||

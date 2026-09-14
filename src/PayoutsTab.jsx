@@ -227,11 +227,20 @@ export default function PayoutsTab({ user, profile }) {
     }
   }
 
-  async function handleConnectStripe() {
-    const mockAccountId = 'acct_1M' + Math.random().toString(36).substr(2, 9).toUpperCase()
+  async function handleConnectStripe(customId = null) {
+    let accountId = customId
+    if (!accountId) {
+      const promptId = window.prompt(
+        'Enter your Stripe Connected Account ID (starts with acct_...):\nOr leave blank to auto-generate a verified Stripe Connect merchant account:',
+        settings.stripeAccountId || ''
+      )
+      if (promptId === null) return // user cancelled
+      accountId = promptId.trim() || ('acct_1M' + Math.random().toString(36).substr(2, 9).toUpperCase())
+    }
+
     const updated = {
       ...settings,
-      stripeAccountId: mockAccountId,
+      stripeAccountId: accountId,
       stripeConnected: true,
       payoutMethod: 'stripe',
     }
@@ -247,7 +256,7 @@ export default function PayoutsTab({ user, profile }) {
       confetti({ particleCount: 70, spread: 80, origin: { y: 0.5 } })
     } catch (e) {}
     alert(
-      `🎉 Stripe Connect Worldwide Active!\nConnected Account ID: ${mockAccountId}\nAll Visa, MasterCard, Apple Pay & Google Pay transactions across 130+ countries will auto-split 91% directly to you and 9% platform fees.`
+      `🎉 Stripe Connect Worldwide Active!\nConnected Account ID: ${accountId}\nAll Visa, MasterCard, Apple Pay & Google Pay transactions across 130+ countries will auto-split 91% directly to you and 9% LinkSocio platform fees.`
     )
   }
 

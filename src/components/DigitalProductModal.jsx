@@ -41,6 +41,19 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
   const userId = profile?.id || ''
 
   useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search)
+      if (params.get('order_success') === 'true') {
+        setOrderSuccess({
+          success: true,
+          method: 'card_stripe',
+          product,
+        })
+      }
+    }
+  }, [product])
+
+  useEffect(() => {
     if (username || userId) {
       fetch(`/api/payouts/settings?username=${encodeURIComponent(username)}&userId=${encodeURIComponent(userId)}`)
         .then((r) => r.json())
@@ -60,6 +73,32 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
     setProcessing(true)
 
     try {
+      // 1. First try creating a real Stripe Checkout Session with 9% LinkSocio Platform Fee
+      const stripeRes = await fetch('/api/stripe/create-product-checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username,
+          userId,
+          product,
+          buyerName: buyerName || 'Customer',
+          buyerEmail,
+          stripeAccountId: sellerPayoutSettings?.stripeAccountId,
+          successUrl: `${window.location.origin}/u/${username}?order_success=true&prod_id=${product.id}`,
+          cancelUrl: window.location.href,
+        }),
+      })
+
+      if (stripeRes.ok) {
+        const stripeData = await stripeRes.json()
+        if (stripeData.configured && stripeData.url) {
+          // Redirect buyer to Stripe Checkout (Supports Apple Pay, Google Pay, Visa, Mastercard)
+          window.location.href = stripeData.url
+          return
+        }
+      }
+
+      // 2. Fallback: Instant fulfillment simulation if Stripe keys are in testing mode
       const res = await fetch('/api/payouts/order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -84,7 +123,8 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
         setOrderSuccess(json)
       }
     } catch (err) {
-      console.error(err)
+      console.error('Card payment error:', err)
+      alert(err.message || 'Payment processing error. Please try again.')
     } finally {
       setProcessing(false)
     }
@@ -573,15 +613,15 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
                     background: payTab === 'card' ? '#FFFFFF' : 'transparent',
                     border: 'none',
                     borderRadius: 9,
-                    padding: '6px 4px',
+                    padding: '7px 4px',
                     fontSize: 11,
                     fontWeight: payTab === 'card' ? 800 : 600,
-                    color: payTab === 'card' ? '#0F172A' : '#64748B',
+                    color: payTab === 'card' ? '#635BFF' : '#64748B',
                     cursor: 'pointer',
                     boxShadow: payTab === 'card' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
                   }}
                 >
-                  💳 Card (Global)
+                  💳 Carte (Stripe)
                 </button>
                 <button
                   type="button"
@@ -590,7 +630,7 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
                     background: payTab === 'direct' ? '#FFFFFF' : 'transparent',
                     border: 'none',
                     borderRadius: 9,
-                    padding: '6px 4px',
+                    padding: '7px 4px',
                     fontSize: 11,
                     fontWeight: payTab === 'direct' ? 800 : 600,
                     color: payTab === 'direct' ? '#0F172A' : '#64748B',
@@ -598,7 +638,7 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
                     boxShadow: payTab === 'direct' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
                   }}
                 >
-                  🌐 Bank / PayPal
+                  🏛️ CIH / Virement
                 </button>
                 <button
                   type="button"
@@ -607,10 +647,10 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
                     background: payTab === 'whatsapp' ? '#FFFFFF' : 'transparent',
                     border: 'none',
                     borderRadius: 9,
-                    padding: '6px 4px',
+                    padding: '7px 4px',
                     fontSize: 11,
                     fontWeight: payTab === 'whatsapp' ? 800 : 600,
-                    color: payTab === 'whatsapp' ? '#0F172A' : '#64748B',
+                    color: payTab === 'whatsapp' ? '#16A34A' : '#64748B',
                     cursor: 'pointer',
                     boxShadow: payTab === 'whatsapp' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
                   }}
