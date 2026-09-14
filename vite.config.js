@@ -2237,6 +2237,83 @@ function apiPlugin() {
           return
         }
 
+        // 18. Stripe Connect Onboarding Link (Official Stripe Express Onboarding Flow)
+        if (urlObj.pathname === '/api/stripe/connect/onboard') {
+          if (req.method === 'POST') {
+            let body = ''
+            req.on('data', (chunk) => { body += chunk })
+            req.on('end', async () => {
+              try {
+                const payload = JSON.parse(body || '{}')
+                const { username, userId, email, returnUrl, refreshUrl } = payload
+
+                const stripe = getStripe()
+                if (!stripe) {
+                  // If API keys not yet loaded or configured, return helpful response
+                  res.statusCode = 200
+                  res.setHeader('Content-Type', 'application/json')
+                  res.end(
+                    JSON.stringify({
+                      configured: false,
+                      error: 'STRIPE_SECRET_KEY is not configured or missing in environment.',
+                    })
+                  )
+                  return
+                }
+
+                // Create a standard Express connected account
+                const account = await stripe.accounts.create({
+                  type: 'express',
+                  country: 'US', // Default standard or lets Stripe detect seller's country
+                  email: email && email.includes('@') ? email : undefined,
+                  capabilities: {
+                    card_payments: { requested: true },
+                    transfers: { requested: true },
+                  },
+                  business_type: 'individual',
+                  metadata: {
+                    username: username || '',
+                    userId: userId || '',
+                    platform: 'LinkSocio',
+                  },
+                })
+
+                const hostOrigin = `${req.headers['x-forwarded-proto'] || (req.headers.host?.includes('localhost') ? 'http' : 'https')}://${req.headers.host || 'localhost:3000'}`
+                const finalReturnUrl = returnUrl || `${hostOrigin}/dashboard?tab=payouts&stripe_connected=true&acct=${account.id}`
+                const finalRefreshUrl = refreshUrl || `${hostOrigin}/dashboard?tab=payouts&stripe_retry=true`
+
+                // Generate official Stripe account onboarding link
+                const accountLink = await stripe.accountLinks.create({
+                  account: account.id,
+                  refresh_url: finalRefreshUrl,
+                  return_url: finalReturnUrl,
+                  type: 'account_onboarding',
+                })
+
+                res.statusCode = 200
+                res.setHeader('Content-Type', 'application/json')
+                res.end(
+                  JSON.stringify({
+                    configured: true,
+                    accountId: account.id,
+                    url: accountLink.url,
+                  })
+                )
+              } catch (err) {
+                console.error('Stripe Connect onboarding error:', err)
+                res.statusCode = 500
+                res.setHeader('Content-Type', 'application/json')
+                res.end(
+                  JSON.stringify({
+                    error: err.message || 'Failed to create Stripe Connect onboarding link',
+                  })
+                )
+              }
+            })
+            return
+          }
+        }
+
         next()
   }
 

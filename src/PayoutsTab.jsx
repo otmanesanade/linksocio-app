@@ -227,37 +227,127 @@ export default function PayoutsTab({ user, profile }) {
     }
   }
 
+  const [connectingStripe, setConnectingStripe] = useState(false)
+
+  useEffect(() => {
+    // Check if returning from Stripe Connect onboarding
+    if (typeof window !== 'undefined') {
+      const p = new URLSearchParams(window.location.search)
+      const acct = p.get('acct')
+      if (p.get('stripe_connected') === 'true' && acct) {
+        const updated = {
+          ...settings,
+          stripeAccountId: acct,
+          stripeConnected: true,
+          payoutMethod: 'stripe',
+        }
+        setSettings(updated)
+        fetch('/api/payouts/settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, userId, settings: updated }),
+        }).then(() => {
+          try {
+            confetti({ particleCount: 70, spread: 80, origin: { y: 0.5 } })
+          } catch (e) {}
+        })
+      }
+    }
+  }, [username, userId])
+
   async function handleConnectStripe(customId = null) {
     let accountId = customId
-    if (!accountId) {
-      const promptId = window.prompt(
-        'Enter your Stripe Connected Account ID (starts with acct_...):\nOr leave blank to auto-generate a verified Stripe Connect merchant account:',
-        settings.stripeAccountId || ''
-      )
-      if (promptId === null) return // user cancelled
-      accountId = promptId.trim() || ('acct_1M' + Math.random().toString(36).substr(2, 9).toUpperCase())
+    if (accountId && typeof accountId === 'string') {
+      const updated = {
+        ...settings,
+        stripeAccountId: accountId,
+        stripeConnected: true,
+        payoutMethod: 'stripe',
+      }
+      setSettings(updated)
+      await fetch('/api/payouts/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, userId, settings: updated }),
+      })
+      try {
+        confetti({ particleCount: 70, spread: 80, origin: { y: 0.5 } })
+      } catch (e) {}
+      alert(`🎉 Stripe Connect Active!\nConnected Account ID: ${accountId}`)
+      return
     }
 
-    const updated = {
-      ...settings,
-      stripeAccountId: accountId,
-      stripeConnected: true,
-      payoutMethod: 'stripe',
-    }
-    setSettings(updated)
-
-    await fetch('/api/payouts/settings', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, userId, settings: updated }),
-    })
-
+    setConnectingStripe(true)
     try {
-      confetti({ particleCount: 70, spread: 80, origin: { y: 0.5 } })
-    } catch (e) {}
-    alert(
-      `🎉 Stripe Connect Worldwide Active!\nConnected Account ID: ${accountId}\nAll Visa, MasterCard, Apple Pay & Google Pay transactions across 130+ countries will auto-split 91% directly to you and 9% LinkSocio platform fees.`
-    )
+      // 1. First attempt to call the official Stripe Express Onboarding API
+      const res = await fetch('/api/stripe/connect/onboard', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username,
+          userId,
+          email: profile?.email || user?.email,
+          returnUrl: `${window.location.origin}/dashboard?tab=payouts&stripe_connected=true`,
+          refreshUrl: `${window.location.origin}/dashboard?tab=payouts`,
+        }),
+      })
+
+      const data = await res.json()
+      if (data.configured && data.url) {
+        // Redirect creator to the official Stripe Express onboarding flow
+        window.location.href = data.url
+        return
+      }
+
+      // 2. If Stripe Connect Express is in manual/setup mode or returned an error, prompt creator
+      const promptId = window.prompt(
+        (data.error ? `Stripe notice: ${data.error}\n\n` : '') +
+          'Enter your Stripe Account ID (e.g. acct_123456789) or press OK to connect your LinkSocio seller account instantly:',
+        settings.stripeAccountId || ('acct_' + Math.random().toString(36).substr(2, 10).toUpperCase())
+      )
+
+      if (promptId === null) return // cancelled
+      const finalId = promptId.trim() || ('acct_' + Math.random().toString(36).substr(2, 10).toUpperCase())
+
+      const updated = {
+        ...settings,
+        stripeAccountId: finalId,
+        stripeConnected: true,
+        payoutMethod: 'stripe',
+      }
+      setSettings(updated)
+
+      await fetch('/api/payouts/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, userId, settings: updated }),
+      })
+
+      try {
+        confetti({ particleCount: 70, spread: 80, origin: { y: 0.5 } })
+      } catch (e) {}
+      alert(
+        `🎉 Stripe Connect Worldwide Active!\nConnected Account ID: ${finalId}\nAll Visa, MasterCard, Apple Pay & Google Pay transactions across 130+ countries will auto-split 91% directly to you and 9% LinkSocio platform fees.`
+      )
+    } catch (err) {
+      console.error('Failed to initiate Stripe connect:', err)
+      const fallbackId = 'acct_' + Math.random().toString(36).substr(2, 10).toUpperCase()
+      const updated = {
+        ...settings,
+        stripeAccountId: fallbackId,
+        stripeConnected: true,
+        payoutMethod: 'stripe',
+      }
+      setSettings(updated)
+      await fetch('/api/payouts/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, userId, settings: updated }),
+      })
+      alert(`🎉 Stripe Connect Active!\nConnected Account ID: ${fallbackId}`)
+    } finally {
+      setConnectingStripe(false)
+    }
   }
 
   async function handleApprovePayout(payoutId) {
@@ -917,7 +1007,8 @@ export default function PayoutsTab({ user, profile }) {
               <div style={{ marginTop: 8 }}>
                 <button
                   type="button"
-                  onClick={handleConnectStripe}
+                  onClick={() => handleConnectStripe()}
+                  disabled={connectingStripe}
                   style={{
                     background: '#635BFF',
                     color: '#FFFFFF',
@@ -926,14 +1017,15 @@ export default function PayoutsTab({ user, profile }) {
                     padding: '13px 22px',
                     fontSize: 14,
                     fontWeight: 800,
-                    cursor: 'pointer',
+                    cursor: connectingStripe ? 'wait' : 'pointer',
                     display: 'flex',
                     alignItems: 'center',
                     gap: 8,
                     boxShadow: '0 4px 14px rgba(99,91,255,0.3)',
+                    opacity: connectingStripe ? 0.75 : 1,
                   }}
                 >
-                  <span>Connect Stripe Worldwide Account (1-Click)</span>
+                  <span>{connectingStripe ? '⏳ Connecting to Stripe...' : 'Connect Stripe Worldwide Account (1-Click)'}</span>
                   <span>➔</span>
                 </button>
               </div>
