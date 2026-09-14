@@ -3,6 +3,7 @@ import { supabase } from './supabaseClient'
 import { ArrowLeft, Mail, Lock, Eye, EyeOff, Sparkles, ArrowRight, AlertCircle, CheckCircle2, User, Globe } from 'lucide-react'
 import LanguageSwitcher from './components/LanguageSwitcher'
 import { useLanguage } from './context/LanguageContext'
+import SocialAuthButtons from './components/SocialAuthButtons'
 
 export default function SignUp({ onDone, goHome, switchToLogin, initialUsername = '' }) {
   const { t, isRTL } = useLanguage()
@@ -268,6 +269,32 @@ export default function SignUp({ onDone, goHome, switchToLogin, initialUsername 
             >
               {t('auth.claimSub', 'One simple link for all your links, bookings & store.')}
             </p>
+          </div>
+
+          {/* Social Sign-Up (Google & Apple / iCloud) */}
+          <div style={{ marginBottom: 20 }}>
+            <SocialAuthButtons
+              mode="signup"
+              onError={(msg) => setError(msg)}
+              onStart={() => setError('')}
+            />
+          </div>
+
+          {/* Divider between Social Login & Email Registration */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 12,
+              marginBottom: 20,
+              color: '#CBD5E1',
+            }}
+          >
+            <div style={{ flex: 1, height: 1, background: '#F1F5F9' }} />
+            <span style={{ fontSize: 12, color: '#94A3B8', fontWeight: 500 }}>
+              {t('auth.orWithEmail', 'or continue with email')}
+            </span>
+            <div style={{ flex: 1, height: 1, background: '#F1F5F9' }} />
           </div>
 
           {/* Form */}

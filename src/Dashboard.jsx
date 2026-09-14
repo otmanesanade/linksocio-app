@@ -372,11 +372,16 @@ export default function Dashboard({ user, initialTab }) {
   async function loadProfile() {
     let { data } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle()
     if (!data) {
-      const fallbackUser = (user?.email ? user.email.split('@')[0] : 'user').toLowerCase().replace(/[^a-z0-9_-]/g, '')
+      // Determine best username and display name from user metadata (Google/Apple) or email
+      const metaName = user?.user_metadata?.full_name || user?.user_metadata?.name || ''
+      const emailPrefix = (user?.email ? user.email.split('@')[0] : 'user').toLowerCase().replace(/[^a-z0-9_-]/g, '')
+      const claimedUser = (sessionStorage.getItem('linksocio_claim_user') || '').toLowerCase().trim().replace(/[^a-z0-9_-]/g, '')
+      const fallbackUser = claimedUser || emailPrefix || `user_${user.id.slice(0, 6)}`
+
       const newProf = {
         id: user.id,
         username: fallbackUser,
-        display_name: fallbackUser,
+        display_name: metaName || fallbackUser,
       }
       try {
         const { data: created } = await supabase.from('profiles').upsert(newProf).select().maybeSingle()

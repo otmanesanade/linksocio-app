@@ -2449,6 +2449,53 @@ const pwaTranslations = {
   },
 }
 
+const socialAuthTranslations = {
+  en: {
+    auth: {
+      continueWithGoogle: 'Continue with Google',
+      signUpWithGoogle: 'Sign up with Google',
+      continueWithApple: 'Continue with Apple / iCloud',
+      signUpWithApple: 'Sign up with Apple / iCloud',
+      orWithEmail: 'or continue with email',
+      googleError: 'Could not connect to Google. Please try again or use email.',
+      appleError: 'Could not connect to Apple / iCloud. Please try again or use email.',
+    },
+  },
+  fr: {
+    auth: {
+      continueWithGoogle: 'Continuer avec Google',
+      signUpWithGoogle: "S'inscrire avec Google",
+      continueWithApple: 'Continuer avec Apple / iCloud',
+      signUpWithApple: "S'inscrire avec Apple / iCloud",
+      orWithEmail: 'ou continuer avec e-mail',
+      googleError: 'Impossible de se connecter avec Google. Veuillez réessayer ou utiliser votre e-mail.',
+      appleError: 'Impossible de se connecter avec Apple / iCloud. Veuillez réessayer ou utiliser votre e-mail.',
+    },
+  },
+  es: {
+    auth: {
+      continueWithGoogle: 'Continuar con Google',
+      signUpWithGoogle: 'Registrarse con Google',
+      continueWithApple: 'Continuar con Apple / iCloud',
+      signUpWithApple: 'Registrarse con Apple / iCloud',
+      orWithEmail: 'o continuar con correo electrónico',
+      googleError: 'No se pudo conectar con Google. Inténtalo de nuevo o usa tu correo.',
+      appleError: 'No se pudo conectar con Apple / iCloud. Inténtalo de nuevo o usa tu correo.',
+    },
+  },
+  ar: {
+    auth: {
+      continueWithGoogle: 'المتابعة باستخدام Google',
+      signUpWithGoogle: 'التسجيل بواسطة Google',
+      continueWithApple: 'المتابعة باستخدام Apple / iCloud',
+      signUpWithApple: 'التسجيل بواسطة Apple / iCloud',
+      orWithEmail: 'أو المتابعة عبر البريد الإلكتروني',
+      googleError: 'تعذر الاتصال بحساب Google. يرجى المحاولة مجدداً أو التسجيل بالبريد.',
+      appleError: 'تعذر الاتصال بحساب Apple / iCloud. يرجى المحاولة مجدداً أو التسجيل بالبريد.',
+    },
+  },
+}
+
 export const TRANSLATIONS = mergeDeep(
   {},
   BASE_TRANSLATIONS,
@@ -2458,6 +2505,7 @@ export const TRANSLATIONS = mergeDeep(
   payoutsTranslations,
   billingTranslations,
   digitalModalTranslations,
-  pwaTranslations
+  pwaTranslations,
+  socialAuthTranslations
 )
 
