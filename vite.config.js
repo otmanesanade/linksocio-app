@@ -2126,7 +2126,15 @@ function apiPlugin() {
 
                 const rawPrice = String(product?.price || '0').replace(/[^\d.]/g, '')
                 const unitAmount = Math.max(100, Math.round((parseFloat(rawPrice) || 5) * 100))
-                const currency = (product?.currency === 'DH' || product?.currency === 'MAD') ? 'mad' : (product?.currency || 'usd').toLowerCase()
+                
+                // Supported standard Stripe currencies: USD, EUR, MAD
+                let currency = 'usd'
+                const rawCurr = String(product?.currency || '').toUpperCase()
+                if (rawCurr === 'MAD' || rawCurr === 'DH') {
+                  currency = 'mad'
+                } else if (rawCurr === 'EUR' || rawCurr === '€') {
+                  currency = 'eur'
+                }
 
                 // Calculate LinkSocio 9% Platform Application Fee
                 const platformFeeAmount = Math.round(unitAmount * 0.09)

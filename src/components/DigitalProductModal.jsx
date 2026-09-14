@@ -97,8 +97,17 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
         const stripeData = await stripeRes.json()
         if (stripeData.configured && stripeData.url) {
           // Redirect buyer to Stripe Checkout (Supports Apple Pay, Google Pay, Visa, Mastercard)
-          window.location.href = stripeData.url
+          if (window.top) {
+            window.top.location.href = stripeData.url
+          } else {
+            window.location.href = stripeData.url
+          }
           return
+        }
+
+        // If Stripe returned configured: false or an error message, alert user so they know exactly why
+        if (stripeData.error) {
+          alert(`Stripe Checkout notice:\n${stripeData.error}`)
         }
       }
 
