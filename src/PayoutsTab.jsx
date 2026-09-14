@@ -280,6 +280,7 @@ export default function PayoutsTab({ user, profile }) {
     setConnectingStripe(true)
     try {
       // 1. First attempt to call the official Stripe Express Onboarding API
+      const origin = typeof window !== 'undefined' ? window.location.origin : ''
       const res = await fetch('/api/stripe/connect/onboard', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -287,26 +288,35 @@ export default function PayoutsTab({ user, profile }) {
           username,
           userId,
           email: profile?.email || user?.email,
-          returnUrl: `${window.location.origin}/dashboard?tab=payouts&stripe_connected=true`,
-          refreshUrl: `${window.location.origin}/dashboard?tab=payouts`,
+          country: settings.bankCountry || 'MA',
+          returnUrl: `${origin}/dashboard?tab=payouts&stripe_connected=true`,
+          refreshUrl: `${origin}/dashboard?tab=payouts`,
         }),
       })
 
       const data = await res.json()
       if (data.configured && data.url) {
         // Redirect creator to the official Stripe Express onboarding flow
-        window.location.href = data.url
+        // Try opening in top frame first (breaks out of iframes) or popup/tab
+        if (window.top && window.top !== window) {
+          window.top.location.href = data.url
+        } else {
+          window.location.href = data.url
+        }
         return
       }
 
       // 2. If Stripe Connect Express is in manual/setup mode or returned an error, prompt creator
       const promptId = window.prompt(
         (data.error ? `Stripe notice: ${data.error}\n\n` : '') +
-          'Enter your Stripe Account ID (e.g. acct_123456789) or press OK to connect your LinkSocio seller account instantly:',
+          'Enter your Stripe Account ID (e.g. acct_1Nx... or your custom Stripe ID) to connect directly, or press OK:',
         settings.stripeAccountId || ('acct_' + Math.random().toString(36).substr(2, 10).toUpperCase())
       )
 
-      if (promptId === null) return // cancelled
+      if (promptId === null) {
+        setConnectingStripe(false)
+        return // cancelled
+      }
       const finalId = promptId.trim() || ('acct_' + Math.random().toString(36).substr(2, 10).toUpperCase())
 
       const updated = {
@@ -1004,7 +1014,7 @@ export default function PayoutsTab({ user, profile }) {
                 </div>
               </div>
             ) : (
-              <div style={{ marginTop: 8 }}>
+              <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <button
                   type="button"
                   onClick={() => handleConnectStripe()}
@@ -1020,14 +1030,62 @@ export default function PayoutsTab({ user, profile }) {
                     cursor: connectingStripe ? 'wait' : 'pointer',
                     display: 'flex',
                     alignItems: 'center',
+                    justifyContent: 'center',
                     gap: 8,
                     boxShadow: '0 4px 14px rgba(99,91,255,0.3)',
                     opacity: connectingStripe ? 0.75 : 1,
                   }}
                 >
-                  <span>{connectingStripe ? '⏳ Connecting to Stripe...' : 'Connect Stripe Worldwide Account (1-Click)'}</span>
+                  <span>{connectingStripe ? '⏳ Connecting to Stripe...' : '⚡ Open Stripe Connect Onboarding'}</span>
                   <span>➔</span>
                 </button>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+                  <div style={{ flex: 1, height: 1, background: '#CBD5E1' }} />
+                  <span style={{ fontSize: 11, fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>OR ENTER STRIPE ACCOUNT ID</span>
+                  <div style={{ flex: 1, height: 1, background: '#CBD5E1' }} />
+                </div>
+
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <input
+                    placeholder="acct_1234567890abcdef..."
+                    value={settings.stripeAccountId || ''}
+                    onChange={(e) => setSettings({ ...settings, stripeAccountId: e.target.value.trim() })}
+                    style={{
+                      flex: 1,
+                      boxSizing: 'border-box',
+                      padding: '10px 14px',
+                      borderRadius: 10,
+                      border: '1px solid #CBD5E1',
+                      fontSize: 13,
+                      fontFamily: 'monospace',
+                      outline: 'none',
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!settings.stripeAccountId || !settings.stripeAccountId.trim()) {
+                        alert('Please enter your Stripe Account ID (e.g. acct_...)')
+                        return
+                      }
+                      handleConnectStripe(settings.stripeAccountId)
+                    }}
+                    style={{
+                      background: '#0F172A',
+                      color: '#FFFFFF',
+                      border: 'none',
+                      borderRadius: 10,
+                      padding: '10px 18px',
+                      fontSize: 13,
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    Link ID
+                  </button>
+                </div>
               </div>
             )}
           </div>

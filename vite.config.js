@@ -2277,11 +2277,10 @@ function apiPlugin() {
                   return
                 }
 
-                // Create a standard Express connected account
-                const account = await stripe.accounts.create({
+                // Create a standard Express or Standard connected account for international creators
+                const accountParams = {
                   type: 'express',
-                  country: 'US', // Default standard or lets Stripe detect seller's country
-                  email: email && email.includes('@') ? email : undefined,
+                  email: email && email.includes('@') ? email.trim() : undefined,
                   capabilities: {
                     card_payments: { requested: true },
                     transfers: { requested: true },
@@ -2292,7 +2291,28 @@ function apiPlugin() {
                     userId: userId || '',
                     platform: 'LinkSocio',
                   },
-                })
+                }
+
+                // If country is specified or seller profile country, use it; otherwise let Stripe handle
+                if (payload.country && typeof payload.country === 'string') {
+                  accountParams.country = payload.country.toUpperCase()
+                }
+
+                let account
+                try {
+                  account = await stripe.accounts.create(accountParams)
+                } catch (createErr) {
+                  console.warn('Express account create attempt failed, trying without pre-set country/capabilities:', createErr.message)
+                  account = await stripe.accounts.create({
+                    type: 'standard',
+                    email: email && email.includes('@') ? email.trim() : undefined,
+                    metadata: {
+                      username: username || '',
+                      userId: userId || '',
+                      platform: 'LinkSocio',
+                    },
+                  })
+                }
 
                 const hostOrigin = `${req.headers['x-forwarded-proto'] || (req.headers.host?.includes('localhost') ? 'http' : 'https')}://${req.headers.host || 'localhost:3000'}`
                 const finalReturnUrl = returnUrl || `${hostOrigin}/dashboard?tab=payouts&stripe_connected=true&acct=${account.id}`
