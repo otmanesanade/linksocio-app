@@ -8,10 +8,16 @@ import nodemailer from 'nodemailer'
 
 let stripeInstance = null
 function getStripe() {
-  const key = process.env.STRIPE_SECRET_KEY
-  if (!key || !key.trim()) return null
+  let key = (process.env.STRIPE_SECRET_KEY || '').trim()
+  if (!key) return null
+  // Stripe Secret Key must begin with sk_live_ or sk_test_ or rk_live_ or rk_test_
+  // If someone entered a Publishable Key (pk_test_ / pk_live_), Stripe will reject backend calls
+  if (key.startsWith('pk_')) {
+    console.warn('STRIPE_SECRET_KEY is currently set to a Publishable Key (starts with pk_). A Secret Key (starts with sk_test_ or sk_live_) is required for checkout & onboarding.')
+    return null
+  }
   if (!stripeInstance) {
-    stripeInstance = new Stripe(key.trim())
+    stripeInstance = new Stripe(key)
   }
   return stripeInstance
 }
@@ -1984,18 +1990,21 @@ function apiPlugin() {
 
         // 15. Stripe Status Endpoint
         if (urlObj.pathname === '/api/stripe/status') {
-          const secretKey = process.env.STRIPE_SECRET_KEY || ''
-          const publishableKey = process.env.STRIPE_PUBLISHABLE_KEY || ''
-          const isConfigured = secretKey.trim().length > 0
+          const secretKey = (process.env.STRIPE_SECRET_KEY || '').trim()
+          const publishableKey = (process.env.STRIPE_PUBLISHABLE_KEY || '').trim()
+          const isRealSecret = secretKey.startsWith('sk_') || secretKey.startsWith('rk_')
+          const isPublishableInsteadOfSecret = secretKey.startsWith('pk_')
           const mode = secretKey.startsWith('sk_live_') ? 'live' : 'test'
 
           res.statusCode = 200
           res.setHeader('Content-Type', 'application/json')
           res.end(
             JSON.stringify({
-              configured: isConfigured,
+              configured: isRealSecret,
+              isRealSecret,
+              isPublishableInsteadOfSecret,
               mode: mode,
-              hasPublishableKey: publishableKey.trim().length > 0,
+              hasPublishableKey: publishableKey.length > 0,
               publishableKeyMasked: publishableKey
                 ? `${publishableKey.slice(0, 8)}...${publishableKey.slice(-4)}`
                 : null,
@@ -2117,16 +2126,19 @@ function apiPlugin() {
                   cancelUrl,
                 } = payload
 
+                const secretKey = (process.env.STRIPE_SECRET_KEY || '').trim()
                 const stripe = getStripe()
                 if (!stripe) {
-                  // Fallback simulation if Stripe keys not yet entered in environment
+                  const isPk = secretKey.startsWith('pk_')
                   res.statusCode = 200
                   res.setHeader('Content-Type', 'application/json')
                   res.end(
                     JSON.stringify({
                       configured: false,
-                      simulated: true,
-                      message: 'Stripe keys not configured. Direct instant access granted.',
+                      simulated: false,
+                      error: isPk
+                        ? 'STRIPE_SECRET_KEY is currently set to a Publishable Key (starts with pk_...). Please enter your Stripe Secret Key (starts with sk_test_ or sk_live_) in Settings > Environment Variables.'
+                        : 'Stripe Secret Key (sk_test_... or sk_live_...) is not configured in Settings.',
                     })
                   )
                   return
@@ -2271,15 +2283,18 @@ function apiPlugin() {
                 const payload = JSON.parse(body || '{}')
                 const { username, userId, email, returnUrl, refreshUrl } = payload
 
+                const secretKey = (process.env.STRIPE_SECRET_KEY || '').trim()
                 const stripe = getStripe()
                 if (!stripe) {
-                  // If API keys not yet loaded or configured, return helpful response
+                  const isPk = secretKey.startsWith('pk_')
                   res.statusCode = 200
                   res.setHeader('Content-Type', 'application/json')
                   res.end(
                     JSON.stringify({
                       configured: false,
-                      error: 'STRIPE_SECRET_KEY is not configured or missing in environment.',
+                      error: isPk
+                        ? 'STRIPE_SECRET_KEY is currently filled with a Publishable Key (starts with pk_...). Please enter your Secret Key from Stripe Dashboard (starts with sk_test_ or sk_live_).'
+                        : 'STRIPE_SECRET_KEY is not configured or missing in environment settings.',
                     })
                   )
                   return

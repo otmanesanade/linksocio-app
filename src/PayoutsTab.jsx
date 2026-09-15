@@ -86,6 +86,8 @@ export default function PayoutsTab({ user, profile }) {
   const [savingSettings, setSavingSettings] = useState(false)
   const [saveSuccessMsg, setSaveSuccessMsg] = useState('')
   const [manualStripeId, setManualStripeId] = useState('')
+  const [stripeApiStatus, setStripeApiStatus] = useState(null)
+  const [stripeConnectError, setStripeConnectError] = useState(null)
 
   // Interactive Calculator State
   const [calcPrice, setCalcPrice] = useState('100')
@@ -100,10 +102,16 @@ export default function PayoutsTab({ user, profile }) {
   async function loadData() {
     try {
       const q = `?username=${encodeURIComponent(username)}&userId=${encodeURIComponent(userId)}`
-      const [statsRes, setRes] = await Promise.all([
+      const [statsRes, setRes, stripeRes] = await Promise.all([
         fetch(`/api/payouts/stats${q}`),
         fetch(`/api/payouts/settings${q}`),
+        fetch('/api/stripe/status'),
       ])
+
+      if (stripeRes && stripeRes.ok) {
+        const sJson = await stripeRes.json()
+        setStripeApiStatus(sJson)
+      }
 
       if (statsRes.ok) {
         const json = await statsRes.json()
@@ -350,65 +358,15 @@ export default function PayoutsTab({ user, profile }) {
       // If Stripe returned an error or message, notify clearly
       if (data.error) {
         console.warn('Stripe Connect notice:', data.error)
-      }
-
-      // 2. If Stripe Connect Express needs account ID or direct entry, prompt creator
-      const promptId = window.prompt(
-        (data.error ? `Stripe notice: ${data.error}\n\n` : '') +
-          'Enter your Stripe Account ID (e.g. acct_1Nx... or your custom Stripe ID) to connect directly, or press OK:',
-        settings.stripeAccountId || ('acct_' + Math.random().toString(36).substr(2, 10).toUpperCase())
-      )
-
-      if (promptId === null) {
+        setStripeConnectError(data.error)
         setConnectingStripe(false)
-        return // cancelled
+        return
       }
-      const finalId = promptId.trim() || ('acct_' + Math.random().toString(36).substr(2, 10).toUpperCase())
 
-      const updated = {
-        ...settings,
-        stripeAccountId: finalId,
-        stripeConnected: true,
-        payoutMethod: 'stripe',
-      }
-      setSettings(updated)
-      try {
-        localStorage.setItem(`linksocio_payout_settings_${username || userId || 'default'}`, JSON.stringify(updated))
-        localStorage.setItem('linksocio_payout_settings_default', JSON.stringify(updated))
-      } catch (e) {}
-
-      await fetch('/api/payouts/settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, userId, settings: updated }),
-      })
-
-      try {
-        confetti({ particleCount: 70, spread: 80, origin: { y: 0.5 } })
-      } catch (e) {}
-      alert(
-        `🎉 Stripe Connect Worldwide Active!\nConnected Account ID: ${finalId}\nAll transactions will auto-split 91% directly to you and 9% LinkSocio platform fees.`
-      )
+      setStripeConnectError('Unable to generate Stripe onboarding link. Please check your Stripe keys.')
     } catch (err) {
       console.error('Failed to initiate Stripe connect:', err)
-      const fallbackId = 'acct_' + Math.random().toString(36).substr(2, 10).toUpperCase()
-      const updated = {
-        ...settings,
-        stripeAccountId: fallbackId,
-        stripeConnected: true,
-        payoutMethod: 'stripe',
-      }
-      setSettings(updated)
-      try {
-        localStorage.setItem(`linksocio_payout_settings_${username || userId || 'default'}`, JSON.stringify(updated))
-        localStorage.setItem('linksocio_payout_settings_default', JSON.stringify(updated))
-      } catch (e) {}
-      await fetch('/api/payouts/settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, userId, settings: updated }),
-      })
-      alert(`🎉 Stripe Connect Active!\nConnected Account ID: ${fallbackId}`)
+      setStripeConnectError(err.message || 'Failed to initiate Stripe onboarding.')
     } finally {
       setConnectingStripe(false)
     }
@@ -1155,7 +1113,42 @@ export default function PayoutsTab({ user, profile }) {
                       Link ID
                     </button>
                   </div>
-              </div>
+
+                  {stripeConnectError && (
+                    <div
+                      style={{
+                        padding: '10px 14px',
+                        background: '#FEF2F2',
+                        border: '1px solid #FCA5A5',
+                        borderRadius: 10,
+                        color: '#991B1B',
+                        fontSize: 12.5,
+                        lineHeight: 1.4,
+                      }}
+                    >
+                      <div style={{ fontWeight: 700, marginBottom: 2 }}>⚠️ Stripe Connection Error</div>
+                      {stripeConnectError}
+                    </div>
+                  )}
+
+                  {stripeApiStatus?.isPublishableInsteadOfSecret && (
+                    <div
+                      style={{
+                        padding: '10px 14px',
+                        background: '#FFFBEB',
+                        border: '1px solid #FDE68A',
+                        borderRadius: 10,
+                        color: '#92400E',
+                        fontSize: 12.5,
+                        lineHeight: 1.4,
+                      }}
+                    >
+                      <div style={{ fontWeight: 800, marginBottom: 2 }}>🔑 Configuration Warning:</div>
+                      Your <strong>STRIPE_SECRET_KEY</strong> is currently filled with a Publishable Key (starts with <code>pk_...</code>).
+                      To enable real Stripe payments and Connect onboarding, please provide a Stripe Secret Key (starts with <code>sk_test_...</code> or <code>sk_live_...</code>).
+                    </div>
+                  )}
+                </div>
             )}
           </div>
         </div>

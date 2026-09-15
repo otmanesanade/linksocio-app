@@ -15,6 +15,7 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
   const [downloadFileName, setDownloadFileName] = useState('')
   const [orderSuccess, setOrderSuccess] = useState(null)
   const [sellerPayoutSettings, setSellerPayoutSettings] = useState(null)
+  const [paymentError, setPaymentError] = useState(null)
 
   if (!product) return null
 
@@ -71,6 +72,7 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
   const handleCardPayment = async (e) => {
     if (e) e.preventDefault()
     setProcessing(true)
+    setPaymentError(null)
 
     try {
       // 1. First try creating a real Stripe Checkout Session with 9% LinkSocio Platform Fee
@@ -105,51 +107,18 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
           return
         }
 
-        // If Stripe returned configured: false or an error message, log notice clearly
+        // If Stripe returned an error or configuration notice
         if (stripeData.error) {
-          console.warn(`Stripe Checkout notice: ${stripeData.error}`)
+          setPaymentError(stripeData.error)
+          setProcessing(false)
+          return
         }
       }
 
-      // 2. Fallback: Instant fulfillment simulation if Stripe keys are in testing mode or direct fulfillment
-      const res = await fetch('/api/payouts/order', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          username,
-          userId,
-          product,
-          buyer: {
-            name: buyerName || 'Card Customer',
-            email: buyerEmail || 'customer@linksocio.com',
-            phone: buyerPhone || '',
-          },
-          paymentMethod: 'card_stripe',
-        }),
-      })
-
-      if (res.ok) {
-        const json = await res.json()
-        try {
-          confetti({ particleCount: 70, spread: 80, origin: { y: 0.6 } })
-        } catch (err) {}
-        setOrderSuccess(json)
-      } else {
-        // Direct instant unlock so buyer is never blocked
-        setOrderSuccess({
-          success: true,
-          method: 'card_stripe',
-          product,
-        })
-      }
+      setPaymentError('Unable to initialize Stripe payment. Please check your connection or try another payment method.')
     } catch (err) {
       console.error('Card payment error:', err)
-      // Unlock file directly in fallback mode
-      setOrderSuccess({
-        success: true,
-        method: 'card_stripe',
-        product,
-      })
+      setPaymentError(err.message || 'Payment service error. Please try again.')
     } finally {
       setProcessing(false)
     }
@@ -740,6 +709,23 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
                   >
                     <span>{processing ? 'Processing Secure Card...' : `💳 Pay ${product.price || ''} Worldwide`}</span>
                   </button>
+
+                  {paymentError && (
+                    <div
+                      style={{
+                        padding: '9px 12px',
+                        background: '#FEF2F2',
+                        border: '1px solid #FCA5A5',
+                        borderRadius: 10,
+                        color: '#991B1B',
+                        fontSize: 11.5,
+                        lineHeight: 1.4,
+                      }}
+                    >
+                      <div style={{ fontWeight: 700, marginBottom: 2 }}>⚠️ Payment Notice</div>
+                      {paymentError}
+                    </div>
+                  )}
                 </form>
               )}
 
