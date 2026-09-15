@@ -105,9 +105,9 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
           return
         }
 
-        // If Stripe returned configured: false or an error message, alert user so they know exactly why
+        // If Stripe returned configured: false or an error message, log notice clearly
         if (stripeData.error) {
-          alert(`Stripe Checkout notice:\n${stripeData.error}`)
+          console.warn(`Stripe Checkout notice: ${stripeData.error}`)
         }
       }
 
@@ -550,7 +550,7 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
                 Close Window
               </button>
             </div>
-          ) : isFree || product.delivery_type === 'download' ? (
+          ) : isFree ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }}>
               <button
                 type="button"
