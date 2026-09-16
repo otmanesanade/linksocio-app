@@ -100,7 +100,7 @@ export default async function handler(req, res) {
     }
 
     const payload = await parseBody(req)
-    const { username, userId, email, country = 'MA', returnUrl, refreshUrl } = payload || {}
+    const { username, userId, email, country = 'US', returnUrl, refreshUrl } = payload || {}
 
     if (!secretKey) {
       sendJson(res, 200, {
@@ -127,8 +127,21 @@ export default async function handler(req, res) {
       return
     }
 
+    // Stripe Connect does not directly support creating local accounts in Morocco (MA).
+    // If the creator is in Morocco, instruct them to link their existing international Stripe Account ID (acct_...)
+    // or use Morocco Local Bank (CIH / Attijariwafa) while the platform processes global Stripe card payments.
+    const isMorocco = country === 'Morocco' || country === 'MA'
+    if (isMorocco) {
+      sendJson(res, 200, {
+        configured: false,
+        isMoroccoNotice: true,
+        error: "Stripe Connect ne prend pas en charge la création directe de comptes bancaires au Maroc (MA). Si vous disposez d'un compte Stripe international (US LLC, UK LTD, Stripe Atlas ou Europe), vous pouvez saisir directement votre ID 'acct_...' ci-dessous. Sinon, sélectionnez 'CIH / Virement bancaire marocain' : vos acheteurs payeront par carte via Stripe et vous recevrez 91% directement sur votre compte bancaire marocain !",
+      })
+      return
+    }
+
     try {
-      const countryCode = (country === 'Morocco' || country === 'MA') ? 'MA' : (country.length === 2 ? country.toUpperCase() : 'US')
+      const countryCode = country && country.length === 2 ? country.toUpperCase() : 'US'
       let account = null
 
       try {
@@ -156,6 +169,7 @@ export default async function handler(req, res) {
         } catch (stdErr) {
           account = await stripe.accounts.create({
             type: 'express',
+            country: 'US',
             email: email && email.includes('@') ? email.trim() : undefined,
             metadata: { username: username || '', userId: userId || '' },
           })
@@ -270,6 +284,7 @@ export default async function handler(req, res) {
                 name: product?.name || 'Digital Product',
                 description: `Sold by @${username || 'creator'} on LinkSocio (Instant Delivery)`,
                 images: product?.image_url ? [product.image_url] : undefined,
+                tax_code: 'txcd_10000000',
               },
               unit_amount: unitAmount,
             },
@@ -300,9 +315,38 @@ export default async function handler(req, res) {
       let session = null
       try {
         session = await stripe.checkout.sessions.create(sessionPayload)
-      } catch (transferErr) {
-        delete sessionPayload.payment_intent_data
-        session = await stripe.checkout.sessions.create(sessionPayload)
+      } catch (firstErr) {
+        console.warn('Initial session creation notice:', firstErr.message)
+        // If Connect destination account is restricted or cross-border incompatible, create on platform
+        if (sessionPayload.payment_intent_data) {
+          delete sessionPayload.payment_intent_data
+          try {
+            session = await stripe.checkout.sessions.create(sessionPayload)
+          } catch (retryErr) {
+            // If Managed Payments still has an issue, try without managed_payments
+            if (retryErr.message && (retryErr.message.includes('managed_payments') || retryErr.message.includes('tax_code'))) {
+              try {
+                sessionPayload.managed_payments = { enabled: false }
+                session = await stripe.checkout.sessions.create(sessionPayload)
+              } catch (e3) {
+                throw retryErr
+              }
+            } else {
+              throw retryErr
+            }
+          }
+        } else {
+          if (firstErr.message && (firstErr.message.includes('managed_payments') || firstErr.message.includes('tax_code'))) {
+            try {
+              sessionPayload.managed_payments = { enabled: false }
+              session = await stripe.checkout.sessions.create(sessionPayload)
+            } catch (e3) {
+              throw firstErr
+            }
+          } else {
+            throw firstErr
+          }
+        }
       }
 
       sendJson(res, 200, { configured: true, url: session.url, sessionId: session.id })

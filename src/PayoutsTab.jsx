@@ -464,7 +464,9 @@ export default function PayoutsTab({ user, profile }) {
       try {
         confetti({ particleCount: 70, spread: 80, origin: { y: 0.5 } })
       } catch (e) {}
-      alert(`🎉 ${t('payoutsTab.stripeLinkedSuccess', 'Stripe account linked successfully!')}\nAccount ID: ${accountId.trim()}`)
+      setSaveSuccessMsg(`🎉 ${t('payoutsTab.stripeLinkedSuccess', 'Stripe account linked successfully!')} (${accountId.trim()})`)
+      setStripeConnectError(null)
+      setTimeout(() => setSaveSuccessMsg(''), 7000)
       return
     }
 
@@ -1477,7 +1479,7 @@ export default function PayoutsTab({ user, profile }) {
             </div>
           )}
 
-          {/* SECTION 3: STRIPE OVERVIEW BUTTON (IN GLOBAL TAB) */}
+          {/* SECTION 3: STRIPE DIRECT CONFIGURATION (IN GLOBAL TAB) */}
           {settings.payoutMethod === 'stripe' && (
             <div style={{ background: '#635BFF0D', border: '1.5px solid #635BFF30', borderRadius: 16, padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
@@ -1504,46 +1506,165 @@ export default function PayoutsTab({ user, profile }) {
                 )}
               </div>
 
-              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                <button
-                  type="button"
-                  onClick={() => setActiveSubTab('stripe')}
-                  style={{
-                    background: '#635BFF',
-                    color: '#FFFFFF',
-                    border: 'none',
-                    borderRadius: 10,
-                    padding: '11px 18px',
-                    fontSize: 13,
-                    fontWeight: 800,
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 6,
-                  }}
-                >
-                  <span>{t('payoutsTab.actions.manageStripeTab', "⚡ Manage Stripe Connection in Dedicated Tab")}</span>
-                  <span>➔</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleInstantTestConnectStripe}
-                  disabled={connectingStripe}
-                  style={{
-                    background: '#FFFFFF',
-                    color: '#4338CA',
-                    border: '1px solid #C7D2FE',
-                    borderRadius: 10,
-                    padding: '11px 16px',
-                    fontSize: 13,
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                  }}
-                >
-                  {t('payoutsTab.actions.instantTestStripe', '🧪 Instant 1-Click Connect (Test / Demo Mode)')}
-                </button>
+              {/* Morocco & International tip */}
+              <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 12, padding: '12px 14px', fontSize: 12.5, color: '#334155', lineHeight: 1.5 }}>
+                🇲🇦 <strong>Créateurs au Maroc :</strong> Stripe ne supporte pas l'onboarding direct pour les comptes bancaires marocains. Si vous possédez un compte Stripe étranger (US LLC, UK, Atlas, Europe), collez votre ID <code style={{ color: '#4338CA', fontWeight: 700 }}>acct_...</code> ci-dessous. Sinon, sélectionnez l'option <strong>« 🇲🇦 CIH / Virement bancaire marocain »</strong> : vos acheteurs payeront toujours par Carte Bancaire internationale via Stripe, et vous recevrez vos gains sur votre compte marocain !
               </div>
+
+              {isStripeConnected ? (
+                <div style={{ background: '#FFFFFF', borderRadius: 12, padding: '14px 16px', border: '1px solid #C7D2FE', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
+                  <div>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>
+                      {t('payoutsTab.stripeAcctIdLabel', 'Stripe Connected Account ID:')}
+                    </span>
+                    <p style={{ margin: '2px 0 0', fontSize: 14.5, fontWeight: 800, fontFamily: 'monospace', color: '#4338CA' }}>
+                      {settings.stripeAccountId}
+                    </p>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button
+                      type="button"
+                      onClick={() => copyText(settings.stripeAccountId, 'stripe-acct-id-global')}
+                      style={{
+                        background: '#EEF2FF',
+                        color: '#4338CA',
+                        border: '1px solid #C7D2FE',
+                        borderRadius: 8,
+                        padding: '6px 12px',
+                        fontSize: 12,
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {copiedKey === 'stripe-acct-id-global' ? `✓ ${t('payoutsTab.copied', 'Copied')}` : `📋 ${t('payoutsTab.copy', 'Copy')}`}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleUnlinkStripe}
+                      style={{
+                        background: '#FEE2E2',
+                        color: '#EF4444',
+                        border: 'none',
+                        borderRadius: 8,
+                        padding: '6px 12px',
+                        fontSize: 12,
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {t('payoutsTab.actions.unlinkStripe', 'Disconnect')}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    <input
+                      placeholder="acct_1XXXXXXXXXXXXXXX (Entrez votre Stripe ID)"
+                      value={manualStripeId || settings.stripeAccountId || ''}
+                      onChange={(e) => {
+                        const val = e.target.value.trim()
+                        setManualStripeId(val)
+                        setSettings({ ...settings, stripeAccountId: val })
+                      }}
+                      style={{
+                        flex: 1,
+                        minWidth: 240,
+                        boxSizing: 'border-box',
+                        padding: '10px 14px',
+                        borderRadius: 10,
+                        border: '1px solid #CBD5E1',
+                        fontSize: 13,
+                        fontFamily: 'monospace',
+                        outline: 'none',
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const targetId = (manualStripeId || settings.stripeAccountId || '').trim()
+                        if (!targetId) {
+                          alert(t('payoutsTab.alerts.enterStripeAcctId', 'Veuillez saisir votre ID de compte Stripe (ex: acct_...)'))
+                          return
+                        }
+                        handleConnectStripe(targetId)
+                      }}
+                      style={{
+                        background: '#4338CA',
+                        color: '#FFFFFF',
+                        border: 'none',
+                        borderRadius: 10,
+                        padding: '10px 18px',
+                        fontSize: 13,
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      🔗 {t('payoutsTab.actions.linkThisId', 'Lier ce compte Stripe')}
+                    </button>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 4 }}>
+                    <button
+                      type="button"
+                      onClick={() => handleConnectStripe()}
+                      disabled={connectingStripe}
+                      style={{
+                        background: '#635BFF',
+                        color: '#FFFFFF',
+                        border: 'none',
+                        borderRadius: 10,
+                        padding: '10px 18px',
+                        fontSize: 13,
+                        fontWeight: 800,
+                        cursor: connectingStripe ? 'wait' : 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        opacity: connectingStripe ? 0.75 : 1,
+                      }}
+                    >
+                      <span>{connectingStripe ? `⏳ Connexion...` : `⚡ Stripe Connect Onboarding Officiel`}</span>
+                      <span>➔</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleInstantTestConnectStripe}
+                      disabled={connectingStripe}
+                      style={{
+                        background: '#FFFFFF',
+                        color: '#4338CA',
+                        border: '1px solid #C7D2FE',
+                        borderRadius: 10,
+                        padding: '10px 16px',
+                        fontSize: 13,
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {t('payoutsTab.actions.instantTestStripe', '🧪 Connexion Immédiate (Mode Test / Démo)')}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {stripeConnectError && (
+                <div
+                  style={{
+                    background: '#FEF2F2',
+                    border: '1px solid #FCA5A5',
+                    borderRadius: 10,
+                    padding: '10px 14px',
+                    fontSize: 12.5,
+                    color: '#991B1B',
+                    lineHeight: 1.5,
+                  }}
+                >
+                  {stripeConnectError}
+                </div>
+              )}
             </div>
           )}
 

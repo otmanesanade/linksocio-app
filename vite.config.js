@@ -2171,6 +2171,7 @@ function apiPlugin() {
                           name: product?.name || 'Digital Product',
                           description: `Sold by @${username || 'creator'} on LinkSocio (Instant Delivery)`,
                           images: product?.image_url ? [product.image_url] : undefined,
+                          tax_code: 'txcd_10000000',
                         },
                         unit_amount: unitAmount,
                       },
@@ -2208,11 +2209,36 @@ function apiPlugin() {
                 let session = null
                 try {
                   session = await stripe.checkout.sessions.create(sessionPayload)
-                } catch (connectErr) {
-                  console.warn('Connect session creation failed (destination account might not be active or capable), attempting direct checkout:', connectErr.message)
-                  // Fallback: If the connected account has restrictions or is unverified, create checkout on platform account
-                  delete sessionPayload.payment_intent_data
-                  session = await stripe.checkout.sessions.create(sessionPayload)
+                } catch (firstErr) {
+                  console.warn('Initial session creation notice:', firstErr.message)
+                  if (sessionPayload.payment_intent_data) {
+                    delete sessionPayload.payment_intent_data
+                    try {
+                      session = await stripe.checkout.sessions.create(sessionPayload)
+                    } catch (retryErr) {
+                      if (retryErr.message && (retryErr.message.includes('managed_payments') || retryErr.message.includes('tax_code'))) {
+                        try {
+                          sessionPayload.managed_payments = { enabled: false }
+                          session = await stripe.checkout.sessions.create(sessionPayload)
+                        } catch (e3) {
+                          throw retryErr
+                        }
+                      } else {
+                        throw retryErr
+                      }
+                    }
+                  } else {
+                    if (firstErr.message && (firstErr.message.includes('managed_payments') || firstErr.message.includes('tax_code'))) {
+                      try {
+                        sessionPayload.managed_payments = { enabled: false }
+                        session = await stripe.checkout.sessions.create(sessionPayload)
+                      } catch (e3) {
+                        throw firstErr
+                      }
+                    } else {
+                      throw firstErr
+                    }
+                  }
                 }
 
                 res.statusCode = 200
