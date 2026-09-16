@@ -14,30 +14,68 @@ export default function App() {
   const [user, setUser] = useState(null)
   const [checking, setChecking] = useState(true)
   function getCleanPath() {
-    const raw = window.location.pathname.replace(/^\/+|\/+$/g, '')
-    return raw.split('/')[0] || ''
+    try {
+      const raw = window.location.pathname.replace(/^\/+|\/+$/g, '')
+      return raw.split('/')[0] || ''
+    } catch {
+      return ''
+    }
   }
 
   const [path, setPath] = useState(getCleanPath())
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setUser(data.session?.user || null)
-      setChecking(false)
-    })
+    let isMounted = true
 
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user || null)
-      setChecking(false)
-    })
+    // Safety timeout: If Supabase auth hangs or is slow, don't keep the user stuck
+    const safetyTimer = setTimeout(() => {
+      if (isMounted) setChecking(false)
+    }, 1200)
+
+    try {
+      supabase.auth.getSession()
+        .then(({ data }) => {
+          if (isMounted) {
+            setUser(data?.session?.user || null)
+            setChecking(false)
+          }
+        })
+        .catch((err) => {
+          console.warn('LinkSocio session check caught:', err)
+          if (isMounted) setChecking(false)
+        })
+        .finally(() => {
+          clearTimeout(safetyTimer)
+        })
+    } catch (e) {
+      console.warn('LinkSocio sync session error:', e)
+      if (isMounted) setChecking(false)
+    }
+
+    let authListener = null
+    try {
+      const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+        if (isMounted) {
+          setUser(session?.user || null)
+          setChecking(false)
+        }
+      })
+      authListener = data
+    } catch (e) {
+      console.warn('Auth state change listener error:', e)
+    }
 
     function onPopState() {
-      setPath(getCleanPath())
+      if (isMounted) setPath(getCleanPath())
     }
     window.addEventListener('popstate', onPopState)
 
     return () => {
-      listener.subscription.unsubscribe()
+      isMounted = false
+      clearTimeout(safetyTimer)
+      if (authListener?.subscription?.unsubscribe) {
+        authListener.subscription.unsubscribe()
+      }
       window.removeEventListener('popstate', onPopState)
     }
   }, [])
@@ -73,21 +111,37 @@ export default function App() {
 
   if (checking) {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#F8FAFC' }}>
-        <div style={{ textAlign: 'center', color: '#64748B', fontFamily: 'system-ui, sans-serif' }}>
+      <div
+        style={{
+          minHeight: '100vh',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: '#0F172A',
+          color: '#FFFFFF',
+          fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+          padding: 20,
+        }}
+      >
+        <div style={{ textAlign: 'center' }}>
           <div
             style={{
-              width: 38,
-              height: 38,
-              border: '3px solid #E2E8F0',
+              width: 44,
+              height: 44,
+              border: '3.5px solid rgba(255,255,255,0.12)',
               borderTopColor: '#14B8A6',
               borderRadius: '50%',
-              animation: 'linksocio_spin 0.8s linear infinite',
-              margin: '0 auto 14px',
+              animation: 'linksocio_spin 0.75s linear infinite',
+              margin: '0 auto 16px',
             }}
           />
           <style>{`@keyframes linksocio_spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
-          <p style={{ margin: 0, fontSize: 13.5, fontWeight: 600, color: '#334155' }}>Loading LinkSocio...</p>
+          <h3 style={{ margin: '0 0 6px', fontSize: 16, fontWeight: 700, letterSpacing: '-0.01em', color: '#FFFFFF' }}>
+            LinkSocio
+          </h3>
+          <p style={{ margin: 0, fontSize: 13, color: '#94A3B8' }}>
+            Chargement de votre espace...
+          </p>
         </div>
       </div>
     )
