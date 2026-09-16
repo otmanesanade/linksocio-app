@@ -32,13 +32,13 @@ export function formatIbanNumber(val) {
 }
 
 const GLOBAL_PAYOUT_METHODS = [
-  { id: 'local_morocco', name: 'Morocco Local Banks (CIH, Attijari, BCP, CashPlus)', region: 'Morocco (RIB 24 Chiffres)', icon: '🇲🇦', feeInfo: '0% Extra Fee · Direct Wire' },
-  { id: 'bank_iban', name: 'Direct International Wire (IBAN / SWIFT)', region: 'Worldwide Banks', icon: '🏛️', feeInfo: 'SEPA / SWIFT / Local Bank' },
   { id: 'stripe', name: 'Stripe Connect / Direct Bank Transfer', region: 'Global (130+ Countries)', icon: '💳', feeInfo: 'Auto Instant 91% Transfer' },
+  { id: 'bank_iban', name: 'Direct International Wire (IBAN / SWIFT)', region: 'Worldwide Banks', icon: '🏛️', feeInfo: 'SEPA / SWIFT / Local Bank' },
   { id: 'paypal', name: 'PayPal Account', region: 'Worldwide', icon: '🅿️', feeInfo: 'Direct to PayPal Email' },
   { id: 'wise', name: 'Wise (TransferWise IBAN / Routing)', region: 'International Multi-Currency', icon: '🌐', feeInfo: 'EUR, USD, GBP, etc.' },
   { id: 'payoneer', name: 'Payoneer Receiving Account', region: 'Global Freelancers & Creators', icon: '🅿️', feeInfo: 'Global Bank Transfer' },
   { id: 'crypto_usdt', name: 'Crypto USDT (TRC-20 / ERC-20 / Solana)', region: 'Borderless & Instant', icon: '🪙', feeInfo: 'Instant Crypto Payout' },
+  { id: 'local_morocco', name: 'Morocco Local Banks (CIH, Attijari, BCP, CashPlus)', region: 'Morocco (RIB 24 Digits)', icon: '🇲🇦', feeInfo: '0% Extra Fee · Direct Wire' },
 ]
 
 const CURRENCIES = [
@@ -72,9 +72,9 @@ export default function PayoutsTab({ user, profile }) {
   // Settings
   const [settings, setSettings] = useState(() => {
     const base = {
-      selectedCurrency: 'MAD',
-      currencySymbol: 'DH',
-      payoutMethod: 'local_morocco', // 'local_morocco' | 'bank_iban' | 'stripe' | 'paypal' | 'wise' | 'payoneer' | 'crypto_usdt'
+      selectedCurrency: 'USD',
+      currencySymbol: '$',
+      payoutMethod: 'stripe', // 'stripe' | 'bank_iban' | 'paypal' | 'wise' | 'payoneer' | 'crypto_usdt' | 'local_morocco'
       // Bank status
       bankConnected: false,
       stripeConnected: false,
@@ -86,8 +86,8 @@ export default function PayoutsTab({ user, profile }) {
       accountHolder: '',
       iban: '',
       swiftBic: '',
-      bankCountry: 'Morocco',
-      bankName: 'CIH Bank',
+      bankCountry: '',
+      bankName: '',
       // Payoneer
       payoneerEmail: '',
       // Crypto USDT
@@ -205,7 +205,7 @@ export default function PayoutsTab({ user, profile }) {
         }),
       })
       if (res.ok) {
-        setSaveSuccessMsg('✅ Paramètres de virement enregistrés avec succès !')
+        setSaveSuccessMsg(`✅ ${t('payoutsTab.actions.savedSuccess', 'Payout settings updated successfully!')}`)
         setTimeout(() => setSaveSuccessMsg(''), 3500)
       }
     } catch (err) {
@@ -220,12 +220,12 @@ export default function PayoutsTab({ user, profile }) {
     if (e) e.preventDefault()
     const rawDigits = String(settings.moroccoRib || '').replace(/\D/g, '')
     if (!rawDigits || rawDigits.length !== 24) {
-      alert('Veuillez entrer un RIB marocain complet de 24 chiffres (ex: 230 780 1234567890123456 89).')
+      alert(t('payoutsTab.ribLengthAlert', 'Please enter a complete 24-digit Moroccan RIB (e.g. 230 780 1234567890123456 89).'))
       return
     }
     const holder = (settings.accountHolder || profile?.display_name || username || '').trim()
     if (!holder) {
-      alert('Veuillez renseigner le nom complet du titulaire du compte.')
+      alert(t('payoutsTab.holderRequiredAlert', 'Please enter the account holder full name.'))
       return
     }
 
@@ -253,7 +253,7 @@ export default function PayoutsTab({ user, profile }) {
       try {
         confetti({ particleCount: 80, spread: 80, origin: { y: 0.5 } })
       } catch (e) {}
-      setSaveSuccessMsg('🎉 Votre compte bancaire marocain a été lié avec succès !')
+      setSaveSuccessMsg(`🎉 ${t('payoutsTab.actions.bankLinkedSuccess', 'Moroccan bank account linked successfully!')}`)
       setTimeout(() => setSaveSuccessMsg(''), 4500)
     } catch (err) {
       console.error(err)
@@ -267,12 +267,12 @@ export default function PayoutsTab({ user, profile }) {
     if (e) e.preventDefault()
     const cleanIban = String(settings.iban || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase()
     if (!cleanIban || cleanIban.length < 12) {
-      alert('Veuillez renseigner un IBAN international valide (au moins 12 caractères).')
+      alert(t('payoutsTab.ibanInvalidAlert', 'Please enter a valid international IBAN (at least 12 characters).'))
       return
     }
     const holder = (settings.accountHolder || profile?.display_name || username || '').trim()
     if (!holder) {
-      alert('Veuillez renseigner le nom complet du titulaire.')
+      alert(t('payoutsTab.holderRequiredAlert', 'Please enter the account holder full name.'))
       return
     }
 
@@ -300,7 +300,7 @@ export default function PayoutsTab({ user, profile }) {
       try {
         confetti({ particleCount: 80, spread: 80, origin: { y: 0.5 } })
       } catch (e) {}
-      setSaveSuccessMsg('🎉 Votre compte bancaire international (IBAN) a été lié avec succès !')
+      setSaveSuccessMsg(`🎉 ${t('payoutsTab.actions.intlLinkedSuccess', 'International Bank (IBAN) linked successfully!')}`)
       setTimeout(() => setSaveSuccessMsg(''), 4500)
     } catch (err) {
       console.error(err)
@@ -311,7 +311,7 @@ export default function PayoutsTab({ user, profile }) {
 
   // Unlink Bank (Morocco or Intl)
   function handleUnlinkBank() {
-    if (!confirm('Voulez-vous vraiment dissocier ce compte bancaire ?')) return
+    if (!confirm(t('payoutsTab.confirmUnlinkBank', 'Are you sure you want to unlink this bank account?'))) return
     const updated = {
       ...settings,
       bankConnected: false,
@@ -329,18 +329,18 @@ export default function PayoutsTab({ user, profile }) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, userId, settings: updated }),
     })
-    setSaveSuccessMsg('Compte bancaire dissocié.')
+    setSaveSuccessMsg(t('payoutsTab.bankUnlinkedMsg', 'Bank account unlinked.'))
     setTimeout(() => setSaveSuccessMsg(''), 3000)
   }
 
   // Unlink Stripe
   function handleUnlinkStripe() {
-    if (!confirm('Voulez-vous vraiment dissocier votre compte Stripe ?')) return
+    if (!confirm(t('payoutsTab.confirmUnlinkStripe', 'Are you sure you want to unlink your Stripe account?'))) return
     const updated = {
       ...settings,
       stripeConnected: false,
       stripeAccountId: '',
-      payoutMethod: settings.moroccoRib ? 'local_morocco' : settings.iban ? 'bank_iban' : 'paypal',
+      payoutMethod: settings.iban ? 'bank_iban' : settings.moroccoRib ? 'local_morocco' : 'paypal',
     }
     setSettings(updated)
     setManualStripeId('')
@@ -353,7 +353,7 @@ export default function PayoutsTab({ user, profile }) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, userId, settings: updated }),
     })
-    setSaveSuccessMsg('Compte Stripe dissocié.')
+    setSaveSuccessMsg(t('payoutsTab.stripeUnlinkedMsg', 'Stripe account unlinked.'))
     setTimeout(() => setSaveSuccessMsg(''), 3000)
   }
 
@@ -389,10 +389,10 @@ export default function PayoutsTab({ user, profile }) {
       try {
         confetti({ particleCount: 70, spread: 80, origin: { y: 0.5 } })
       } catch (e) {}
-      setSaveSuccessMsg('🎉 Compte Stripe lié avec succès !')
+      setSaveSuccessMsg(`🎉 ${t('payoutsTab.stripeLinkedSuccess', 'Stripe account linked successfully!')}`)
       setTimeout(() => setSaveSuccessMsg(''), 4000)
     } catch (e) {
-      setStripeConnectError(e.message || 'Erreur de liaison Stripe')
+      setStripeConnectError(e.message || 'Stripe connection error')
     } finally {
       setConnectingStripe(false)
     }
@@ -450,7 +450,7 @@ export default function PayoutsTab({ user, profile }) {
       try {
         confetti({ particleCount: 70, spread: 80, origin: { y: 0.5 } })
       } catch (e) {}
-      alert(`🎉 Compte Stripe lié avec succès !\nAccount ID: ${accountId.trim()}`)
+      alert(`🎉 ${t('payoutsTab.stripeLinkedSuccess', 'Stripe account linked successfully!')}\nAccount ID: ${accountId.trim()}`)
       return
     }
 
@@ -465,7 +465,7 @@ export default function PayoutsTab({ user, profile }) {
           username,
           userId,
           email: profile?.email || user?.email,
-          country: settings.bankCountry || 'MA',
+          country: settings.bankCountry || 'US',
           returnUrl: `${origin}/dashboard?tab=payouts&stripe_connected=true`,
           refreshUrl: `${origin}/dashboard?tab=payouts`,
         }),
@@ -487,10 +487,10 @@ export default function PayoutsTab({ user, profile }) {
         return
       }
 
-      setStripeConnectError('Impossible de générer le lien Stripe Onboarding. Vérifiez vos clés Stripe.')
+      setStripeConnectError(t('payoutsTab.stripeOnboardError', 'Unable to generate Stripe onboarding link. Please check your Stripe keys.'))
     } catch (err) {
       console.error('Failed to initiate Stripe connect:', err)
-      setStripeConnectError(err.message || 'Erreur de connexion Stripe')
+      setStripeConnectError(err.message || 'Stripe connection error')
     } finally {
       setConnectingStripe(false)
     }
@@ -500,11 +500,11 @@ export default function PayoutsTab({ user, profile }) {
     if (e) e.preventDefault()
     const amountNum = parseFloat(withdrawAmount)
     if (!amountNum || amountNum <= 0) {
-      alert('Veuillez entrer un montant de retrait valide.')
+      alert(t('payoutsTab.invalidWithdrawAmount', 'Please enter a valid withdrawal amount.'))
       return
     }
     if (amountNum > stats.availableBalance) {
-      alert(`Le montant dépasse votre solde disponible (${stats.availableBalance} ${currSym}).`)
+      alert(`${t('payoutsTab.amountExceedsBalance', 'Amount exceeds available balance')} (${stats.availableBalance} ${currSym}).`)
       return
     }
 
@@ -543,7 +543,7 @@ export default function PayoutsTab({ user, profile }) {
         setShowWithdrawModal(false)
         setWithdrawAmount('')
         loadData()
-        alert(`🎉 Demande de virement de ${amountNum} ${currSym} envoyée avec succès !`)
+        alert(`🎉 ${t('payoutsTab.payoutRequestSent', 'Payout request sent successfully!')}: ${amountNum} ${currSym}`)
       }
     } catch (err) {
       console.error(err)
@@ -551,7 +551,7 @@ export default function PayoutsTab({ user, profile }) {
   }
 
   async function handleSimulateSale() {
-    const samplePrice = prompt(`Indiquez le montant de la vente test en ${currSym} (ex: 50):`, '50')
+    const samplePrice = prompt(`${t('payoutsTab.testSalePrompt', 'Enter test sale price')} (${currSym}):`, '50')
     if (!samplePrice) return
 
     try {
@@ -563,17 +563,17 @@ export default function PayoutsTab({ user, profile }) {
           userId,
           product: {
             id: 'prod_' + Date.now(),
-            name: 'Pack Digital / Ebook',
+            name: 'Digital Course / Ebook',
             price: `${currSym}${samplePrice}`,
             currency: currSym,
             category: 'course',
           },
           buyer: {
-            name: 'Client International',
-            email: 'client@example.com',
-            phone: '+212 600 000000',
+            name: 'International Buyer',
+            email: 'buyer@example.com',
+            phone: '+1 555 019 2834',
           },
-          paymentMethod: settings.payoutMethod === 'stripe' ? 'card_stripe' : 'bank_cih',
+          paymentMethod: settings.payoutMethod === 'stripe' ? 'card_stripe' : 'bank_iban',
         }),
       })
 
@@ -584,7 +584,7 @@ export default function PayoutsTab({ user, profile }) {
         } catch (e) {}
         loadData()
         alert(
-          `🎉 Vente traitée avec répartition 91% / 9% !\n• Total brut: ${currSym}${json.breakdown.grossAmount}\n• Vous recevez (91% Net): ${currSym}${json.breakdown.sellerNet91Percent}\n• Frais LinkSocio (9%): ${currSym}${json.breakdown.platformFee9Percent}`
+          `🎉 ${t('payoutsTab.saleSimulated', 'Sale processed with 91% / 9% split!')}\n• Gross: ${currSym}${json.breakdown.grossAmount}\n• Your Net (91%): ${currSym}${json.breakdown.sellerNet91Percent}\n• Platform Fee (9%): ${currSym}${json.breakdown.platformFee9Percent}`
         )
       }
     } catch (err) {
@@ -593,7 +593,7 @@ export default function PayoutsTab({ user, profile }) {
   }
 
   async function handleApprovePayout(payoutId) {
-    if (!confirm('Marquer cette demande de virement comme réglée et transférée ?')) return
+    if (!confirm(t('payoutsTab.confirmApprovePayout', 'Mark this payout transfer request as settled and transferred?'))) return
     try {
       const res = await fetch('/api/payouts/admin/approve', {
         method: 'POST',
@@ -842,19 +842,19 @@ export default function PayoutsTab({ user, profile }) {
             <div>
               <h4 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: isBankConnected || isStripeConnected ? '#15803D' : '#92400E' }}>
                 {isBankConnected && isStripeConnected
-                  ? 'Compte Bancaire et Stripe Connect Actifs'
-                  : isMoroccoBankConnected
-                  ? `🇲🇦 Compte Bancaire Marocain Lié & Vérifié (${settings.moroccoBankName || 'Banque'})`
+                  ? t('payoutsTab.banner.bothConnected', 'Bank Account & Stripe Connect Active')
                   : isIntlBankConnected
-                  ? `🏛️ Compte Bancaire International Lié (IBAN ${settings.bankCountry || 'Monde'})`
+                  ? `${t('payoutsTab.banner.intlConnected', '🏛️ International Bank Account Linked (IBAN)')} (${settings.bankCountry || 'Global'})`
+                  : isMoroccoBankConnected
+                  ? `${t('payoutsTab.banner.moroccoConnected', '🇲🇦 Moroccan Bank Account Linked & Verified')} (${settings.moroccoBankName || 'Bank'})`
                   : isStripeConnected
-                  ? '💳 Compte Stripe Connect Lié & Actif'
-                  : 'Aucun compte bancaire ou Stripe n’est encore lié'}
+                  ? t('payoutsTab.banner.stripeConnected', '💳 Stripe Connect Account Linked & Active')
+                  : t('payoutsTab.banner.notConnected', 'No bank or Stripe account is connected yet')}
               </h4>
               <p style={{ margin: '2px 0 0', fontSize: 12.5, color: isBankConnected || isStripeConnected ? '#166534' : '#B45309' }}>
                 {isBankConnected || isStripeConnected
-                  ? 'Vos gains de vente (91% net) seront transférés directement vers ce compte.'
-                  : 'Liez votre compte bancaire (RIB Maroc ou IBAN) ou votre compte Stripe pour recevoir vos gains de vente.'}
+                  ? t('payoutsTab.banner.bothDesc', 'Your sales earnings (91% net) will be transferred directly to this account.')
+                  : t('payoutsTab.banner.notConnectedDesc', 'Connect your Stripe account, International Bank (IBAN / SWIFT), or local bank to receive sales earnings.')}
               </p>
             </div>
           </div>
@@ -878,7 +878,7 @@ export default function PayoutsTab({ user, profile }) {
                   gap: 5,
                 }}
               >
-                <span>{copiedKey === 'banner-rib' ? '✓ Copié !' : '📋 Copier RIB'}</span>
+                <span>{copiedKey === 'banner-rib' ? `✓ ${t('payoutsTab.banner.copied', 'Copied!')}` : `📋 ${t('payoutsTab.banner.copyRib', 'Copy RIB')}`}</span>
               </button>
             )}
 
@@ -900,7 +900,7 @@ export default function PayoutsTab({ user, profile }) {
                   gap: 5,
                 }}
               >
-                <span>{copiedKey === 'banner-iban' ? '✓ Copié !' : '📋 Copier IBAN'}</span>
+                <span>{copiedKey === 'banner-iban' ? `✓ ${t('payoutsTab.banner.copied', 'Copied!')}` : `📋 ${t('payoutsTab.banner.copyIban', 'Copy IBAN')}`}</span>
               </button>
             )}
 
@@ -922,31 +922,12 @@ export default function PayoutsTab({ user, profile }) {
                   gap: 5,
                 }}
               >
-                <span>{copiedKey === 'banner-stripe' ? '✓ Copié !' : '📋 Copier ID Stripe'}</span>
+                <span>{copiedKey === 'banner-stripe' ? `✓ ${t('payoutsTab.banner.copied', 'Copied!')}` : `📋 ${t('payoutsTab.banner.copyStripe', 'Copy Stripe ID')}`}</span>
               </button>
             )}
 
             {!isBankConnected && !isStripeConnected && (
               <>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSettings({ ...settings, payoutMethod: 'local_morocco' })
-                    setActiveSubTab('global')
-                  }}
-                  style={{
-                    background: '#0F172A',
-                    color: '#FFFFFF',
-                    border: 'none',
-                    borderRadius: 10,
-                    padding: '8px 14px',
-                    fontSize: 12.5,
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                  }}
-                >
-                  🇲🇦 Lier mon RIB Bancaire Marocain
-                </button>
                 <button
                   type="button"
                   onClick={() => setActiveSubTab('stripe')}
@@ -961,7 +942,26 @@ export default function PayoutsTab({ user, profile }) {
                     cursor: 'pointer',
                   }}
                 >
-                  💳 Lier Stripe
+                  💳 {t('payoutsTab.banner.connectStripeBtn', 'Connect Stripe')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSettings({ ...settings, payoutMethod: 'bank_iban' })
+                    setActiveSubTab('global')
+                  }}
+                  style={{
+                    background: '#0F172A',
+                    color: '#FFFFFF',
+                    border: 'none',
+                    borderRadius: 10,
+                    padding: '8px 14px',
+                    fontSize: 12.5,
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                  }}
+                >
+                  🏛️ {t('payoutsTab.banner.connectIntlBtn', 'Link Bank (IBAN / Wire)')}
                 </button>
               </>
             )}
@@ -987,10 +987,10 @@ export default function PayoutsTab({ user, profile }) {
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, alignItems: 'center' }}>
               {isMoroccoBankConnected && (
                 <div>
-                  <span style={{ color: '#64748B', fontWeight: 600 }}>Banque: </span>
+                  <span style={{ color: '#64748B', fontWeight: 600 }}>{t('payoutsTab.bankNameLabel', 'Bank')}: </span>
                   <strong style={{ color: '#0F172A' }}>{settings.moroccoBankName}</strong>
                   <span style={{ margin: '0 6px', color: '#CBD5E1' }}>|</span>
-                  <span style={{ color: '#64748B', fontWeight: 600 }}>Titulaire: </span>
+                  <span style={{ color: '#64748B', fontWeight: 600 }}>{t('payoutsTab.beneficiaryLabel', 'Holder')}: </span>
                   <strong style={{ color: '#0F172A' }}>{settings.accountHolder || profile?.display_name || username}</strong>
                   <span style={{ margin: '0 6px', color: '#CBD5E1' }}>|</span>
                   <span style={{ color: '#64748B', fontWeight: 600 }}>RIB: </span>
@@ -1000,8 +1000,8 @@ export default function PayoutsTab({ user, profile }) {
 
               {isIntlBankConnected && !isMoroccoBankConnected && (
                 <div>
-                  <span style={{ color: '#64748B', fontWeight: 600 }}>Banque: </span>
-                  <strong style={{ color: '#0F172A' }}>{settings.bankName || 'International'}</strong> ({settings.bankCountry})
+                  <span style={{ color: '#64748B', fontWeight: 600 }}>{t('payoutsTab.bankNameLabel', 'Bank')}: </span>
+                  <strong style={{ color: '#0F172A' }}>{settings.bankName || 'International Wire'}</strong> ({settings.bankCountry || 'Global'})
                   <span style={{ margin: '0 6px', color: '#CBD5E1' }}>|</span>
                   <span style={{ color: '#64748B', fontWeight: 600 }}>IBAN: </span>
                   <code style={{ fontFamily: 'monospace', fontWeight: 700, color: '#0F172A' }}>{settings.iban}</code>
@@ -1032,7 +1032,7 @@ export default function PayoutsTab({ user, profile }) {
                     cursor: 'pointer',
                   }}
                 >
-                  Dissocier Banque
+                  {t('payoutsTab.actions.unlinkBank', 'Unlink Bank')}
                 </button>
               )}
               {isStripeConnected && (
@@ -1050,7 +1050,7 @@ export default function PayoutsTab({ user, profile }) {
                     cursor: 'pointer',
                   }}
                 >
-                  Dissocier Stripe
+                  {t('payoutsTab.actions.unlinkStripe', 'Unlink Stripe')}
                 </button>
               )}
             </div>
@@ -1061,11 +1061,11 @@ export default function PayoutsTab({ user, profile }) {
       {/* Sub-Tab Navigation */}
       <div style={{ display: 'flex', gap: 6, borderBottom: '1px solid #E2E8F0', paddingBottom: 6, overflowX: 'auto' }}>
         {[
-          { id: 'global', label: `🌍 ${t('payoutsTab.subTabs.global', 'Modes de Virement & Banque')}`, icon: '🌐' },
-          { id: 'stripe', label: `💳 ${t('payoutsTab.subTabs.stripe', 'Connexion Stripe Direct')}`, icon: '⚡' },
-          { id: 'history', label: `📋 ${t('payoutsTab.subTabs.history', 'Historique des Ventes')} (${transactions.length})`, icon: '📊' },
-          { id: 'calculator', label: `🧮 ${t('payoutsTab.subTabs.calculator', 'Simulateur 91%')}`, icon: '🔢' },
-          { id: 'admin', label: '👑 Vue Admin', icon: '🛡️' },
+          { id: 'global', label: `🌍 ${t('payoutsTab.subTabs.global', 'Payout Methods & Bank')}`, icon: '🌐' },
+          { id: 'stripe', label: `💳 ${t('payoutsTab.subTabs.stripe', 'Direct Stripe Connect')}`, icon: '⚡' },
+          { id: 'history', label: `📋 ${t('payoutsTab.subTabs.history', 'Sales & Splits Ledger')} (${transactions.length})`, icon: '📊' },
+          { id: 'calculator', label: `🧮 ${t('payoutsTab.subTabs.calculator', '91% Calculator')}`, icon: '🔢' },
+          { id: 'admin', label: `👑 ${t('payoutsTab.subTabs.admin', 'Admin Overview')}`, icon: '🛡️' },
         ].map((tab) => {
           const isActive = activeSubTab === tab.id
           return (
@@ -1092,15 +1092,15 @@ export default function PayoutsTab({ user, profile }) {
         })}
       </div>
 
-      {/* SUB-TAB 1: Global Payout Methods (Morocco RIB, International IBAN, PayPal, etc.) */}
+      {/* SUB-TAB 1: Global Payout Methods (Stripe, International IBAN, PayPal, Morocco RIB, etc.) */}
       {activeSubTab === 'global' && (
         <div style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: 20, padding: 24, display: 'flex', flexDirection: 'column', gap: 20 }}>
           <div>
             <h3 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: '#0F172A' }}>
-              🌍 Configurez Votre Méthode de Réception des Fonds
+              🌍 {t('payoutsTab.headerTitle', 'Configure How You Receive Your Funds')}
             </h3>
             <p style={{ margin: '3px 0 0', fontSize: 13, color: '#64748B' }}>
-              Recevez 91% du montant de vos ventes directement sur votre compte bancaire marocain (CIH, Attijariwafa, BCP, CashPlus), virement IBAN international, PayPal ou Stripe.
+              {t('payoutsTab.headerDesc', 'Receive 91% net of your sales via Stripe Connect, International Bank Wire (IBAN / SWIFT), PayPal, Wise, or Moroccan local bank (CIH, Attijariwafa, BCP).')}
             </p>
           </div>
 
@@ -1113,7 +1113,7 @@ export default function PayoutsTab({ user, profile }) {
           {/* Primary Method Choice Cards */}
           <div>
             <label style={{ fontSize: 12.5, fontWeight: 700, color: '#334155', display: 'block', marginBottom: 8 }}>
-              Choisissez votre mode de versement préféré :
+              {t('payoutsTab.preferredMethodLabel', 'Choose your preferred payout method:')}
             </label>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10 }}>
               {GLOBAL_PAYOUT_METHODS.map((method) => {
@@ -1133,7 +1133,7 @@ export default function PayoutsTab({ user, profile }) {
                   >
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                       <span style={{ fontSize: 20 }}>{method.icon}</span>
-                      {isSelected && <span style={{ color: '#059669', fontWeight: 800, fontSize: 12 }}>✓ SÉLECTIONNÉ</span>}
+                      {isSelected && <span style={{ color: '#059669', fontWeight: 800, fontSize: 12 }}>✓ {t('payoutsTab.selectedBadge', 'SELECTED')}</span>}
                     </div>
                     <div style={{ fontSize: 13.5, fontWeight: 700, color: '#0F172A', marginTop: 6 }}>
                       {method.name}
@@ -1150,7 +1150,7 @@ export default function PayoutsTab({ user, profile }) {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 14, background: '#F8FAFC', padding: 16, borderRadius: 14, border: '1px solid #E2E8F0' }}>
             <div>
               <label style={{ fontSize: 12, fontWeight: 700, color: '#334155', display: 'block', marginBottom: 6 }}>
-                Devise par défaut pour vos prix
+                {t('payoutsTab.defaultCurrencyLabel', 'Default Currency for Your Product Pricing')}
               </label>
               <select
                 value={settings.selectedCurrency}
@@ -1179,10 +1179,10 @@ export default function PayoutsTab({ user, profile }) {
 
             <div>
               <label style={{ fontSize: 12, fontWeight: 700, color: '#334155', display: 'block', marginBottom: 6 }}>
-                Nom complet du bénéficiaire (Titulaire du compte)
+                {t('payoutsTab.beneficiaryLabel', 'Account Holder Full Name / Beneficiary')}
               </label>
               <input
-                placeholder="ex: Otman El Amrani / Société SARL"
+                placeholder={t('payoutsTab.beneficiaryPlaceholder', 'e.g. John Doe / Business LLC')}
                 value={settings.accountHolder}
                 onChange={(e) => setSettings({ ...settings, accountHolder: e.target.value })}
                 style={{
@@ -1207,17 +1207,17 @@ export default function PayoutsTab({ user, profile }) {
                   <span style={{ fontSize: 26 }}>🇲🇦</span>
                   <div>
                     <h4 style={{ margin: 0, fontSize: 15.5, fontWeight: 800, color: '#166534' }}>
-                      Connexion Compte Bancaire Marocain (RIB 24 Chiffres)
+                      {t('payoutsTab.moroccoSectionTitle', 'Morocco Local Bank Wire (RIB 24 Digits)')}
                     </h4>
                     <p style={{ margin: '2px 0 0', fontSize: 12.5, color: '#15803D' }}>
-                      Idéal pour recevoir vos paiements directement par CIH, Attijariwafa, Banque Populaire ou CashPlus sans aucun blocage.
+                      {t('payoutsTab.moroccoSectionDesc', 'Receive direct transfers via CIH Bank, Attijariwafa, Banque Populaire, CashPlus, or other local banks.')}
                     </p>
                   </div>
                 </div>
 
                 {isMoroccoBankConnected && (
                   <span style={{ background: '#DCFCE7', color: '#15803D', border: '1px solid #86EFAC', borderRadius: 100, padding: '4px 12px', fontSize: 12, fontWeight: 800 }}>
-                    🟢 Compte Actif & Lié
+                    🟢 {t('payoutsTab.activeConnected', 'Active & Linked')}
                   </span>
                 )}
               </div>
@@ -1225,7 +1225,7 @@ export default function PayoutsTab({ user, profile }) {
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 14 }}>
                 <div>
                   <label style={{ fontSize: 12, fontWeight: 700, color: '#166534', display: 'block', marginBottom: 6 }}>
-                    Sélectionnez votre banque au Maroc
+                    {t('payoutsTab.moroccoBankLabel', 'Select your bank in Morocco')}
                   </label>
                   <select
                     value={settings.moroccoBankName}
@@ -1251,7 +1251,7 @@ export default function PayoutsTab({ user, profile }) {
                 <div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
                     <label style={{ fontSize: 12, fontWeight: 700, color: '#166534' }}>
-                      Numéro de Compte RIB (24 Chiffres)
+                      {t('payoutsTab.moroccoRibLabel', 'RIB Account Number (24 Digits)')}
                     </label>
                     <span
                       style={{
@@ -1260,7 +1260,7 @@ export default function PayoutsTab({ user, profile }) {
                         color: rawRibDigits.length === 24 ? '#16A34A' : rawRibDigits.length > 0 ? '#D97706' : '#64748B',
                       }}
                     >
-                      {rawRibDigits.length}/24 chiffres {rawRibDigits.length === 24 ? '✓' : ''}
+                      {rawRibDigits.length}/24 {rawRibDigits.length === 24 ? '✓' : ''}
                     </span>
                   </div>
                   <input
@@ -1290,7 +1290,7 @@ export default function PayoutsTab({ user, profile }) {
 
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10, paddingTop: 6 }}>
                 <div style={{ fontSize: 12, color: '#15803D' }}>
-                  💡 Ce RIB sera automatiquement affiché aux clients qui choisissent de vous payer par virement direct au Maroc.
+                  {t('payoutsTab.moroccoRibTip', '💡 This RIB will be securely provided to buyers who choose direct local bank transfer.')}
                 </div>
 
                 <div style={{ display: 'flex', gap: 8 }}>
@@ -1309,7 +1309,7 @@ export default function PayoutsTab({ user, profile }) {
                         cursor: 'pointer',
                       }}
                     >
-                      Dissocier
+                      {t('payoutsTab.actions.unlinkBank', 'Unlink Bank')}
                     </button>
                   )}
                   <button
@@ -1329,10 +1329,10 @@ export default function PayoutsTab({ user, profile }) {
                     }}
                   >
                     {connectingMoroccoBank
-                      ? 'Liaison en cours...'
+                      ? t('payoutsTab.actions.connecting', 'Connecting...')
                       : isMoroccoBankConnected
-                      ? '✓ Mettre à jour mon compte bancaire'
-                      : '🔗 Connecter mon Compte Bancaire Marocain'}
+                      ? t('payoutsTab.actions.updateBank', '✓ Update Bank Account')
+                      : t('payoutsTab.actions.connectMoroccoBank', '🔗 Connect Moroccan Bank Account')}
                   </button>
                 </div>
               </div>
@@ -1347,17 +1347,17 @@ export default function PayoutsTab({ user, profile }) {
                   <span style={{ fontSize: 26 }}>🏛️</span>
                   <div>
                     <h4 style={{ margin: 0, fontSize: 15.5, fontWeight: 800, color: '#0F172A' }}>
-                      Virement Bancaire International (IBAN / SEPA / SWIFT)
+                      {t('payoutsTab.intlSectionTitle', 'International Bank Wire (IBAN / SEPA / SWIFT)')}
                     </h4>
                     <p style={{ margin: '2px 0 0', fontSize: 12.5, color: '#64748B' }}>
-                      Compatible avec toutes les banques mondiales (Europe SEPA, USA Routing/Wire, etc.).
+                      {t('payoutsTab.intlSectionDesc', 'Compatible with global banks across the US, Europe (SEPA), UK, Middle East, and worldwide.')}
                     </p>
                   </div>
                 </div>
 
                 {isIntlBankConnected && (
                   <span style={{ background: '#DCFCE7', color: '#15803D', border: '1px solid #86EFAC', borderRadius: 100, padding: '4px 12px', fontSize: 12, fontWeight: 800 }}>
-                    🟢 Compte IBAN Actif
+                    🟢 {t('payoutsTab.activeConnected', 'Active & Linked')}
                   </span>
                 )}
               </div>
@@ -1365,10 +1365,10 @@ export default function PayoutsTab({ user, profile }) {
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12 }}>
                 <div>
                   <label style={{ fontSize: 12, fontWeight: 700, color: '#334155', display: 'block', marginBottom: 6 }}>
-                    Pays de la Banque
+                    {t('payoutsTab.bankCountryLabel', 'Bank Country')}
                   </label>
                   <input
-                    placeholder="ex: France, États-Unis, Allemagne, Maroc..."
+                    placeholder={t('payoutsTab.bankCountryPlaceholder', 'e.g. United States, France, Germany, UAE...')}
                     value={settings.bankCountry}
                     onChange={(e) => setSettings({ ...settings, bankCountry: e.target.value })}
                     style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: 10, border: '1px solid #CBD5E1', fontSize: 13.5, outline: 'none' }}
@@ -1377,10 +1377,10 @@ export default function PayoutsTab({ user, profile }) {
 
                 <div>
                   <label style={{ fontSize: 12, fontWeight: 700, color: '#334155', display: 'block', marginBottom: 6 }}>
-                    Nom de la Banque
+                    {t('payoutsTab.bankNameLabel', 'Bank Name')}
                   </label>
                   <input
-                    placeholder="ex: BNP Paribas, JP Morgan Chase, Deutsche Bank..."
+                    placeholder={t('payoutsTab.bankNamePlaceholder', 'e.g. Chase, BNP Paribas, HSBC, Deutsche Bank...')}
                     value={settings.bankName}
                     onChange={(e) => setSettings({ ...settings, bankName: e.target.value })}
                     style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: 10, border: '1px solid #CBD5E1', fontSize: 13.5, outline: 'none' }}
@@ -1389,7 +1389,7 @@ export default function PayoutsTab({ user, profile }) {
 
                 <div>
                   <label style={{ fontSize: 12, fontWeight: 700, color: '#334155', display: 'block', marginBottom: 6 }}>
-                    Numéro IBAN
+                    {t('payoutsTab.ibanLabel', 'IBAN / Account Number')}
                   </label>
                   <input
                     placeholder="ex: FR76 3000 4000 0100 2345 6789 012"
@@ -1401,10 +1401,10 @@ export default function PayoutsTab({ user, profile }) {
 
                 <div>
                   <label style={{ fontSize: 12, fontWeight: 700, color: '#334155', display: 'block', marginBottom: 6 }}>
-                    Code SWIFT / BIC
+                    {t('payoutsTab.swiftLabel', 'SWIFT / BIC / Routing Code')}
                   </label>
                   <input
-                    placeholder="ex: BNPAFRPPXXX"
+                    placeholder="ex: CHASUS33XXX"
                     value={settings.swiftBic}
                     onChange={(e) => setSettings({ ...settings, swiftBic: e.target.value.toUpperCase() })}
                     style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: 10, border: '1px solid #CBD5E1', fontSize: 13.5, fontFamily: 'monospace', outline: 'none' }}
@@ -1428,7 +1428,7 @@ export default function PayoutsTab({ user, profile }) {
                       cursor: 'pointer',
                     }}
                   >
-                    Dissocier
+                    {t('payoutsTab.actions.unlinkBank', 'Unlink Bank')}
                   </button>
                 )}
                 <button
@@ -1446,7 +1446,7 @@ export default function PayoutsTab({ user, profile }) {
                     cursor: 'pointer',
                   }}
                 >
-                  {connectingIntlBank ? 'Liaison...' : '🔗 Connecter mon Compte International (IBAN)'}
+                  {connectingIntlBank ? t('payoutsTab.actions.connecting', 'Connecting...') : t('payoutsTab.actions.connectIntlBank', '🔗 Connect International Bank (IBAN)')}
                 </button>
               </div>
             </div>
@@ -1460,21 +1460,21 @@ export default function PayoutsTab({ user, profile }) {
                   <span style={{ fontSize: 26 }}>💳</span>
                   <div>
                     <h4 style={{ margin: 0, fontSize: 15.5, fontWeight: 800, color: '#4338CA' }}>
-                      Stripe Connect Direct (Cartes Bancaires Mondiales)
+                      {t('payoutsTab.stripeSectionTitle', 'Stripe Connect Direct (Global Credit & Debit Cards)')}
                     </h4>
                     <p style={{ margin: '2px 0 0', fontSize: 12.5, color: '#475569' }}>
-                      Paiement automatique direct sur compte bancaire pour les créateurs situés dans 130+ pays supportés par Stripe.
+                      {t('payoutsTab.stripeSectionDesc', 'Instant automated direct-to-bank payouts for creators in 130+ supported Stripe countries.')}
                     </p>
                   </div>
                 </div>
 
                 {isStripeConnected ? (
                   <span style={{ background: '#DCFCE7', color: '#15803D', border: '1px solid #86EFAC', borderRadius: 100, padding: '4px 12px', fontSize: 12, fontWeight: 800 }}>
-                    🟢 Stripe Lié ({settings.stripeAccountId})
+                    🟢 {t('payoutsTab.stripeLinked', 'Stripe Linked')} ({settings.stripeAccountId})
                   </span>
                 ) : (
                   <span style={{ background: '#F1F5F9', color: '#64748B', borderRadius: 100, padding: '4px 12px', fontSize: 12, fontWeight: 700 }}>
-                    ⚪ Non connecté
+                    ⚪ {t('payoutsTab.notConnected', 'Not connected')}
                   </span>
                 )}
               </div>
@@ -1497,7 +1497,7 @@ export default function PayoutsTab({ user, profile }) {
                     gap: 6,
                   }}
                 >
-                  <span>⚡ Gérer la Connexion Stripe dans l'onglet dédié</span>
+                  <span>{t('payoutsTab.actions.manageStripeTab', "⚡ Manage Stripe Connection in Dedicated Tab")}</span>
                   <span>➔</span>
                 </button>
 
@@ -1516,7 +1516,7 @@ export default function PayoutsTab({ user, profile }) {
                     cursor: 'pointer',
                   }}
                 >
-                  🧪 Connexion Stripe Immédiate (Test / Démo)
+                  {t('payoutsTab.actions.instantTestStripe', '🧪 Instant 1-Click Connect (Test / Demo Mode)')}
                 </button>
               </div>
             </div>
@@ -1526,11 +1526,11 @@ export default function PayoutsTab({ user, profile }) {
           {settings.payoutMethod === 'paypal' && (
             <div style={{ background: '#0079C10D', border: '1px solid #0079C130', borderRadius: 14, padding: 16 }}>
               <label style={{ fontSize: 12, fontWeight: 700, color: '#0079C1', display: 'block', marginBottom: 6 }}>
-                🅿️ Adresse Email PayPal (Pour recevoir vos virements)
+                {t('payoutsTab.paypalEmailLabel', '🅿️ PayPal Email Address (For Direct Payouts)')}
               </label>
               <input
                 type="email"
-                placeholder="votre-email-paypal@example.com"
+                placeholder={t('payoutsTab.paypalEmailPlaceholder', 'your-paypal-email@example.com')}
                 value={settings.paypalEmail}
                 onChange={(e) => setSettings({ ...settings, paypalEmail: e.target.value })}
                 style={{
@@ -1552,10 +1552,10 @@ export default function PayoutsTab({ user, profile }) {
             <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 14, padding: 16, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 12 }}>
               <div>
                 <label style={{ fontSize: 12, fontWeight: 700, color: '#334155', display: 'block', marginBottom: 6 }}>
-                  {settings.payoutMethod === 'wise' ? 'Email ou IBAN Wise' : 'Email Payoneer'}
+                  {settings.payoutMethod === 'wise' ? t('payoutsTab.wiseLabel', 'Wise Email or IBAN') : t('payoutsTab.payoneerLabel', 'Payoneer Email Address')}
                 </label>
                 <input
-                  placeholder={settings.payoutMethod === 'wise' ? 'wise-user@example.com ou IBAN' : 'payoneer-account@example.com'}
+                  placeholder={settings.payoutMethod === 'wise' ? 'wise-user@example.com / IBAN' : 'payoneer-account@example.com'}
                   value={settings.payoutMethod === 'wise' ? settings.iban : settings.payoneerEmail}
                   onChange={(e) => {
                     if (settings.payoutMethod === 'wise') setSettings({ ...settings, iban: e.target.value })
@@ -1572,15 +1572,15 @@ export default function PayoutsTab({ user, profile }) {
             <div style={{ background: '#26A17B0D', border: '1px solid #26A17B30', borderRadius: 14, padding: 16, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 12 }}>
               <div>
                 <label style={{ fontSize: 12, fontWeight: 700, color: '#26A17B', display: 'block', marginBottom: 6 }}>
-                  Réseau Blockchain
+                  {t('payoutsTab.cryptoNetworkLabel', 'Blockchain Network')}
                 </label>
                 <select
                   value={settings.cryptoNetwork}
                   onChange={(e) => setSettings({ ...settings, cryptoNetwork: e.target.value })}
                   style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid #CBD5E1', fontSize: 13.5, outline: 'none' }}
                 >
-                  <option value="USDT-TRC20">USDT (TRC-20 / Tron - Frais minimaux)</option>
-                  <option value="USDT-SOLANA">USDT (Solana - Ultra rapide)</option>
+                  <option value="USDT-TRC20">USDT (TRC-20 / Tron - Lowest fees)</option>
+                  <option value="USDT-SOLANA">USDT (Solana - Ultra fast)</option>
                   <option value="USDT-BEP20">USDT (Binance Smart Chain - BEP20)</option>
                   <option value="USDT-ERC20">USDT (Ethereum - ERC20)</option>
                 </select>
@@ -1588,7 +1588,7 @@ export default function PayoutsTab({ user, profile }) {
 
               <div>
                 <label style={{ fontSize: 12, fontWeight: 700, color: '#26A17B', display: 'block', marginBottom: 6 }}>
-                  Adresse Portefeuille USDT (T... / 0x...)
+                  {t('payoutsTab.cryptoAddressLabel', 'USDT Wallet Address (T... / 0x...)')}
                 </label>
                 <input
                   placeholder="ex: TXyz1234567890abcdef..."
@@ -1619,7 +1619,7 @@ export default function PayoutsTab({ user, profile }) {
                 gap: 8,
               }}
             >
-              <span>💾 {savingSettings ? t('payoutsTab.saving', 'Enregistrement...') : t('payoutsTab.saveSettings', 'Enregistrer les Coordonnées')}</span>
+              <span>💾 {savingSettings ? t('payoutsTab.actions.saving', 'Saving Settings...') : t('payoutsTab.actions.saveSettings', 'Save Payout Settings')}</span>
             </button>
           </div>
 
@@ -1627,7 +1627,7 @@ export default function PayoutsTab({ user, profile }) {
           {payoutRequests.length > 0 && (
             <div style={{ marginTop: 14, paddingTop: 16, borderTop: '1px solid #F1F5F9' }}>
               <h4 style={{ margin: '0 0 10px', fontSize: 14, fontWeight: 700, color: '#0F172A' }}>
-                Demandes Récentes de Retrait
+                {t('payoutsTab.recentPayouts', 'Recent Payout Requests')}
               </h4>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {payoutRequests.map((req) => (
@@ -1658,7 +1658,7 @@ export default function PayoutsTab({ user, profile }) {
                         fontSize: 11,
                         fontWeight: 800,
                         padding: '3px 8px',
-                        borderRadius: 100,
+                        borderRadius: 6,
                         textTransform: 'uppercase',
                       }}
                     >
@@ -1678,10 +1678,10 @@ export default function PayoutsTab({ user, profile }) {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
             <div>
               <h3 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: '#0F172A' }}>
-                💳 Connexion Stripe Connect (130+ Pays & Cartes Bancaires Mondiales)
+                💳 {t('payoutsTab.stripeTitle', 'Stripe Connect Direct (130+ Countries & Global Cards)')}
               </h3>
               <p style={{ margin: '3px 0 0', fontSize: 13, color: '#64748B' }}>
-                Acceptez les paiements par carte bancaire internationale (Visa, MasterCard, Amex, Apple Pay, Google Pay). 91% sont virés directement sur votre compte.
+                {t('payoutsTab.stripeSubtitle', 'Accept credit and debit cards globally (Visa, MasterCard, Amex, Apple Pay, Google Pay). 91% net is deposited straight into your bank.')}
               </p>
             </div>
 
@@ -1699,15 +1699,15 @@ export default function PayoutsTab({ user, profile }) {
                 gap: 6,
               }}
             >
-              <span>{settings.stripeConnected ? '🟢 Compte Stripe Lié et Actif' : '⚪ Non Connecté'}</span>
+              <span>{settings.stripeConnected ? `🟢 ${t('payoutsTab.stripeLinkedActive', 'Stripe Account Linked & Active')}` : `⚪ ${t('payoutsTab.notConnected', 'Not Connected')}`}</span>
             </div>
           </div>
 
-          {/* Advice card for Moroccan creators */}
+          {/* Advice card for creators worldwide */}
           <div style={{ background: '#F0FDF4', border: '1px solid #86EFAC', borderRadius: 14, padding: '12px 16px', display: 'flex', alignItems: 'flex-start', gap: 10 }}>
             <span style={{ fontSize: 20 }}>💡</span>
             <div style={{ fontSize: 12.5, color: '#166534', lineHeight: 1.5 }}>
-              <strong>Conseil pour les créateurs au Maroc :</strong> Si vous ne disposez pas d’un compte bancaire dans un pays directement pris en charge par Stripe Express, vous pouvez utiliser sans problème <strong>l'option Banque Marocaine (RIB CIH, Attijariwafa, BCP)</strong> dans l’onglet "Modes de Virement" pour recevoir directement 100% de vos gains au Maroc.
+              {t('payoutsTab.globalPayoutTip', 'Global Payout Options: If Stripe Express is not directly available in your region, you can easily use International Bank Wire (IBAN/SWIFT), PayPal, Wise, or Local Bank options in the "Payout Methods & Bank" tab to receive 100% of your earnings seamlessly.')}
             </div>
           </div>
 
@@ -1726,10 +1726,10 @@ export default function PayoutsTab({ user, profile }) {
               <span style={{ fontSize: 28 }}>⚡</span>
               <div>
                 <p style={{ margin: 0, fontSize: 14.5, fontWeight: 700, color: '#635BFF' }}>
-                  Fonctionnement du Split Payment Stripe (91% / 9%) :
+                  {t('payoutsTab.splitPaymentHeader', 'Automated 91% / 9% Split Payment System:')}
                 </p>
                 <p style={{ margin: '3px 0 0', fontSize: 12.5, color: '#475569' }}>
-                  Un client achète votre produit à 100 $ ➔ Stripe déduit automatiquement les 9% de frais de plateforme. Vous encaissez <strong>91.00 $</strong> directement sur votre compte bancaire !
+                  {t('payoutsTab.splitPaymentExplanation', 'When a customer purchases your product for 100 USD, the 9% platform fee is automatically deducted, and 91.00 USD is transferred directly into your bank account!')}
                 </p>
               </div>
             </div>
@@ -1739,7 +1739,7 @@ export default function PayoutsTab({ user, profile }) {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
                   <div>
                     <span style={{ fontSize: 11, fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>
-                      Stripe Connected Account ID :
+                      {t('payoutsTab.stripeAcctIdLabel', 'Stripe Connected Account ID:')}
                     </span>
                     <p style={{ margin: '2px 0 0', fontSize: 15, fontWeight: 800, fontFamily: 'monospace', color: '#0F172A' }}>
                       {settings.stripeAccountId}
@@ -1760,7 +1760,7 @@ export default function PayoutsTab({ user, profile }) {
                         cursor: 'pointer',
                       }}
                     >
-                      {copiedKey === 'stripe-acct-id' ? '✓ Copié' : '📋 Copier'}
+                      {copiedKey === 'stripe-acct-id' ? `✓ ${t('payoutsTab.copied', 'Copied')}` : `📋 ${t('payoutsTab.copy', 'Copy')}`}
                     </button>
                     <button
                       type="button"
@@ -1776,7 +1776,7 @@ export default function PayoutsTab({ user, profile }) {
                         cursor: 'pointer',
                       }}
                     >
-                      Dissocier
+                      {t('payoutsTab.actions.unlinkStripe', 'Disconnect Stripe')}
                     </button>
                   </div>
                 </div>
@@ -1805,7 +1805,7 @@ export default function PayoutsTab({ user, profile }) {
                     opacity: connectingStripe ? 0.75 : 1,
                   }}
                 >
-                  <span>{connectingStripe ? '⏳ Connexion à Stripe...' : '⚡ Ouvrir l’Onboarding Officiel Stripe Connect'}</span>
+                  <span>{connectingStripe ? `⏳ ${t('payoutsTab.connectingStripe', 'Connecting to Stripe...')}` : `⚡ ${t('payoutsTab.openStripeOnboarding', 'Open Official Stripe Connect Onboarding')}`}</span>
                   <span>➔</span>
                 </button>
 
@@ -1829,12 +1829,12 @@ export default function PayoutsTab({ user, profile }) {
                     gap: 6,
                   }}
                 >
-                  <span>🧪 Connexion Immédiate 1-Clic (Mode Test / Démo Connecté)</span>
+                  <span>🧪 {t('payoutsTab.actions.instantTestStripe', 'Instant 1-Click Connect (Test / Demo Mode)')}</span>
                 </button>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
                   <div style={{ flex: 1, height: 1, background: '#CBD5E1' }} />
-                  <span style={{ fontSize: 11, fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>OU SAISIR MANUELLEMENT VOTRE ACCOUNT ID STRIPE</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>{t('payoutsTab.orManualStripeId', 'OR MANUALLY ENTER YOUR STRIPE ACCOUNT ID')}</span>
                   <div style={{ flex: 1, height: 1, background: '#CBD5E1' }} />
                 </div>
 
@@ -1863,7 +1863,7 @@ export default function PayoutsTab({ user, profile }) {
                     onClick={() => {
                       const targetId = (manualStripeId || settings.stripeAccountId || '').trim()
                       if (!targetId) {
-                        alert('Veuillez entrer votre Stripe Account ID (ex: acct_...)')
+                        alert(t('payoutsTab.alerts.enterStripeAcctId', 'Please enter your Stripe Account ID (e.g., acct_...)'))
                         return
                       }
                       handleConnectStripe(targetId)
@@ -1880,7 +1880,7 @@ export default function PayoutsTab({ user, profile }) {
                       whiteSpace: 'nowrap',
                     }}
                   >
-                    Lier cet ID
+                    {t('payoutsTab.actions.linkThisId', 'Link This ID')}
                   </button>
                 </div>
 
@@ -1896,7 +1896,7 @@ export default function PayoutsTab({ user, profile }) {
                       lineHeight: 1.4,
                     }}
                   >
-                    <div style={{ fontWeight: 700, marginBottom: 2 }}>⚠️ Note de Connexion Stripe</div>
+                    <div style={{ fontWeight: 700, marginBottom: 2 }}>⚠️ {t('payoutsTab.stripeNote', 'Stripe Connection Note')}</div>
                     {stripeConnectError}
                   </div>
                 )}
@@ -1913,10 +1913,8 @@ export default function PayoutsTab({ user, profile }) {
                       lineHeight: 1.4,
                     }}
                   >
-                    <div style={{ fontWeight: 800, marginBottom: 2 }}>🔑 Configuration Clé Stripe :</div>
-                    Votre variable <strong>STRIPE_SECRET_KEY</strong> est actuellement une clé publiable (commençant par <code>pk_...</code>).
-                    Pour le direct connect en production, utilisez une clé secrète (commençant par <code>sk_test_...</code> ou <code>sk_live_...</code>).
-                    Entre-temps, vous pouvez utiliser le bouton <strong>"Connexion Immédiate 1-Clic"</strong> ci-dessus ou configurer votre <strong>RIB bancaire marocain</strong> !
+                    <div style={{ fontWeight: 800, marginBottom: 2 }}>🔑 {t('payoutsTab.stripeKeyConfig', 'Stripe Key Configuration:')}</div>
+                    {t('payoutsTab.stripeKeyTip', 'Your STRIPE_SECRET_KEY is currently a publishable key (starting with pk_...). For live Stripe Connect onboarding, a secret key is required (starting with sk_test_... or sk_live_...). Meanwhile, you can use the "Instant 1-Click Connect" button above or configure your international bank wire / local bank account!')}
                   </div>
                 )}
               </div>
@@ -2236,7 +2234,7 @@ export default function PayoutsTab({ user, profile }) {
                   <div style={{ color: '#64748B', fontFamily: 'monospace' }}>
                     {settings.paypalEmail || settings.iban || settings.cryptoAddress || settings.stripeAccountId || 'Saved account details'}
                   </div>
-                  <div style={{ color: '#64748B' }}>Beneficiary: {settings.accountHolder || profile?.display_name || username}</div>
+                  <div style={{ color: '#64748B' }}>{t('payoutsTab.beneficiaryLabelShort', 'Beneficiary')}: {settings.accountHolder || profile?.display_name || username}</div>
                 </div>
               </div>
 

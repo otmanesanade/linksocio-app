@@ -2,10 +2,10 @@ import React, { createContext, useContext, useState, useEffect } from 'react'
 import { TRANSLATIONS } from '../translations'
 
 export const LANGUAGES = [
-  { code: 'en', name: 'English', flag: '🇬🇧', dir: 'ltr' },
+  { code: 'en', name: 'English', flag: '🌐', dir: 'ltr' },
   { code: 'fr', name: 'Français', flag: '🇫🇷', dir: 'ltr' },
   { code: 'es', name: 'Español', flag: '🇪🇸', dir: 'ltr' },
-  { code: 'ar', name: 'العربية', flag: '🇲🇦', dir: 'rtl' },
+  { code: 'ar', name: 'العربية', flag: '🌍', dir: 'rtl' },
 ]
 
 export { TRANSLATIONS }

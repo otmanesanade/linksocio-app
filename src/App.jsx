@@ -140,7 +140,7 @@ export default function App() {
             LinkSocio
           </h3>
           <p style={{ margin: 0, fontSize: 13, color: '#94A3B8' }}>
-            Chargement de votre espace...
+            Loading LinkSocio...
           </p>
         </div>
       </div>
