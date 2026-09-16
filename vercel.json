@@ -1,5 +1,9 @@
 {
   "rewrites": [
+    { "source": "/api/stripe/(.*)", "destination": "/api/stripe?subroute=$1" },
+    { "source": "/api/stripe", "destination": "/api/stripe" },
+    { "source": "/api/payouts/(.*)", "destination": "/api/payouts?subroute=$1" },
+    { "source": "/api/payouts", "destination": "/api/payouts" },
     { "source": "/api/(.*)", "destination": "/api/$1" },
     { "source": "/robots.txt", "destination": "/robots.txt" },
     { "source": "/sitemap.xml", "destination": "/sitemap.xml" },
