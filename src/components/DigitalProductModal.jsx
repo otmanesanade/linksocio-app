@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react'
 import { DIGITAL_CATEGORIES } from '../ShopTab'
 import confetti from 'canvas-confetti'
 import { downloadFile, sanitizeFileUrl, getCleanDownloadName } from '../utils/fileDownload'
+import { useLanguage } from '../context/LanguageContext'
 
 export default function DigitalProductModal({ product, profile, theme, onClose, isEmbedded = false }) {
+  const { t, isRTL, language } = useLanguage()
   const [payTab, setPayTab] = useState('card') // 'card' | 'direct' | 'whatsapp'
   const [buyerName, setBuyerName] = useState('')
   const [buyerPhone, setBuyerPhone] = useState('')
@@ -131,31 +133,6 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
     profile?.display_name ||
     profile?.name ||
     'Otman'
-
-  const handleUpdateRib = () => {
-    const current = resolvedRib
-    const entered = window.prompt("Entrez votre numéro de compte RIB (24 chiffres CIH, Attijariwafa, etc.) :", current)
-    if (entered && entered.trim()) {
-      const clean = entered.trim()
-      const updated = { ...sellerPayoutSettings, moroccoRib: clean }
-      setSellerPayoutSettings(updated)
-      try {
-        const u = username || profile?.username || 'default'
-        localStorage.setItem(`linksocio_payout_settings_${u}`, JSON.stringify(updated))
-        localStorage.setItem('linksocio_payout_settings_default', JSON.stringify(updated))
-        localStorage.setItem('linksocio_seller_rib', clean)
-      } catch (e) {}
-      fetch('/api/payouts/settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          username: username || profile?.username || 'otman',
-          userId: userId || profile?.id || '',
-          settings: { moroccoRib: clean },
-        }),
-      }).catch(() => {})
-    }
-  }
 
   // Extract seller WhatsApp phone from links or profile
   const rawWa = profile?.whatsapp || ''
@@ -371,6 +348,7 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
       onClick={onClose}
     >
       <div
+        dir={isRTL ? 'rtl' : 'ltr'}
         style={{
           background: theme?.cardBg || '#FFFFFF',
           color: theme?.textColor || '#0F172A',
@@ -486,7 +464,7 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4, fontSize: 12, opacity: 0.75 }}>
               <span>by {profile?.display_name || username || 'Creator'}</span>
               <span>·</span>
-              <span>Instant Digital Delivery</span>
+              <span>{t('digitalModal.instantDelivery', '⚡ Instant Digital Delivery')}</span>
             </div>
           </div>
 
@@ -517,15 +495,15 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
             }}
           >
             <div style={{ fontSize: 11.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em', opacity: 0.6 }}>
-              What you get:
+              {t('digitalModal.whatYouGet', 'What you get:')}
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, fontWeight: 600 }}>
               <span style={{ color: color }}>✓</span>
-              <span>Instant digital download / secure direct access</span>
+              <span>{t('digitalModal.instantAccess', 'Instant digital download / secure direct access')}</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, fontWeight: 600 }}>
               <span style={{ color: color }}>✓</span>
-              <span>Lifetime access & future updates</span>
+              <span>{t('digitalModal.lifetimeAccess', 'Lifetime access & future updates')}</span>
             </div>
             {product.preview_url && (
               <a
@@ -534,7 +512,7 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
                 rel="noreferrer"
                 style={{ fontSize: 11.5, color: color, fontWeight: 700, textDecoration: 'none', marginTop: 2 }}
               >
-                👁️ View Live Demo / Preview ↗
+                {t('digitalModal.viewDemo', '👁️ View Live Demo / Preview ↗')}
               </a>
             )}
           </div>
@@ -549,7 +527,18 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
 
               const txId = orderSuccess.transaction?.id || 'CMD_' + Date.now().toString().slice(-6)
               const cleanSellerPhone = (sellerPhone || '').replace(/[^\d+]/g, '')
-              const waMessage = [
+              
+              // Automatically adapt WhatsApp message according to the active language
+              const waLines = language === 'ar' ? [
+                `👋 السلام عليكم، قمت بإجراء التحويل البنكي لطلب المنتج: *${product.name}*`,
+                `💰 *المبلغ:* ${product.price}`,
+                `🔖 *رقم الطلب:* ${txId}`,
+                buyerName ? `👤 *الاسم:* ${buyerName}` : null,
+                buyerPhone ? `📱 *رقم الواتساب:* ${buyerPhone}` : null,
+                transferReference ? `📑 *مرجع التحويل:* ${transferReference}` : null,
+                '',
+                '📎 مرفق وصل التحويل البنكي لتفعيل رابط التحميل المباشر. شكراً لك!',
+              ] : language === 'fr' ? [
                 `👋 Bonjour, je viens d'effectuer le virement bancaire pour commander : *${product.name}*`,
                 `💰 *Montant :* ${product.price}`,
                 `🔖 *Réf Commande :* ${txId}`,
@@ -558,9 +547,27 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
                 transferReference ? `📑 *Réf Virement :* ${transferReference}` : null,
                 '',
                 '📎 Je vous joins ci-dessous mon reçu de virement bancaire pour débloquer mon lien de téléchargement. Merci !',
+              ] : language === 'es' ? [
+                `👋 Hola, he realizado la transferencia bancaria para el pedido: *${product.name}*`,
+                `💰 *Importe:* ${product.price}`,
+                `🔖 *Ref Pedido:* ${txId}`,
+                buyerName ? `👤 *Mi Nombre:* ${buyerName}` : null,
+                buyerPhone ? `📱 *Mi WhatsApp:* ${buyerPhone}` : null,
+                transferReference ? `📑 *Ref Transferencia:* ${transferReference}` : null,
+                '',
+                '📎 Adjunto el comprobante de transferencia para activar la descarga. ¡Gracias!',
+              ] : [
+                `👋 Hello, I have completed the bank transfer for order: *${product.name}*`,
+                `💰 *Amount:* ${product.price}`,
+                `🔖 *Order Ref:* ${txId}`,
+                buyerName ? `👤 *My Name:* ${buyerName}` : null,
+                buyerPhone ? `📱 *My WhatsApp:* ${buyerPhone}` : null,
+                transferReference ? `📑 *Transfer Ref:* ${transferReference}` : null,
+                '',
+                '📎 Please find attached my bank transfer receipt to unlock my download link. Thank you!',
               ]
-                .filter(Boolean)
-                .join('\n')
+
+              const waMessage = waLines.filter(Boolean).join('\n')
 
               const waReceiptUrl = cleanSellerPhone
                 ? `https://wa.me/${cleanSellerPhone.replace(/^\+/, '')}?text=${encodeURIComponent(waMessage)}`
@@ -601,7 +608,7 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
 
                     <div>
                       <div style={{ fontSize: 16, fontWeight: 800, color: '#92400E' }}>
-                        Demande de Virement Enregistrée
+                        {t('digitalModal.transferLoggedTitle', 'Demande de Virement Enregistrée')}
                       </div>
                       <div
                         style={{
@@ -617,14 +624,12 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
                           letterSpacing: '0.04em',
                         }}
                       >
-                        En attente de réception du virement
+                        {t('digitalModal.transferPendingBadge', 'En attente de réception du virement')}
                       </div>
                     </div>
 
                     <p style={{ margin: 0, fontSize: 12.5, color: '#78350F', lineHeight: 1.5 }}>
-                      Votre commande pour <strong>{product.name}</strong> a bien été créée.
-                      <br />
-                      <strong>Le lien de téléchargement direct est sécurisé</strong> et vous sera transmis dès confirmation du virement par le vendeur.
+                      {t('digitalModal.transferPendingNotice', 'Votre commande a bien été enregistrée. Le lien de téléchargement direct vous sera transmis dès confirmation du virement.')}
                     </p>
 
                     {/* Order Reference & Bank summary */}
@@ -634,7 +639,7 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
                         border: '1px solid #FCD34D',
                         borderRadius: 12,
                         padding: '12px',
-                        textAlign: 'left',
+                        textAlign: isRTL ? 'right' : 'left',
                         fontSize: 12,
                         display: 'flex',
                         flexDirection: 'column',
@@ -642,7 +647,7 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
                       }}
                     >
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ color: '#64748B', fontWeight: 600 }}>Réf Commande :</span>
+                        <span style={{ color: '#64748B', fontWeight: 600 }}>{t('digitalModal.orderRefLabel', 'Réf Commande :')}</span>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                           <span style={{ fontWeight: 800, fontFamily: 'monospace', color: '#0F172A' }}>{txId}</span>
                           <button
@@ -659,23 +664,23 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
                               color: '#334155',
                             }}
                           >
-                            {copiedKey === 'txId' ? '✓ Copié' : 'Copier'}
+                            {copiedKey === 'txId' ? t('digitalModal.copied', '✓ Copié') : t('digitalModal.copy', 'Copier')}
                           </button>
                         </div>
                       </div>
 
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ color: '#64748B', fontWeight: 600 }}>Montant à virer :</span>
+                        <span style={{ color: '#64748B', fontWeight: 600 }}>{t('digitalModal.amountToTransferLabel', 'Montant à virer :')}</span>
                         <span style={{ fontWeight: 800, color: '#059669', fontSize: 13 }}>{product.price}</span>
                       </div>
 
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ color: '#64748B', fontWeight: 600 }}>Banque :</span>
+                        <span style={{ color: '#64748B', fontWeight: 600 }}>{t('digitalModal.bankLabel', 'Banque :')}</span>
                         <span style={{ fontWeight: 700, color: '#0F172A' }}>{resolvedBankName}</span>
                       </div>
 
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ color: '#64748B', fontWeight: 600 }}>Titulaire :</span>
+                        <span style={{ color: '#64748B', fontWeight: 600 }}>{t('digitalModal.accountHolderLabel', 'Titulaire :')}</span>
                         <span style={{ fontWeight: 700, color: '#0F172A' }}>{resolvedAccountHolder}</span>
                       </div>
 
@@ -694,7 +699,7 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
                       >
                         <div style={{ minWidth: 0, flex: 1 }}>
                           <div style={{ fontSize: 10, color: '#15803D', fontWeight: 800 }}>
-                            NUMÉRO DE COMPTE / RIB (24 CHIFFRES) :
+                            {t('digitalModal.ribLabel', 'NUMÉRO DE COMPTE / RIB (24 CHIFFRES) :')}
                           </div>
                           <div style={{ fontFamily: 'monospace', fontWeight: 900, fontSize: 13, color: '#0F172A', wordBreak: 'break-all' }}>
                             {resolvedRib}
@@ -715,7 +720,7 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
                             whiteSpace: 'nowrap',
                           }}
                         >
-                          {copiedKey === 'bankNum' ? '✓ Copié' : 'Copier'}
+                          {copiedKey === 'bankNum' ? t('digitalModal.copiedRib', '✓ Copié !') : t('digitalModal.copyRib', '📋 Copier le RIB')}
                         </button>
                       </div>
                     </div>
@@ -740,11 +745,11 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
                         boxShadow: '0 2px 8px rgba(22,163,74,0.3)',
                       }}
                     >
-                      <span>📲 Envoyer le reçu sur WhatsApp (Validation Rapide)</span>
+                      <span>{t('digitalModal.sendReceiptWhatsAppBtn', '📲 Envoyer le reçu sur WhatsApp (Validation Rapide)')}</span>
                     </a>
 
                     <div style={{ fontSize: 11, color: '#92400E', fontStyle: 'italic' }}>
-                      🔒 Dès que le créateur confirme la réception de votre virement, vous recevrez l'accès complet et immédiat à votre Ebook.
+                      {t('digitalModal.sendReceiptTip', '🔒 Dès que le créateur confirme la réception de votre virement, vous recevrez l\'accès complet et immédiat à votre Ebook.')}
                     </div>
 
                     <button
@@ -760,7 +765,7 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
                         marginTop: 2,
                       }}
                     >
-                      Fermer la fenêtre
+                      {t('digitalModal.close', 'Fermer la fenêtre')}
                     </button>
                   </div>
                 )
@@ -845,7 +850,7 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
                     onClick={onClose}
                     style={{ background: 'transparent', border: 'none', color: '#047857', fontSize: 12, fontWeight: 700, cursor: 'pointer', marginTop: 4 }}
                   >
-                    Close Window
+                    {t('digitalModal.close', 'Close Window')}
                   </button>
                 </div>
               )
@@ -873,7 +878,7 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
                   opacity: downloading ? 0.8 : 1,
                 }}
               >
-                <span>{downloading ? '⏳ Downloading File...' : '⚡ Free Instant Access / Download'}</span>
+                <span>{downloading ? t('digitalModal.downloadingFile', '⏳ Downloading File...') : t('digitalModal.freeInstantAccessBtn', '⚡ Free Instant Access / Download')}</span>
               </button>
 
               {downloadBlobUrl && (
@@ -890,7 +895,7 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
                   }}
                 >
                   <div style={{ fontSize: 13, fontWeight: 700, color: '#065F46' }}>
-                    ✓ File Ready for Download!
+                    {t('digitalModal.fileReadyTitle', '✓ File Ready for Download!')}
                   </div>
                   <a
                     href={downloadBlobUrl}
@@ -912,7 +917,7 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
                       boxShadow: '0 2px 8px rgba(5, 150, 105, 0.25)',
                     }}
                   >
-                    <span>📥 Click to Download File</span>
+                    <span>{t('digitalModal.clickToDownloadBtn', '📥 Click to Download File')}</span>
                   </a>
                   <div style={{ fontSize: 11, color: '#047857' }}>
                     {downloadFileName}
@@ -946,7 +951,7 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
                     boxShadow: payTab === 'card' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
                   }}
                 >
-                  💳 Carte (Stripe)
+                  {t('digitalModal.cardTab', '💳 Carte / Card')}
                 </button>
                 <button
                   type="button"
@@ -963,7 +968,7 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
                     boxShadow: payTab === 'direct' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
                   }}
                 >
-                  🏛️ CIH / Virement
+                  {t('digitalModal.bankTab', '🏛️ Virement / RIB')}
                 </button>
                 <button
                   type="button"
@@ -980,7 +985,7 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
                     boxShadow: payTab === 'whatsapp' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
                   }}
                 >
-                  💬 WhatsApp
+                  {t('digitalModal.whatsappTab', '💬 WhatsApp')}
                 </button>
               </div>
 
@@ -988,7 +993,7 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
               {payTab === 'card' && (
                 <form onSubmit={handleCardPayment} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   <input
-                    placeholder="Your Full Name"
+                    placeholder={t('digitalModal.buyerNamePlaceholder', 'Your Full Name')}
                     value={buyerName}
                     onChange={(e) => setBuyerName(e.target.value)}
                     required
@@ -1000,11 +1005,12 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
                       padding: '8px 10px',
                       fontSize: 12,
                       outline: 'none',
+                      textAlign: isRTL ? 'right' : 'left',
                     }}
                   />
                   <input
                     type="email"
-                    placeholder="Email Address (for instant file delivery)"
+                    placeholder={t('digitalModal.cardEmailPlaceholder', 'Email Address (for instant file delivery)')}
                     value={buyerEmail}
                     onChange={(e) => setBuyerEmail(e.target.value)}
                     required
@@ -1016,6 +1022,7 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
                       padding: '8px 10px',
                       fontSize: 12,
                       outline: 'none',
+                      textAlign: isRTL ? 'right' : 'left',
                     }}
                   />
 
@@ -1038,7 +1045,7 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
                       boxShadow: '0 4px 12px rgba(99,91,255,0.3)',
                     }}
                   >
-                    <span>{processing ? 'Processing Secure Card...' : `💳 Pay ${product.price || ''} Worldwide`}</span>
+                    <span>{processing ? t('digitalModal.processingPayment', 'Processing Secure Card...') : `${t('digitalModal.payWorldwideBtn', '💳 Pay Worldwide')} ${product.price ? `(${product.price})` : ''}`}</span>
                   </button>
 
                   {paymentError && (
@@ -1051,9 +1058,10 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
                         color: '#991B1B',
                         fontSize: 11.5,
                         lineHeight: 1.4,
+                        textAlign: isRTL ? 'right' : 'left',
                       }}
                     >
-                      <div style={{ fontWeight: 700, marginBottom: 2 }}>⚠️ Payment Notice</div>
+                      <div style={{ fontWeight: 700, marginBottom: 2 }}>{t('digitalModal.paymentNotice', '⚠️ Payment Notice')}</div>
                       {paymentError}
                     </div>
                   )}
@@ -1073,11 +1081,12 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
                       display: 'flex',
                       flexDirection: 'column',
                       gap: 8,
+                      textAlign: isRTL ? 'right' : 'left',
                     }}
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span style={{ fontWeight: 700, color: '#0F172A', fontSize: 13 }}>
-                        🏛️ Coordonnées Bancaires (Virement)
+                        {t('digitalModal.bankDetailsTitle', '🏛️ Coordonnées Bancaires (Virement)')}
                       </span>
                       <span style={{ fontWeight: 800, color: '#059669', fontSize: 13 }}>
                         {product.price}
@@ -1085,14 +1094,14 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
                     </div>
 
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 11.5 }}>
-                      <span style={{ color: '#64748B' }}>Banque :</span>
+                      <span style={{ color: '#64748B' }}>{t('digitalModal.bankLabel', 'Banque :')}</span>
                       <span style={{ fontWeight: 700, color: '#1E293B' }}>
                         {resolvedBankName}
                       </span>
                     </div>
 
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 11.5 }}>
-                      <span style={{ color: '#64748B' }}>Titulaire du compte :</span>
+                      <span style={{ color: '#64748B' }}>{t('digitalModal.accountHolderLabel', 'Titulaire du compte :')}</span>
                       <span style={{ fontWeight: 700, color: '#1E293B' }}>
                         {resolvedAccountHolder}
                       </span>
@@ -1111,9 +1120,9 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
                         boxShadow: '0 2px 6px rgba(34,197,94,0.1)',
                       }}
                     >
-                      <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ flex: 1, minWidth: 0, textAlign: isRTL ? 'right' : 'left' }}>
                         <div style={{ fontSize: 10, color: '#15803D', fontWeight: 800, letterSpacing: '0.03em' }}>
-                          NUMÉRO DE COMPTE / RIB OÙ ENVOYER L'ARGENT
+                          {t('digitalModal.ribLabel', "NUMÉRO DE COMPTE / RIB OÙ ENVOYER L'ARGENT")}
                         </div>
                         <div style={{ fontFamily: 'monospace', fontWeight: 900, fontSize: 13.5, color: '#0F172A', letterSpacing: '0.04em', wordBreak: 'break-all', marginTop: 2 }}>
                           {resolvedRib}
@@ -1134,37 +1143,19 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
                           whiteSpace: 'nowrap',
                         }}
                       >
-                        {copiedKey === 'tabBankNum' ? '✓ Copié !' : '📋 Copier le RIB'}
+                        {copiedKey === 'tabBankNum' ? t('digitalModal.copiedRib', '✓ Copié !') : t('digitalModal.copyRib', '📋 Copier le RIB')}
                       </button>
                     </div>
 
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: -2 }}>
-                      <span style={{ fontSize: 10.5, color: '#64748B' }}>
-                        💡 Virement direct CIH Bank ou toute banque marocaine
-                      </span>
-                      <button
-                        type="button"
-                        onClick={handleUpdateRib}
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          color: '#4F46E5',
-                          fontSize: 10.5,
-                          fontWeight: 700,
-                          cursor: 'pointer',
-                          textDecoration: 'underline',
-                          padding: 0,
-                        }}
-                      >
-                        ✏️ Modifier mon RIB
-                      </button>
+                    <div style={{ fontSize: 10.5, color: '#64748B', marginTop: -2 }}>
+                      {t('digitalModal.moroccoBankTip', '💡 Virement direct CIH Bank ou toute banque')}
                     </div>
                   </div>
 
                   {/* Buyer details inputs */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                     <input
-                      placeholder="Votre Nom & Prénom"
+                      placeholder={t('digitalModal.buyerNamePlaceholder', 'Votre Nom & Prénom')}
                       value={buyerName}
                       onChange={(e) => setBuyerName(e.target.value)}
                       required
@@ -1176,12 +1167,13 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
                         padding: '9px 12px',
                         fontSize: 12.5,
                         outline: 'none',
+                        textAlign: isRTL ? 'right' : 'left',
                       }}
                     />
 
                     <input
                       type="tel"
-                      placeholder="Numéro WhatsApp / Téléphone (Obligatoire pour l'envoi)"
+                      placeholder={t('digitalModal.buyerPhonePlaceholder', "Numéro WhatsApp / Téléphone (Obligatoire pour l'envoi)")}
                       value={buyerPhone}
                       onChange={(e) => setBuyerPhone(e.target.value)}
                       required
@@ -1193,13 +1185,14 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
                         padding: '9px 12px',
                         fontSize: 12.5,
                         outline: 'none',
+                        textAlign: isRTL ? 'right' : 'left',
                       }}
                     />
 
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
                       <input
                         type="email"
-                        placeholder="Email (Facultatif)"
+                        placeholder={t('digitalModal.buyerEmailOptionalPlaceholder', 'Email (Facultatif)')}
                         value={buyerEmail}
                         onChange={(e) => setBuyerEmail(e.target.value)}
                         style={{
@@ -1210,10 +1203,11 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
                           padding: '9px 12px',
                           fontSize: 12,
                           outline: 'none',
+                          textAlign: isRTL ? 'right' : 'left',
                         }}
                       />
                       <input
-                        placeholder="Réf Virement (Facultatif)"
+                        placeholder={t('digitalModal.transferRefOptionalPlaceholder', 'Réf Virement (Facultatif)')}
                         value={transferReference}
                         onChange={(e) => setTransferReference(e.target.value)}
                         style={{
@@ -1224,13 +1218,14 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
                           padding: '9px 12px',
                           fontSize: 12,
                           outline: 'none',
+                          textAlign: isRTL ? 'right' : 'left',
                         }}
                       />
                     </div>
                   </div>
 
-                  <div style={{ fontSize: 11, color: '#64748B', lineHeight: 1.4, background: '#F1F5F9', padding: '6px 10px', borderRadius: 8 }}>
-                    🔒 <strong>Sécurité créateur :</strong> Le fichier n'est pas téléchargeable immédiatement. Vous pourrez envoyer votre reçu de virement pour validation rapide.
+                  <div style={{ fontSize: 11, color: '#64748B', lineHeight: 1.4, background: '#F1F5F9', padding: '6px 10px', borderRadius: 8, textAlign: isRTL ? 'right' : 'left' }}>
+                    {t('digitalModal.creatorSecurityNotice', "🔒 Sécurité créateur : Le fichier n'est pas téléchargeable immédiatement. Vous pourrez envoyer votre reçu de virement pour validation rapide.")}
                   </div>
 
                   <button
@@ -1251,7 +1246,7 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
                       gap: 6,
                     }}
                   >
-                    <span>{processing ? '⏳ Enregistrement...' : `✓ J'ai effectué le virement (${product.price})`}</span>
+                    <span>{processing ? t('digitalModal.recording', '⏳ Enregistrement...') : `${t('digitalModal.confirmTransferBtn', "✓ J'ai effectué le virement")} ${product.price ? `(${product.price})` : ''}`}</span>
                   </button>
                 </form>
               )}
@@ -1260,7 +1255,7 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
               {payTab === 'whatsapp' && (
                 <form onSubmit={handleWhatsAppOrder} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   <input
-                    placeholder="Your Name (Optional)"
+                    placeholder={t('digitalModal.whatsAppNamePlaceholder', 'Your Name (Optional)')}
                     value={buyerName}
                     onChange={(e) => setBuyerName(e.target.value)}
                     style={{
@@ -1271,6 +1266,7 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
                       padding: '8px 10px',
                       fontSize: 12,
                       outline: 'none',
+                      textAlign: isRTL ? 'right' : 'left',
                     }}
                   />
 
@@ -1291,7 +1287,7 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
                       gap: 6,
                     }}
                   >
-                    <span>💬 Order on WhatsApp</span>
+                    <span>{t('digitalModal.orderOnWhatsAppBtn', '💬 Order on WhatsApp')}</span>
                   </button>
                 </form>
               )}
@@ -1301,7 +1297,7 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
           {/* Safe Digital Guarantee footer */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, fontSize: 10.5, opacity: 0.7, marginTop: 4 }}>
             <span>🔒</span>
-            <span>Worldwide Direct Checkout · 91% Creator Direct Support</span>
+            <span>{t('digitalModal.footerSecurityGuarantee', 'Worldwide Direct Checkout · 91% Creator Direct Support')}</span>
           </div>
         </div>
       </div>
