@@ -142,9 +142,11 @@ export default async function handler(req, res) {
   if (subroute === 'stats' || subroute.includes('stats')) {
     const txStore = readJsonSafe(TX_PRIMARY, TX_TMP)
     const reqStore = readJsonSafe(REQ_PRIMARY, REQ_TMP)
+    const setStore = readJsonSafe(SETTINGS_PRIMARY, SETTINGS_TMP)
 
     const userTransactions = (username && txStore[username]) || (userId && txStore[userId]) || txStore['default'] || []
     const userPayoutRequests = (username && reqStore[username]) || (userId && reqStore[userId]) || reqStore['default'] || []
+    const userSettings = (username && setStore[username]) || (userId && setStore[userId]) || setStore['default'] || {}
 
     let grossSales = 0
     let platformFees = 0
@@ -172,6 +174,12 @@ export default async function handler(req, res) {
 
     const availableBalance = Math.max(0, Math.round((netSellerEarnings - totalWithdrawn) * 100) / 100)
 
+    // Determine current currency from user settings or latest transaction
+    let currentCurrency = userSettings.currencySymbol || 'DH'
+    if (userTransactions.length > 0 && userTransactions[0]?.currency) {
+      currentCurrency = userTransactions[0].currency
+    }
+
     sendJson(res, 200, {
       success: true,
       stats: {
@@ -182,7 +190,7 @@ export default async function handler(req, res) {
         availableBalance,
         feePercentage: 9,
         sellerPercentage: 91,
-        currency: '$',
+        currency: currentCurrency,
       },
       transactions: Array.isArray(userTransactions) ? userTransactions : [],
       payoutRequests: Array.isArray(userPayoutRequests) ? userPayoutRequests : [],
@@ -208,6 +216,17 @@ export default async function handler(req, res) {
     const platformFee = Math.round(grossAmount * 0.09 * 100) / 100
     const sellerNet = Math.round((grossAmount - platformFee) * 100) / 100
 
+    // Detect currency from product price or currency property
+    let txCurrency = product.currency || 'DH'
+    const rawPriceUpper = `${product.currency || ''} ${product.price || ''}`.toUpperCase()
+    if (/\b(MAD|DH|DIRHAM)\b/i.test(rawPriceUpper)) txCurrency = 'DH'
+    else if (rawPriceUpper.includes('€') || /\bEUR\b/i.test(rawPriceUpper)) txCurrency = '€'
+    else if (rawPriceUpper.includes('$') || /\bUSD\b/i.test(rawPriceUpper)) txCurrency = '$'
+    else if (rawPriceUpper.includes('£') || /\bGBP\b/i.test(rawPriceUpper)) txCurrency = '£'
+    else if (/\bSAR\b/i.test(rawPriceUpper)) txCurrency = 'SAR'
+    else if (/\bAED\b/i.test(rawPriceUpper)) txCurrency = 'AED'
+    else if (/\bUSDT\b/i.test(rawPriceUpper)) txCurrency = 'USDT'
+
     const txStore = readJsonSafe(TX_PRIMARY, TX_TMP)
     const userKey = u || id || 'default'
     const userList = Array.isArray(txStore[userKey]) ? txStore[userKey] : []
@@ -221,7 +240,7 @@ export default async function handler(req, res) {
       sellerNet,
       feePercentage: 9,
       sellerPercentage: 91,
-      currency: product.currency || '$',
+      currency: txCurrency,
       buyerName: buyer.name || 'Customer',
       buyerEmail: buyer.email || '',
       buyerPhone: buyer.phone || '',
@@ -254,6 +273,9 @@ export default async function handler(req, res) {
     const amount = parseFloat(payload.amount) || 0
     const method = payload.method || 'bank'
     const details = payload.details || {}
+    const setStore = readJsonSafe(SETTINGS_PRIMARY, SETTINGS_TMP)
+    const userSettings = (u && setStore[u]) || (id && setStore[id]) || setStore['default'] || {}
+    const payoutCurrency = payload.currency || userSettings.currencySymbol || 'DH'
 
     if (amount <= 0) {
       sendJson(res, 400, { error: 'Invalid payout amount' })
@@ -267,7 +289,7 @@ export default async function handler(req, res) {
     const payoutItem = {
       id: 'payout_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
       amount: Math.round(amount * 100) / 100,
-      currency: '$',
+      currency: payoutCurrency,
       method,
       details,
       status: 'processing',

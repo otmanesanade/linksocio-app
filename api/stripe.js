@@ -261,9 +261,14 @@ export default async function handler(req, res) {
       const unitAmount = Math.max(100, Math.round((parseFloat(rawPrice) || 5) * 100))
 
       let currency = 'usd'
-      const rawCurr = String(product?.currency || '').toUpperCase()
-      if (rawCurr === 'MAD' || rawCurr === 'DH') currency = 'mad'
-      else if (rawCurr === 'EUR' || rawCurr === '€') currency = 'eur'
+      const rawCurr = `${product?.currency || ''} ${product?.price || ''}`.toUpperCase()
+      if (/\b(MAD|DH|DIRHAM)\b/i.test(rawCurr)) currency = 'mad'
+      else if (rawCurr.includes('€') || /\bEUR\b/i.test(rawCurr)) currency = 'eur'
+      else if (rawCurr.includes('£') || /\bGBP\b/i.test(rawCurr)) currency = 'gbp'
+      else if (/\bSAR\b/i.test(rawCurr)) currency = 'sar'
+      else if (/\bAED\b/i.test(rawCurr)) currency = 'aed'
+      else if (/\bCAD\b/i.test(rawCurr)) currency = 'cad'
+      else if (rawCurr.includes('$') || /\bUSD\b/i.test(rawCurr)) currency = 'usd'
 
       const platformFeeAmount = Math.round(unitAmount * 0.09)
       const hostOrigin =

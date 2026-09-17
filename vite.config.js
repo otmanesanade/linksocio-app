@@ -1781,6 +1781,13 @@ function apiPlugin() {
             }
           }
 
+          const setStore = readJson(SETTINGS_PATH)
+          const userSettings = (username && setStore[username]) || (userId && setStore[userId]) || setStore['default'] || {}
+          let currentCurrency = userSettings.currencySymbol || 'DH'
+          if (userTransactions.length > 0 && userTransactions[0]?.currency) {
+            currentCurrency = userTransactions[0].currency
+          }
+
           res.statusCode = 200
           res.setHeader('Content-Type', 'application/json')
           res.end(
@@ -1794,7 +1801,7 @@ function apiPlugin() {
                 availableBalance,
                 feePercentage: 9,
                 sellerPercentage: 91,
-                currency: 'DH',
+                currency: currentCurrency,
               },
               transactions: Array.isArray(userTransactions) ? userTransactions : [],
               payoutRequests: Array.isArray(userPayoutRequests) ? userPayoutRequests : [],
@@ -1834,6 +1841,17 @@ function apiPlugin() {
                 const userKey = username || userId || 'default'
                 const userList = Array.isArray(txStore[userKey]) ? txStore[userKey] : []
 
+                // Detect currency dynamically from product price or currency
+                let txCurrency = product.currency || 'DH'
+                const rawPriceUpper = `${product.currency || ''} ${product.price || ''}`.toUpperCase()
+                if (/\b(MAD|DH|DIRHAM)\b/i.test(rawPriceUpper)) txCurrency = 'DH'
+                else if (rawPriceUpper.includes('€') || /\bEUR\b/i.test(rawPriceUpper)) txCurrency = '€'
+                else if (rawPriceUpper.includes('$') || /\bUSD\b/i.test(rawPriceUpper)) txCurrency = '$'
+                else if (rawPriceUpper.includes('£') || /\bGBP\b/i.test(rawPriceUpper)) txCurrency = '£'
+                else if (/\bSAR\b/i.test(rawPriceUpper)) txCurrency = 'SAR'
+                else if (/\bAED\b/i.test(rawPriceUpper)) txCurrency = 'AED'
+                else if (/\bUSDT\b/i.test(rawPriceUpper)) txCurrency = 'USDT'
+
                 const newTransaction = {
                   id: 'tx_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
                   productId: product.id || 'prod_unknown',
@@ -1844,7 +1862,7 @@ function apiPlugin() {
                   sellerNet,
                   feePercentage: 9,
                   sellerPercentage: 91,
-                  currency: product.currency || 'DH',
+                  currency: txCurrency,
                   buyerName: buyer.name || 'Customer',
                   buyerEmail: buyer.email || '',
                   buyerPhone: buyer.phone || '',
@@ -2149,11 +2167,21 @@ function apiPlugin() {
                 
                 // Supported standard Stripe currencies: USD, EUR, MAD
                 let currency = 'usd'
-                const rawCurr = String(product?.currency || '').toUpperCase()
-                if (rawCurr === 'MAD' || rawCurr === 'DH') {
+                const rawCurr = `${product?.currency || ''} ${product?.price || ''}`.toUpperCase()
+                if (/\b(MAD|DH|DIRHAM)\b/i.test(rawCurr)) {
                   currency = 'mad'
-                } else if (rawCurr === 'EUR' || rawCurr === '€') {
+                } else if (rawCurr.includes('€') || /\bEUR\b/i.test(rawCurr)) {
                   currency = 'eur'
+                } else if (rawCurr.includes('£') || /\bGBP\b/i.test(rawCurr)) {
+                  currency = 'gbp'
+                } else if (/\bSAR\b/i.test(rawCurr)) {
+                  currency = 'sar'
+                } else if (/\bAED\b/i.test(rawCurr)) {
+                  currency = 'aed'
+                } else if (/\bCAD\b/i.test(rawCurr)) {
+                  currency = 'cad'
+                } else if (rawCurr.includes('$') || /\bUSD\b/i.test(rawCurr)) {
+                  currency = 'usd'
                 }
 
                 // Calculate LinkSocio 9% Platform Application Fee

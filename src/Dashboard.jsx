@@ -1285,7 +1285,7 @@ export default function Dashboard({ user, initialTab }) {
             <ShopTab user={user} profile={profile} products={products} reloadProducts={loadProducts} />
           )}
           {tab === 'payouts' && (
-            <PayoutsTab user={user} profile={profile} />
+            <PayoutsTab user={user} profile={profile} products={products} />
           )}
           {tab === 'theme' && (
             <ThemeTab user={user} profile={profile} onUpdated={loadProfile} />

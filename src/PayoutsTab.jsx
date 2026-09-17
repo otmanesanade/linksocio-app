@@ -41,18 +41,44 @@ const GLOBAL_PAYOUT_METHODS = [
   { id: 'local_morocco', name: 'Morocco Local Banks (CIH, Attijari, BCP, CashPlus)', region: 'Morocco (RIB 24 Digits)', icon: '🇲🇦', feeInfo: '0% Extra Fee · Direct Wire' },
 ]
 
-const CURRENCIES = [
+export const CURRENCIES = [
+  { code: 'MAD', symbol: 'DH', name: 'Moroccan Dirham (DH / MAD)' },
   { code: 'USD', symbol: '$', name: 'US Dollar ($)' },
   { code: 'EUR', symbol: '€', name: 'Euro (€)' },
   { code: 'GBP', symbol: '£', name: 'British Pound (£)' },
-  { code: 'CAD', symbol: 'CA$', name: 'Canadian Dollar' },
-  { code: 'AED', symbol: 'AED', name: 'UAE Dirham' },
-  { code: 'SAR', symbol: 'SAR', name: 'Saudi Riyal' },
-  { code: 'MAD', symbol: 'DH', name: 'Moroccan Dirham' },
+  { code: 'SAR', symbol: 'SAR', name: 'Saudi Riyal (SAR)' },
+  { code: 'AED', symbol: 'AED', name: 'UAE Dirham (AED)' },
+  { code: 'CAD', symbol: 'CA$', name: 'Canadian Dollar (CA$)' },
   { code: 'USDT', symbol: 'USDT', name: 'USDT (Tether)' },
 ]
 
-export default function PayoutsTab({ user, profile }) {
+export function detectCurrency(str) {
+  if (!str || typeof str !== 'string') return null
+  const s = str.trim().toUpperCase()
+  if (/\b(MAD|DH|DIRHAM)\b/i.test(s)) return CURRENCIES[0]
+  if (s.includes('$') || /\bUSD\b/i.test(s)) return CURRENCIES[1]
+  if (s.includes('€') || /\bEUR\b/i.test(s)) return CURRENCIES[2]
+  if (s.includes('£') || /\bGBP\b/i.test(s)) return CURRENCIES[3]
+  if (/\bSAR\b/i.test(s) || s.includes('ريال')) return CURRENCIES[4]
+  if (/\bAED\b/i.test(s) || s.includes('درهم')) return CURRENCIES[5]
+  if (s.includes('CA$') || /\bCAD\b/i.test(s)) return CURRENCIES[6]
+  if (/\bUSDT\b/i.test(s)) return CURRENCIES[7]
+  return null
+}
+
+export function formatMoney(amount, symbol = 'DH') {
+  const n = Number(amount) || 0
+  const formatted = n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  if (symbol === '$' || symbol === '£') {
+    return `${symbol}${formatted}`
+  }
+  if (symbol === '€') {
+    return `${formatted} €`
+  }
+  return `${formatted} ${symbol}`
+}
+
+export default function PayoutsTab({ user, profile, products = [] }) {
   const { t, isRTL } = useLanguage()
   const [activeSubTab, setActiveSubTab] = useState('global') // 'global' | 'stripe' | 'history' | 'calculator' | 'admin'
   const [stats, setStats] = useState({
@@ -63,7 +89,7 @@ export default function PayoutsTab({ user, profile }) {
     availableBalance: 0,
     feePercentage: 9,
     sellerPercentage: 91,
-    currency: '$',
+    currency: 'DH',
   })
   const [transactions, setTransactions] = useState([])
   const [payoutRequests, setPayoutRequests] = useState([])
@@ -71,9 +97,21 @@ export default function PayoutsTab({ user, profile }) {
 
   // Settings
   const [settings, setSettings] = useState(() => {
+    // Check if products has a currency
+    let initialCode = 'MAD'
+    let initialSymbol = 'DH'
+    if (Array.isArray(products) && products.length > 0) {
+      const pWithPrice = products.find((p) => p.price && p.price !== 'Free' && p.price !== 'Gratuit') || products[0]
+      const det = detectCurrency(pWithPrice?.currency || pWithPrice?.price)
+      if (det) {
+        initialCode = det.code
+        initialSymbol = det.symbol
+      }
+    }
+
     const base = {
-      selectedCurrency: 'USD',
-      currencySymbol: '$',
+      selectedCurrency: initialCode,
+      currencySymbol: initialSymbol,
       payoutMethod: 'stripe', // 'stripe' | 'bank_iban' | 'paypal' | 'wise' | 'payoneer' | 'crypto_usdt' | 'local_morocco'
       // Bank status
       bankConnected: false,
@@ -103,12 +141,60 @@ export default function PayoutsTab({ user, profile }) {
         const uid = profile?.id || user?.id || ''
         const cached = localStorage.getItem(`linksocio_payout_settings_${u || uid || 'default'}`) || localStorage.getItem('linksocio_payout_settings_default')
         if (cached) {
-          return { ...base, ...JSON.parse(cached) }
+          const parsed = JSON.parse(cached)
+          return { ...base, ...parsed }
+        }
+        const walletCurr = localStorage.getItem('linksocio_wallet_currency')
+        if (walletCurr) {
+          const parsed = JSON.parse(walletCurr)
+          if (parsed.code && parsed.symbol) {
+            return { ...base, selectedCurrency: parsed.code, currencySymbol: parsed.symbol }
+          }
         }
       } catch (e) {}
     }
     return base
   })
+
+  // Synchronize currency when products prop updates
+  useEffect(() => {
+    if (Array.isArray(products) && products.length > 0) {
+      const pWithPrice = products.find((p) => p.price && p.price !== 'Free' && p.price !== 'Gratuit') || products[0]
+      if (pWithPrice) {
+        const det = detectCurrency(pWithPrice.currency || pWithPrice.price)
+        if (det) {
+          setSettings((prev) => ({
+            ...prev,
+            selectedCurrency: det.code,
+            currencySymbol: det.symbol,
+          }))
+          setStats((prev) => ({
+            ...prev,
+            currency: det.symbol,
+          }))
+        }
+      }
+    }
+  }, [products])
+
+  // Listen to currency changes made in ShopTab or other components in real time
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.detail?.code && e.detail?.symbol) {
+        setSettings((prev) => ({
+          ...prev,
+          selectedCurrency: e.detail.code,
+          currencySymbol: e.detail.symbol,
+        }))
+        setStats((prev) => ({
+          ...prev,
+          currency: e.detail.symbol,
+        }))
+      }
+    }
+    window.addEventListener('linksocio:currency_changed', handler)
+    return () => window.removeEventListener('linksocio:currency_changed', handler)
+  }, [])
 
   // Withdraw Modal State
   const [showWithdrawModal, setShowWithdrawModal] = useState(false)
@@ -149,7 +235,19 @@ export default function PayoutsTab({ user, profile }) {
 
       if (statsRes.ok) {
         const json = await statsRes.json()
-        if (json.stats) setStats(json.stats)
+        if (json.stats) {
+          setStats(json.stats)
+          if (json.stats.currency) {
+            const cObj = CURRENCIES.find((c) => c.symbol === json.stats.currency || c.code === json.stats.currency)
+            if (cObj) {
+              setSettings((prev) => ({
+                ...prev,
+                selectedCurrency: cObj.code,
+                currencySymbol: cObj.symbol,
+              }))
+            }
+          }
+        }
         if (json.transactions) setTransactions(json.transactions)
         if (json.payoutRequests) setPayoutRequests(json.payoutRequests)
         if (json.platformOverview) setPlatformOverview(json.platformOverview)
@@ -578,8 +676,11 @@ export default function PayoutsTab({ user, profile }) {
   }
 
   async function handleSimulateSale() {
-    const samplePrice = prompt(`${t('payoutsTab.testSalePrompt', 'Enter test sale price')} (${currSym}):`, '50')
+    const defaultTestVal = ['DH', 'SAR', 'AED'].includes(currSym) ? '99' : '49'
+    const samplePrice = prompt(`${t('payoutsTab.testSalePrompt', 'Enter test sale price')} (${currSym}):`, defaultTestVal)
     if (!samplePrice) return
+
+    const formattedPrice = ['$', '£'].includes(currSym) ? `${currSym}${samplePrice}` : `${samplePrice} ${currSym}`
 
     try {
       const res = await fetch('/api/payouts/order', {
@@ -591,7 +692,7 @@ export default function PayoutsTab({ user, profile }) {
           product: {
             id: 'prod_' + Date.now(),
             name: 'Digital Course / Ebook',
-            price: `${currSym}${samplePrice}`,
+            price: formattedPrice,
             currency: currSym,
             category: 'course',
           },
@@ -610,8 +711,12 @@ export default function PayoutsTab({ user, profile }) {
           confetti({ particleCount: 60, spread: 70, origin: { y: 0.6 } })
         } catch (e) {}
         loadData()
+        const b = json.breakdown || json.transaction || {}
+        const gross = b.grossAmount ?? samplePrice
+        const net = b.sellerNet91Percent ?? b.sellerNet ?? (samplePrice * 0.91)
+        const fee = b.platformFee9Percent ?? b.platformFee ?? (samplePrice * 0.09)
         alert(
-          `🎉 ${t('payoutsTab.saleSimulated', 'Sale processed with 91% / 9% split!')}\n• Gross: ${currSym}${json.breakdown.grossAmount}\n• Your Net (91%): ${currSym}${json.breakdown.sellerNet91Percent}\n• Platform Fee (9%): ${currSym}${json.breakdown.platformFee9Percent}`
+          `🎉 ${t('payoutsTab.saleSimulated', 'Sale processed with 91% / 9% split!')}\n• Gross: ${formatMoney(gross, currSym)}\n• Your Net (91%): ${formatMoney(net, currSym)}\n• Platform Fee (9%): ${formatMoney(fee, currSym)}`
         )
       }
     } catch (err) {
@@ -635,7 +740,7 @@ export default function PayoutsTab({ user, profile }) {
     }
   }
 
-  const currSym = settings.currencySymbol || '$'
+  const currSym = settings.currencySymbol || stats.currency || 'DH'
 
   // Computed connection statuses
   const rawRibDigits = String(settings.moroccoRib || '').replace(/\D/g, '')
@@ -785,8 +890,7 @@ export default function PayoutsTab({ user, profile }) {
             </span>
           </div>
           <div style={{ fontSize: 28, fontWeight: 800, color: '#0F172A', letterSpacing: '-0.02em' }}>
-            {currSym}
-            {stats.availableBalance.toFixed(2)}
+            {formatMoney(stats.availableBalance, currSym)}
           </div>
           <p style={{ margin: '4px 0 0', fontSize: 11.5, color: '#10B981', fontWeight: 600 }}>
             ✓ Ready for instant payout via {settings.payoutMethod?.toUpperCase() || 'STRIPE'}
@@ -804,8 +908,7 @@ export default function PayoutsTab({ user, profile }) {
             </span>
           </div>
           <div style={{ fontSize: 28, fontWeight: 800, color: '#0F172A', letterSpacing: '-0.02em' }}>
-            {currSym}
-            {stats.grossSales.toFixed(2)}
+            {formatMoney(stats.grossSales, currSym)}
           </div>
           <p style={{ margin: '4px 0 0', fontSize: 11.5, color: '#64748B' }}>
             {transactions.length} orders worldwide
@@ -823,8 +926,7 @@ export default function PayoutsTab({ user, profile }) {
             </span>
           </div>
           <div style={{ fontSize: 28, fontWeight: 800, color: '#D97706', letterSpacing: '-0.02em' }}>
-            {currSym}
-            {stats.platformFees.toFixed(2)}
+            {formatMoney(stats.platformFees, currSym)}
           </div>
           <p style={{ margin: '4px 0 0', fontSize: 11.5, color: '#94A3B8' }}>
             Automated platform split allocation
@@ -842,8 +944,7 @@ export default function PayoutsTab({ user, profile }) {
             </span>
           </div>
           <div style={{ fontSize: 28, fontWeight: 800, color: '#0F172A', letterSpacing: '-0.02em' }}>
-            {currSym}
-            {stats.totalWithdrawn.toFixed(2)}
+            {formatMoney(stats.totalWithdrawn, currSym)}
           </div>
           <p style={{ margin: '4px 0 0', fontSize: 11.5, color: '#64748B' }}>
             {payoutRequests.filter((p) => p.status === 'completed').length} completed payout transfers
@@ -1183,7 +1284,20 @@ export default function PayoutsTab({ user, profile }) {
                 value={settings.selectedCurrency}
                 onChange={(e) => {
                   const cObj = CURRENCIES.find((c) => c.code === e.target.value) || CURRENCIES[0]
-                  setSettings({ ...settings, selectedCurrency: cObj.code, currencySymbol: cObj.symbol })
+                  const updated = { ...settings, selectedCurrency: cObj.code, currencySymbol: cObj.symbol }
+                  setSettings(updated)
+                  setStats((prev) => ({ ...prev, currency: cObj.symbol }))
+                  try {
+                    const cacheKey = `linksocio_payout_settings_${username || userId || 'default'}`
+                    localStorage.setItem(cacheKey, JSON.stringify(updated))
+                    localStorage.setItem('linksocio_payout_settings_default', JSON.stringify(updated))
+                    localStorage.setItem('linksocio_wallet_currency', JSON.stringify({ code: cObj.code, symbol: cObj.symbol }))
+                    window.dispatchEvent(
+                      new CustomEvent('linksocio:currency_changed', {
+                        detail: { code: cObj.code, symbol: cObj.symbol },
+                      })
+                    )
+                  } catch (err) {}
                 }}
                 style={{
                   width: '100%',

@@ -88,6 +88,31 @@ const STARTER_PRESETS = [
   },
 ]
 
+export const SHOP_CURRENCIES = [
+  { code: 'MAD', symbol: 'DH', label: '🇲🇦 MAD (DH)' },
+  { code: 'USD', symbol: '$', label: '🇺🇸 USD ($)' },
+  { code: 'EUR', symbol: '€', label: '🇪🇺 EUR (€)' },
+  { code: 'GBP', symbol: '£', label: '🇬🇧 GBP (£)' },
+  { code: 'SAR', symbol: 'SAR', label: '🇸🇦 SAR (ريال)' },
+  { code: 'AED', symbol: 'AED', label: '🇦🇪 AED (درهم)' },
+  { code: 'CAD', symbol: 'CA$', label: '🇨🇦 CAD' },
+  { code: 'USDT', symbol: 'USDT', label: '🟢 USDT' },
+]
+
+export function detectCurrency(str) {
+  if (!str || typeof str !== 'string') return null
+  const s = str.trim().toUpperCase()
+  if (/\b(MAD|DH|DIRHAM)\b/i.test(s)) return SHOP_CURRENCIES[0]
+  if (s.includes('$') || /\bUSD\b/i.test(s)) return SHOP_CURRENCIES[1]
+  if (s.includes('€') || /\bEUR\b/i.test(s)) return SHOP_CURRENCIES[2]
+  if (s.includes('£') || /\bGBP\b/i.test(s)) return SHOP_CURRENCIES[3]
+  if (/\bSAR\b/i.test(s) || s.includes('ريال')) return SHOP_CURRENCIES[4]
+  if (/\bAED\b/i.test(s) || s.includes('درهم')) return SHOP_CURRENCIES[5]
+  if (s.includes('CA$') || /\bCAD\b/i.test(s)) return SHOP_CURRENCIES[6]
+  if (/\bUSDT\b/i.test(s)) return SHOP_CURRENCIES[7]
+  return null
+}
+
 export default function ShopTab({ user, profile, products = [], reloadProducts }) {
   const { t, isRTL } = useLanguage()
   // Mode: 'digital' (digital product creation) | 'external' (affiliate/link)
@@ -106,6 +131,83 @@ export default function ShopTab({ user, profile, products = [], reloadProducts }
   const [deliveryType, setDeliveryType] = useState('whatsapp') // 'whatsapp' | 'download' | 'external'
   const [highlightInput, setHighlightInput] = useState('')
   const [highlights, setHighlights] = useState([])
+
+  // Currency synchronization with Wallet
+  const [currencyCode, setCurrencyCode] = useState(() => {
+    if (Array.isArray(products) && products.length > 0) {
+      const pWithPrice = products.find((p) => p.price && p.price !== 'Free' && p.price !== 'Gratuit') || products[0]
+      const det = detectCurrency(pWithPrice?.currency || pWithPrice?.price)
+      if (det) return det.code
+    }
+    if (typeof window !== 'undefined') {
+      try {
+        const u = profile?.username || user?.user_metadata?.username || ''
+        const uid = profile?.id || user?.id || ''
+        const cached = localStorage.getItem(`linksocio_payout_settings_${u || uid || 'default'}`) || localStorage.getItem('linksocio_wallet_currency')
+        if (cached) {
+          const parsed = JSON.parse(cached)
+          if (parsed.selectedCurrency) return parsed.selectedCurrency
+          if (parsed.code) return parsed.code
+        }
+      } catch (e) {}
+    }
+    return 'MAD'
+  })
+
+  // Synchronize product currency directly to Wallet settings & notify
+  const syncCurrencyWithWallet = (code, symbol) => {
+    const u = profile?.username || user?.user_metadata?.username || ''
+    const uid = profile?.id || user?.id || ''
+    try {
+      if (typeof window !== 'undefined') {
+        const cacheKey = `linksocio_payout_settings_${u || uid || 'default'}`
+        const cached = localStorage.getItem(cacheKey) || localStorage.getItem('linksocio_payout_settings_default')
+        const prev = cached ? JSON.parse(cached) : {}
+        const updated = { ...prev, selectedCurrency: code, currencySymbol: symbol }
+        localStorage.setItem(cacheKey, JSON.stringify(updated))
+        localStorage.setItem('linksocio_payout_settings_default', JSON.stringify(updated))
+        localStorage.setItem('linksocio_wallet_currency', JSON.stringify({ code, symbol }))
+      }
+      fetch('/api/payouts/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: u,
+          userId: uid,
+          settings: { selectedCurrency: code, currencySymbol: symbol },
+        }),
+      }).catch(() => {})
+      window.dispatchEvent(
+        new CustomEvent('linksocio:currency_changed', {
+          detail: { code, symbol },
+        })
+      )
+    } catch (e) {}
+  }
+
+  // Update currency whenever products change if not currently editing
+  useEffect(() => {
+    if (!editingId && Array.isArray(products) && products.length > 0) {
+      const pWithPrice = products.find((p) => p.price && p.price !== 'Free' && p.price !== 'Gratuit') || products[0]
+      if (pWithPrice) {
+        const det = detectCurrency(pWithPrice.currency || pWithPrice.price)
+        if (det && det.code !== currencyCode) {
+          setCurrencyCode(det.code)
+        }
+      }
+    }
+  }, [products, editingId])
+
+  // Listen to currency changes made in PayoutsTab
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.detail?.code) {
+        setCurrencyCode(e.detail.code)
+      }
+    }
+    window.addEventListener('linksocio:currency_changed', handler)
+    return () => window.removeEventListener('linksocio:currency_changed', handler)
+  }, [])
 
   // Desktop File Upload state for digital product
   const [fileSourceMode, setFileSourceMode] = useState('upload') // 'upload' | 'link'
@@ -349,6 +451,14 @@ export default function ShopTab({ user, profile, products = [], reloadProducts }
     setUploadedFile(null)
     setFileSourceMode('link')
     setCreationMode('digital')
+
+    // Detect preset currency & sync with wallet
+    const det = detectCurrency(preset.price)
+    if (det) {
+      setCurrencyCode(det.code)
+      syncCurrencyWithWallet(det.code, det.symbol)
+    }
+
     setSuccessMsg(`Loaded preset: "${preset.name}"! You can customize it now.`)
     setTimeout(() => setSuccessMsg(''), 4000)
   }
@@ -430,6 +540,13 @@ export default function ShopTab({ user, profile, products = [], reloadProducts }
     setFileUrl(cleanFileUrl)
     setDescription(p.description || '')
 
+    // Detect product currency and synchronize with wallet
+    const det = detectCurrency(p.currency || p.price)
+    if (det) {
+      setCurrencyCode(det.code)
+      syncCurrencyWithWallet(det.code, det.symbol)
+    }
+
     const isDigitalItem = isProductDigitalItem(p)
     setCategory(p.category && p.category !== 'external' ? p.category : 'ebook')
     setDeliveryType(p.delivery_type && p.delivery_type !== 'external' ? p.delivery_type : 'whatsapp')
@@ -473,10 +590,14 @@ export default function ShopTab({ user, profile, products = [], reloadProducts }
         : normalizeUrl(fileUrl || externalUrl) || 'https://linksocio.com'
       : normalizeUrl(externalUrl.trim())
 
+    const currObj = SHOP_CURRENCIES.find((c) => c.code === currencyCode) || detectCurrency(price) || SHOP_CURRENCIES[0]
+
     const productPayload = {
       user_id: user?.id,
       name: name.trim(),
       price: price.trim() || 'Free',
+      currency: currObj.symbol,
+      currency_code: currObj.code,
       original_price: originalPrice.trim() || null,
       image_url: imageUrl.trim() || null,
       external_url: targetExternalUrl,
@@ -490,6 +611,9 @@ export default function ShopTab({ user, profile, products = [], reloadProducts }
       is_digital: isDigital,
       position: editingId ? undefined : products.length,
     }
+
+    // Persist & sync currency with Wallet instantly
+    syncCurrencyWithWallet(currObj.code, currObj.symbol)
 
     try {
       if (editingId) {
@@ -880,26 +1004,110 @@ export default function ShopTab({ user, profile, products = [], reloadProducts }
                 </div>
               </div>
 
+              {/* Product Currency Sync with Wallet */}
+              <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 14, padding: '12px 14px', marginBottom: 12 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 6 }}>
+                  <label style={{ fontSize: 12, fontWeight: 800, color: '#1E293B', display: 'flex', alignItems: 'center', gap: 6, margin: 0 }}>
+                    <span>💰 {t('shopTab.currencyLabel', 'Product & Wallet Currency')}</span>
+                    <span style={{ fontSize: 10.5, fontWeight: 700, background: '#ECFDF5', color: '#059669', padding: '2px 8px', borderRadius: 100, border: '1px solid #A7F3D0' }}>
+                      ⚡ Auto-Syncs with Wallet
+                    </span>
+                  </label>
+                  <select
+                    value={currencyCode}
+                    onChange={(e) => {
+                      const newCode = e.target.value
+                      setCurrencyCode(newCode)
+                      const currObj = SHOP_CURRENCIES.find((c) => c.code === newCode) || SHOP_CURRENCIES[0]
+                      syncCurrencyWithWallet(currObj.code, currObj.symbol)
+                      // Auto-update price format if digits present
+                      const digits = price.replace(/[^\d.]/g, '').trim()
+                      if (digits && price.toLowerCase() !== 'free' && price.toLowerCase() !== 'gratuit') {
+                        if (['$', '£'].includes(currObj.symbol)) {
+                          setPrice(`${currObj.symbol}${digits}`)
+                        } else if (currObj.symbol === '€') {
+                          setPrice(`${digits} €`)
+                        } else {
+                          setPrice(`${digits} ${currObj.symbol}`)
+                        }
+                      }
+                    }}
+                    style={{
+                      padding: '6px 12px',
+                      borderRadius: 8,
+                      border: '1px solid #CBD5E1',
+                      background: '#FFFFFF',
+                      fontSize: 12.5,
+                      fontWeight: 700,
+                      color: '#0F172A',
+                      cursor: 'pointer',
+                      outline: 'none',
+                    }}
+                  >
+                    {SHOP_CURRENCIES.map((c) => (
+                      <option key={c.code} value={c.code}>
+                        {c.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div style={{ fontSize: 11, color: '#64748B' }}>
+                  {t('shopTab.currencySyncNote', 'Your wallet balance, withdrawals, and payouts will automatically be displayed in this currency.')}
+                </div>
+              </div>
+
               {/* Price & Original Price (Discount) */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 <div>
-                  <label style={{ fontSize: 12, fontWeight: 700, color: '#475569', display: 'block', marginBottom: 5 }}>
-                    Selling Price *
-                  </label>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
+                    <label style={{ fontSize: 12, fontWeight: 700, color: '#475569', margin: 0 }}>
+                      Selling Price * ({SHOP_CURRENCIES.find((c) => c.code === currencyCode)?.symbol || 'DH'})
+                    </label>
+                    <span style={{ fontSize: 10.5, fontWeight: 700, color: '#0D9488' }}>
+                      {SHOP_CURRENCIES.find((c) => c.code === currencyCode)?.code}
+                    </span>
+                  </div>
                   <input
-                    placeholder="e.g. 99 DH, $19, 19 €, Free"
+                    placeholder={`e.g. 99 ${SHOP_CURRENCIES.find((c) => c.code === currencyCode)?.symbol || 'DH'}, Free`}
                     value={price}
-                    onChange={(e) => setPrice(e.target.value)}
+                    onChange={(e) => {
+                      const val = e.target.value
+                      setPrice(val)
+                      const detected = detectCurrency(val)
+                      if (detected && detected.code !== currencyCode) {
+                        setCurrencyCode(detected.code)
+                        syncCurrencyWithWallet(detected.code, detected.symbol)
+                      }
+                    }}
                     style={inputStyle}
                   />
                   {/* Quick Price Pills */}
                   <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 6 }}>
-                    {['Free', '49 DH', '99 DH', '149 DH', '199 DH', '299 DH', '$9', '$19', '$29', '$49', '19 €', '29 €'].map(
-                      (pTag) => (
+                    {(() => {
+                      const activeCurr = SHOP_CURRENCIES.find((c) => c.code === currencyCode) || SHOP_CURRENCIES[0]
+                      const quickMap = {
+                        MAD: ['Free', '49 DH', '99 DH', '149 DH', '199 DH', '299 DH', '499 DH'],
+                        USD: ['Free', '$9', '$19', '$29', '$49', '$99', '$149'],
+                        EUR: ['Free', '9 €', '19 €', '29 €', '49 €', '99 €', '149 €'],
+                        GBP: ['Free', '9 £', '19 £', '29 £', '49 £', '99 £'],
+                        SAR: ['Free', '49 SAR', '99 SAR', '149 SAR', '199 SAR', '299 SAR'],
+                        AED: ['Free', '49 AED', '99 AED', '149 AED', '199 AED', '299 AED'],
+                        CAD: ['Free', '19 CA$', '29 CA$', '49 CA$', '99 CA$'],
+                        USDT: ['Free', '10 USDT', '25 USDT', '50 USDT', '100 USDT'],
+                      }
+                      const pills = quickMap[activeCurr.code] || quickMap.MAD
+                      return pills.map((pTag) => (
                         <button
                           key={pTag}
                           type="button"
-                          onClick={() => setPrice(pTag)}
+                          onClick={() => {
+                            setPrice(pTag)
+                            const detected = detectCurrency(pTag)
+                            if (detected && detected.code !== currencyCode) {
+                              setCurrencyCode(detected.code)
+                              syncCurrencyWithWallet(detected.code, detected.symbol)
+                            }
+                          }}
                           style={{
                             background: price === pTag ? '#14B8A6' : '#F1F5F9',
                             color: price === pTag ? 'white' : '#475569',
@@ -913,8 +1121,8 @@ export default function ShopTab({ user, profile, products = [], reloadProducts }
                         >
                           {pTag}
                         </button>
-                      )
-                    )}
+                      ))
+                    })()}
                   </div>
                 </div>
 
@@ -923,13 +1131,13 @@ export default function ShopTab({ user, profile, products = [], reloadProducts }
                     Original Price (Optional - Displays Discount Badge):
                   </label>
                   <input
-                    placeholder="e.g. 199 DH, $49 (Shows strike-through)"
+                    placeholder={`e.g. 199 ${SHOP_CURRENCIES.find((c) => c.code === currencyCode)?.symbol || 'DH'} (Shows strike-through)`}
                     value={originalPrice}
                     onChange={(e) => setOriginalPrice(e.target.value)}
                     style={inputStyle}
                   />
                   <span style={{ fontSize: 11, color: '#94A3B8', marginTop: 4, display: 'block' }}>
-                    💡 e.g. Original 199 DH + Sale 99 DH shows a "50% OFF" badge!
+                    💡 e.g. Original 199 + Sale 99 shows a "50% OFF" badge!
                   </span>
                 </div>
               </div>
