@@ -1746,6 +1746,7 @@ function apiPlugin() {
           let grossSales = 0
           let platformFees = 0
           let netSellerEarnings = 0
+          let pendingEarnings = 0
           let totalWithdrawn = 0
 
           for (const tx of userTransactions) {
@@ -1754,7 +1755,11 @@ function apiPlugin() {
             const net = Number(tx.sellerNet) || Math.round((gross - fee) * 100) / 100
             grossSales += gross
             platformFees += fee
-            netSellerEarnings += net
+            if (tx.status === 'pending_verification' || tx.status === 'pending_settlement') {
+              pendingEarnings += net
+            } else {
+              netSellerEarnings += net
+            }
           }
 
           for (const pr of userPayoutRequests) {
@@ -1797,6 +1802,7 @@ function apiPlugin() {
                 grossSales: Math.round(grossSales * 100) / 100,
                 platformFees: Math.round(platformFees * 100) / 100, // 9%
                 netSellerEarnings: Math.round(netSellerEarnings * 100) / 100, // 91%
+                pendingEarnings: Math.round(pendingEarnings * 100) / 100,
                 totalWithdrawn: Math.round(totalWithdrawn * 100) / 100,
                 availableBalance,
                 feePercentage: 9,
@@ -1827,7 +1833,7 @@ function apiPlugin() {
                 const userId = (payload.userId || '').trim()
                 const product = payload.product || {}
                 const buyer = payload.buyer || {}
-                const paymentMethod = payload.paymentMethod || 'card_stripe' // 'card_stripe' | 'bank_cih' | 'whatsapp' | 'free'
+                const paymentMethod = payload.paymentMethod || 'card_stripe' // 'card_stripe' | 'bank_transfer_iban' | 'local_morocco' | 'bank_iban' | 'whatsapp' | 'free_access'
 
                 // Parse Price numeric
                 const rawPrice = String(product.price || '0').replace(/[^\d.]/g, '')
@@ -1852,6 +1858,11 @@ function apiPlugin() {
                 else if (/\bAED\b/i.test(rawPriceUpper)) txCurrency = 'AED'
                 else if (/\bUSDT\b/i.test(rawPriceUpper)) txCurrency = 'USDT'
 
+                // Security check: Stripe card payments or free products are instant completed.
+                // IBAN / Wire / CIH / CashPlus / Direct transfers are pending verification!
+                const isInstantPaid = paymentMethod === 'card_stripe' || paymentMethod === 'free_access' || grossAmount === 0
+                const orderStatus = isInstantPaid ? 'completed' : 'pending_verification'
+
                 const newTransaction = {
                   id: 'tx_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
                   productId: product.id || 'prod_unknown',
@@ -1866,8 +1877,9 @@ function apiPlugin() {
                   buyerName: buyer.name || 'Customer',
                   buyerEmail: buyer.email || '',
                   buyerPhone: buyer.phone || '',
+                  reference: buyer.reference || '',
                   paymentMethod,
-                  status: paymentMethod === 'whatsapp' ? 'pending_settlement' : 'completed',
+                  status: orderStatus,
                   createdAt: new Date().toISOString(),
                   downloadUrl: product.file_url || product.external_url || '',
                 }
@@ -1880,12 +1892,21 @@ function apiPlugin() {
                 writeJson(TRANSACTIONS_PATH, txStore)
 
                 // Trigger Live Notification to Seller (Telegram Phone + Gmail + Dashboard)
-                dispatchLiveAlert(username, userId, {
-                  type: 'order',
-                  title: `🛍️ New Sale: ${product.name} (+${sellerNet} DH)`,
-                  details: `Gross: ${grossAmount} DH | Net (91%): ${sellerNet} DH | Fee (9%): ${platformFee} DH | Buyer: ${buyer.name || 'Online Customer'}`,
-                  data: newTransaction,
-                })
+                if (orderStatus === 'pending_verification') {
+                  dispatchLiveAlert(username, userId, {
+                    type: 'order_pending',
+                    title: `⏳ Virement à valider : ${product.name} (${grossAmount} ${txCurrency})`,
+                    details: `Client: ${buyer.name || 'Client'} (${buyer.phone || buyer.email || 'Sans contact'}). Méthode: ${paymentMethod}. En attente de confirmation du virement.`,
+                    data: newTransaction,
+                  })
+                } else {
+                  dispatchLiveAlert(username, userId, {
+                    type: 'order',
+                    title: `🛍️ Vente confirmée : ${product.name} (+${sellerNet} ${txCurrency})`,
+                    details: `Gross: ${grossAmount} ${txCurrency} | Net (91%): ${sellerNet} ${txCurrency} | Client: ${buyer.name || 'Online Customer'}`,
+                    data: newTransaction,
+                  })
+                }
 
                 res.statusCode = 200
                 res.setHeader('Content-Type', 'application/json')
@@ -1893,6 +1914,7 @@ function apiPlugin() {
                   JSON.stringify({
                     success: true,
                     transaction: newTransaction,
+                    isPendingVerification: orderStatus === 'pending_verification',
                     breakdown: {
                       grossAmount,
                       platformFee9Percent: platformFee,
@@ -1904,6 +1926,50 @@ function apiPlugin() {
                 res.statusCode = 400
                 res.setHeader('Content-Type', 'application/json')
                 res.end(JSON.stringify({ error: 'Invalid order payload' }))
+              }
+            })
+            return
+          }
+        }
+
+        // 12b. Confirm / Validate Order by Seller (e.g. IBAN receipt verified)
+        if (urlObj.pathname === '/api/payouts/confirm-order') {
+          if (req.method === 'POST') {
+            let body = ''
+            req.on('data', (chunk) => { body += chunk })
+            req.on('end', () => {
+              try {
+                const payload = JSON.parse(body || '{}')
+                const txId = payload.transactionId || payload.id
+                const txStore = readJson(TRANSACTIONS_PATH)
+                let updatedTx = null
+
+                for (const [, list] of Object.entries(txStore)) {
+                  if (Array.isArray(list)) {
+                    for (const tx of list) {
+                      if (tx.id === txId) {
+                        tx.status = 'completed'
+                        tx.validatedAt = new Date().toISOString()
+                        updatedTx = tx
+                      }
+                    }
+                  }
+                }
+
+                if (updatedTx) {
+                  writeJson(TRANSACTIONS_PATH, txStore)
+                  res.statusCode = 200
+                  res.setHeader('Content-Type', 'application/json')
+                  res.end(JSON.stringify({ success: true, transaction: updatedTx }))
+                } else {
+                  res.statusCode = 404
+                  res.setHeader('Content-Type', 'application/json')
+                  res.end(JSON.stringify({ error: 'Transaction not found' }))
+                }
+              } catch (err) {
+                res.statusCode = 400
+                res.setHeader('Content-Type', 'application/json')
+                res.end(JSON.stringify({ error: 'Failed to confirm order' }))
               }
             })
             return

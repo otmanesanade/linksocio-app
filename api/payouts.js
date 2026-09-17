@@ -151,6 +151,7 @@ export default async function handler(req, res) {
     let grossSales = 0
     let platformFees = 0
     let netSellerEarnings = 0
+    let pendingEarnings = 0
     let totalWithdrawn = 0
 
     if (Array.isArray(userTransactions)) {
@@ -160,7 +161,11 @@ export default async function handler(req, res) {
         const net = Number(tx.sellerNet) || Math.round((gross - fee) * 100) / 100
         grossSales += gross
         platformFees += fee
-        netSellerEarnings += net
+        if (tx.status === 'pending_verification' || tx.status === 'pending_settlement') {
+          pendingEarnings += net
+        } else {
+          netSellerEarnings += net
+        }
       }
     }
 
@@ -186,6 +191,7 @@ export default async function handler(req, res) {
         grossSales: Math.round(grossSales * 100) / 100,
         platformFees: Math.round(platformFees * 100) / 100,
         netSellerEarnings: Math.round(netSellerEarnings * 100) / 100,
+        pendingEarnings: Math.round(pendingEarnings * 100) / 100,
         totalWithdrawn: Math.round(totalWithdrawn * 100) / 100,
         availableBalance,
         feePercentage: 9,
@@ -231,6 +237,11 @@ export default async function handler(req, res) {
     const userKey = u || id || 'default'
     const userList = Array.isArray(txStore[userKey]) ? txStore[userKey] : []
 
+    // Security check: Stripe card payments or free products are instant completed.
+    // IBAN / Wire / CIH / CashPlus / Direct transfers are pending verification!
+    const isInstantPaid = paymentMethod === 'card_stripe' || paymentMethod === 'free_access' || grossAmount === 0
+    const orderStatus = isInstantPaid ? 'completed' : 'pending_verification'
+
     const newTransaction = {
       id: 'tx_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
       productId: product.id || 'prod_unknown',
@@ -244,8 +255,9 @@ export default async function handler(req, res) {
       buyerName: buyer.name || 'Customer',
       buyerEmail: buyer.email || '',
       buyerPhone: buyer.phone || '',
+      reference: buyer.reference || '',
       paymentMethod,
-      status: paymentMethod === 'whatsapp' ? 'pending_settlement' : 'completed',
+      status: orderStatus,
       createdAt: new Date().toISOString(),
       downloadUrl: product.file_url || product.external_url || '',
     }
@@ -257,7 +269,48 @@ export default async function handler(req, res) {
     txStore['default'] = userList
 
     writeJsonSafe(TX_PRIMARY, TX_TMP, txStore)
-    sendJson(res, 200, { success: true, transaction: newTransaction })
+    sendJson(res, 200, {
+      success: true,
+      transaction: newTransaction,
+      isPendingVerification: orderStatus === 'pending_verification',
+      breakdown: {
+        grossAmount,
+        platformFee9Percent: platformFee,
+        sellerNet91Percent: sellerNet,
+      },
+    })
+    return
+  }
+
+  // 3b. CONFIRM / VALIDATE ORDER (By Seller when transfer arrives)
+  if (subroute === 'confirm-order' || subroute.includes('confirm-order')) {
+    if (req.method !== 'POST') {
+      sendJson(res, 405, { error: 'Method not allowed' })
+      return
+    }
+    const payload = await parseBody(req)
+    const txId = payload.transactionId || payload.id
+    const txStore = readJsonSafe(TX_PRIMARY, TX_TMP)
+    let updatedTx = null
+
+    for (const [, list] of Object.entries(txStore)) {
+      if (Array.isArray(list)) {
+        for (const tx of list) {
+          if (tx.id === txId) {
+            tx.status = 'completed'
+            tx.validatedAt = new Date().toISOString()
+            updatedTx = tx
+          }
+        }
+      }
+    }
+
+    if (updatedTx) {
+      writeJsonSafe(TX_PRIMARY, TX_TMP, txStore)
+      sendJson(res, 200, { success: true, transaction: updatedTx })
+    } else {
+      sendJson(res, 404, { error: 'Transaction not found' })
+    }
     return
   }
 

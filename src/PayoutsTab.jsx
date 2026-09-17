@@ -284,6 +284,24 @@ export default function PayoutsTab({ user, profile, products = [] }) {
     }).catch(() => {})
   }
 
+  async function handleConfirmOrder(txId) {
+    try {
+      const res = await fetch('/api/payouts/confirm-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ transactionId: txId }),
+      })
+      if (res.ok) {
+        try {
+          confetti({ particleCount: 60, spread: 70, origin: { y: 0.5 } })
+        } catch (e) {}
+        loadData()
+      }
+    } catch (e) {
+      console.error('Failed to confirm order:', e)
+    }
+  }
+
   async function handleSaveSettings(e) {
     if (e) e.preventDefault()
     setSavingSettings(true)
@@ -896,6 +914,26 @@ export default function PayoutsTab({ user, profile, products = [] }) {
             ✓ Ready for instant payout via {settings.payoutMethod?.toUpperCase() || 'STRIPE'}
           </p>
         </div>
+
+        {/* Card 1b: Pending Wire Transfers */}
+        {Number(stats.pendingEarnings || 0) > 0 && (
+          <div style={{ background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 18, padding: '18px 20px', boxShadow: '0 2px 5px rgba(0,0,0,0.03)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: '#B45309', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                ⏳ Virements en Attente
+              </span>
+              <span style={{ background: '#FEF3C7', color: '#B45309', fontSize: 12, padding: '2px 8px', borderRadius: 100, fontWeight: 800 }}>
+                À Valider
+              </span>
+            </div>
+            <div style={{ fontSize: 28, fontWeight: 800, color: '#92400E', letterSpacing: '-0.02em' }}>
+              {formatMoney(stats.pendingEarnings, currSym)}
+            </div>
+            <p style={{ margin: '4px 0 0', fontSize: 11.5, color: '#B45309', fontWeight: 600 }}>
+              Virements bancaires / IBAN à confirmer ci-dessous
+            </p>
+          </div>
+        )}
 
         {/* Card 2: Total Gross Sales */}
         <div style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: 18, padding: '18px 20px', boxShadow: '0 2px 5px rgba(0,0,0,0.03)' }}>
@@ -2214,44 +2252,148 @@ export default function PayoutsTab({ user, profile, products = [] }) {
                     <th style={{ padding: '8px 10px', color: '#D97706' }}>Platform Fee (9%)</th>
                     <th style={{ padding: '8px 10px', color: '#059669' }}>Your Net (91%)</th>
                     <th style={{ padding: '8px 10px' }}>Method</th>
+                    <th style={{ padding: '8px 10px', textAlign: 'right' }}>Statut & Action</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {transactions.map((tx) => (
-                    <tr key={tx.id} style={{ borderBottom: '1px solid #F1F5F9' }}>
-                      <td style={{ padding: '12px 10px', color: '#64748B', whiteSpace: 'nowrap' }}>
-                        {new Date(tx.createdAt).toLocaleDateString()}
-                      </td>
-                      <td style={{ padding: '12px 10px' }}>
-                        <div style={{ fontWeight: 700, color: '#0F172A' }}>{tx.productName}</div>
-                        <div style={{ fontSize: 11, color: '#94A3B8' }}>Buyer: {tx.buyerName} ({tx.buyerPhone || tx.buyerEmail || 'Online'})</div>
-                      </td>
-                      <td style={{ padding: '12px 10px', fontWeight: 800, color: '#0F172A' }}>
-                        {tx.grossAmount} {tx.currency || currSym}
-                      </td>
-                      <td style={{ padding: '12px 10px', fontWeight: 700, color: '#D97706' }}>
-                        -{tx.platformFee} {tx.currency || currSym}
-                      </td>
-                      <td style={{ padding: '12px 10px', fontWeight: 800, color: '#059669' }}>
-                        +{tx.sellerNet} {tx.currency || currSym}
-                      </td>
-                      <td style={{ padding: '12px 10px' }}>
-                        <span
-                          style={{
-                            background: tx.paymentMethod === 'card_stripe' ? '#EEF2FF' : '#F0FDF4',
-                            color: tx.paymentMethod === 'card_stripe' ? '#4F46E5' : '#16A34A',
-                            fontSize: 10.5,
-                            fontWeight: 700,
-                            padding: '3px 7px',
-                            borderRadius: 6,
-                            textTransform: 'uppercase',
-                          }}
-                        >
-                          {tx.paymentMethod === 'card_stripe' ? '💳 Stripe' : '🌐 Direct'}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
+                  {transactions.map((tx) => {
+                    const isPending = tx.status === 'pending_verification' || tx.status === 'pending_settlement'
+                    return (
+                      <tr key={tx.id} style={{ borderBottom: '1px solid #F1F5F9' }}>
+                        <td style={{ padding: '12px 10px', color: '#64748B', whiteSpace: 'nowrap' }}>
+                          {new Date(tx.createdAt).toLocaleDateString()}
+                        </td>
+                        <td style={{ padding: '12px 10px' }}>
+                          <div style={{ fontWeight: 700, color: '#0F172A' }}>{tx.productName}</div>
+                          <div style={{ fontSize: 11, color: '#64748B' }}>
+                            Client: <strong>{tx.buyerName}</strong> {tx.buyerPhone ? `(${tx.buyerPhone})` : tx.buyerEmail ? `(${tx.buyerEmail})` : ''}
+                          </div>
+                          {tx.reference && (
+                            <div style={{ fontSize: 10.5, color: '#B45309', fontWeight: 600 }}>
+                              Réf virement: {tx.reference}
+                            </div>
+                          )}
+                        </td>
+                        <td style={{ padding: '12px 10px', fontWeight: 800, color: '#0F172A' }}>
+                          {tx.grossAmount} {tx.currency || currSym}
+                        </td>
+                        <td style={{ padding: '12px 10px', fontWeight: 700, color: '#D97706' }}>
+                          -{tx.platformFee} {tx.currency || currSym}
+                        </td>
+                        <td style={{ padding: '12px 10px', fontWeight: 800, color: '#059669' }}>
+                          +{tx.sellerNet} {tx.currency || currSym}
+                        </td>
+                        <td style={{ padding: '12px 10px' }}>
+                          <span
+                            style={{
+                              background: tx.paymentMethod === 'card_stripe' ? '#EEF2FF' : '#F8FAFC',
+                              color: tx.paymentMethod === 'card_stripe' ? '#4F46E5' : '#0F172A',
+                              border: tx.paymentMethod === 'card_stripe' ? 'none' : '1px solid #E2E8F0',
+                              fontSize: 10.5,
+                              fontWeight: 700,
+                              padding: '3px 7px',
+                              borderRadius: 6,
+                              textTransform: 'uppercase',
+                            }}
+                          >
+                            {tx.paymentMethod === 'card_stripe' ? '💳 Stripe' : '🏛️ Virement / IBAN'}
+                          </span>
+                        </td>
+                        <td style={{ padding: '12px 10px', textAlign: 'right' }}>
+                          {isPending ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+                              <span
+                                style={{
+                                  background: '#FEF3C7',
+                                  color: '#B45309',
+                                  fontSize: 10.5,
+                                  fontWeight: 800,
+                                  padding: '2px 8px',
+                                  borderRadius: 6,
+                                  whiteSpace: 'nowrap',
+                                }}
+                              >
+                                ⏳ En attente virement
+                              </span>
+                              <div style={{ display: 'flex', gap: 4, marginTop: 2 }}>
+                                <button
+                                  type="button"
+                                  onClick={() => handleConfirmOrder(tx.id)}
+                                  style={{
+                                    background: '#059669',
+                                    color: '#FFFFFF',
+                                    border: 'none',
+                                    borderRadius: 6,
+                                    padding: '4px 8px',
+                                    fontSize: 11,
+                                    fontWeight: 700,
+                                    cursor: 'pointer',
+                                    whiteSpace: 'nowrap',
+                                  }}
+                                  title="Confirmer la réception du virement sur votre compte"
+                                >
+                                  ✓ Valider
+                                </button>
+                                {tx.buyerPhone && (
+                                  <a
+                                    href={`https://wa.me/${tx.buyerPhone.replace(/[^\d]/g, '')}?text=${encodeURIComponent(`Bonjour ${tx.buyerName || ''}, concernant votre commande pour "${tx.productName}". Merci de m'envoyer votre reçu de virement pour activer votre lien de téléchargement.`)}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    style={{
+                                      background: '#22C55E',
+                                      color: '#FFFFFF',
+                                      borderRadius: 6,
+                                      padding: '4px 8px',
+                                      fontSize: 11,
+                                      fontWeight: 700,
+                                      textDecoration: 'none',
+                                      whiteSpace: 'nowrap',
+                                    }}
+                                  >
+                                    💬 WhatsApp
+                                  </a>
+                                )}
+                              </div>
+                            </div>
+                          ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
+                              <span
+                                style={{
+                                  background: '#ECFDF5',
+                                  color: '#059669',
+                                  fontSize: 10.5,
+                                  fontWeight: 800,
+                                  padding: '2px 8px',
+                                  borderRadius: 6,
+                                  whiteSpace: 'nowrap',
+                                }}
+                              >
+                                ✓ Validé & Payé
+                              </span>
+                              {tx.downloadUrl && (
+                                <button
+                                  type="button"
+                                  onClick={() => copyText(tx.downloadUrl, `url_${tx.id}`)}
+                                  style={{
+                                    background: 'transparent',
+                                    border: 'none',
+                                    color: '#059669',
+                                    fontSize: 10.5,
+                                    fontWeight: 700,
+                                    cursor: 'pointer',
+                                    padding: '2px',
+                                    whiteSpace: 'nowrap',
+                                  }}
+                                >
+                                  {copiedKey === `url_${tx.id}` ? '✓ Copié !' : '🔗 Copier lien fichier'}
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>

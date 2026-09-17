@@ -16,6 +16,26 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
   const [orderSuccess, setOrderSuccess] = useState(null)
   const [sellerPayoutSettings, setSellerPayoutSettings] = useState(null)
   const [paymentError, setPaymentError] = useState(null)
+  const [transferReference, setTransferReference] = useState('')
+  const [copiedKey, setCopiedKey] = useState(null)
+
+  const handleCopy = (text, key) => {
+    if (!text) return
+    try {
+      if (navigator?.clipboard?.writeText) {
+        navigator.clipboard.writeText(String(text))
+      } else {
+        const ta = document.createElement('textarea')
+        ta.value = String(text)
+        document.body.appendChild(ta)
+        ta.select()
+        document.execCommand('copy')
+        document.body.removeChild(ta)
+      }
+      setCopiedKey(key)
+      setTimeout(() => setCopiedKey(null), 2000)
+    } catch (e) {}
+  }
 
   if (!product) return null
 
@@ -126,9 +146,14 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
 
   const handleDirectTransferPayment = async (e) => {
     if (e) e.preventDefault()
+    if (!buyerPhone && !buyerEmail && !buyerName) {
+      alert('Veuillez renseigner votre Nom et Numéro WhatsApp / Téléphone pour recevoir votre commande.')
+      return
+    }
     setProcessing(true)
 
     try {
+      const pMethod = sellerPayoutSettings?.payoutMethod || 'bank_transfer_iban'
       const res = await fetch('/api/payouts/order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -137,20 +162,25 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
           userId,
           product,
           buyer: {
-            name: buyerName || 'Direct Transfer Customer',
-            email: buyerEmail,
-            phone: buyerPhone,
+            name: buyerName || 'Client Virement',
+            email: buyerEmail || '',
+            phone: buyerPhone || '',
+            reference: transferReference || '',
           },
-          paymentMethod: sellerPayoutSettings?.payoutMethod || 'direct_transfer',
+          paymentMethod: pMethod,
         }),
       })
 
       if (res.ok) {
         const json = await res.json()
         try {
-          confetti({ particleCount: 60, spread: 70, origin: { y: 0.6 } })
+          confetti({ particleCount: 50, spread: 60, origin: { y: 0.6 } })
         } catch (err) {}
-        setOrderSuccess(json)
+        setOrderSuccess({
+          ...json,
+          isPendingVerification: json.isPendingVerification !== false,
+          method: pMethod,
+        })
       }
     } catch (err) {
       console.error(err)
@@ -439,86 +469,301 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
 
           {/* CHECKOUT / DOWNLOAD ACTIONS */}
           {orderSuccess ? (
-            <div
-              style={{
-                background: '#ECFDF5',
-                border: '1px solid #A7F3D0',
-                borderRadius: 16,
-                padding: '16px',
-                textAlign: 'center',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 8,
-              }}
-            >
-              <span style={{ fontSize: 32 }}>🎉</span>
-              <div style={{ fontSize: 16, fontWeight: 800, color: '#065F46' }}>
-                Payment & Order Confirmed!
-              </div>
-              <p style={{ margin: 0, fontSize: 12.5, color: '#047857' }}>
-                Thank you for your purchase. 91% net earnings have been routed to the creator.
-              </p>
+            (() => {
+              const isPending =
+                orderSuccess.isPendingVerification ||
+                orderSuccess.transaction?.status === 'pending_verification' ||
+                orderSuccess.transaction?.status === 'pending_settlement'
 
-              {(product.file_url || product.external_url) && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, width: '100%', marginTop: 4 }}>
-                  <button
-                    type="button"
-                    onClick={handleDirectDownload}
-                    disabled={downloading}
+              const txId = orderSuccess.transaction?.id || 'CMD_' + Date.now().toString().slice(-6)
+              const cleanSellerPhone = (sellerPhone || '').replace(/[^\d+]/g, '')
+              const waMessage = [
+                `👋 Bonjour, je viens d'effectuer le virement bancaire pour commander : *${product.name}*`,
+                `💰 *Montant :* ${product.price}`,
+                `🔖 *Réf Commande :* ${txId}`,
+                buyerName ? `👤 *Mon Nom :* ${buyerName}` : null,
+                buyerPhone ? `📱 *Mon WhatsApp :* ${buyerPhone}` : null,
+                transferReference ? `📑 *Réf Virement :* ${transferReference}` : null,
+                '',
+                '📎 Je vous joins ci-dessous mon reçu de virement bancaire pour débloquer mon lien de téléchargement. Merci !',
+              ]
+                .filter(Boolean)
+                .join('\n')
+
+              const waReceiptUrl = cleanSellerPhone
+                ? `https://wa.me/${cleanSellerPhone.replace(/^\+/, '')}?text=${encodeURIComponent(waMessage)}`
+                : `https://api.whatsapp.com/send?text=${encodeURIComponent(waMessage)}`
+
+              if (isPending) {
+                return (
+                  <div
                     style={{
-                      width: '100%',
-                      background: '#059669',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: 12,
-                      padding: '12px',
-                      fontSize: 13.5,
-                      fontWeight: 800,
-                      cursor: downloading ? 'wait' : 'pointer',
+                      background: '#FFFBEB',
+                      border: '1px solid #FDE68A',
+                      borderRadius: 16,
+                      padding: '18px 16px',
+                      textAlign: 'center',
                       display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: 6,
-                      opacity: downloading ? 0.8 : 1,
+                      flexDirection: 'column',
+                      gap: 12,
                     }}
                   >
-                    {downloading ? '⏳ Downloading File...' : `⚡ Download ${product.file_name ? `"${product.file_name}"` : 'Files'} Now ↗`}
-                  </button>
+                    <div style={{ display: 'flex', justifyContent: 'center' }}>
+                      <div
+                        style={{
+                          width: 48,
+                          height: 48,
+                          borderRadius: 24,
+                          background: '#FEF3C7',
+                          color: '#D97706',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: 24,
+                          fontWeight: 800,
+                        }}
+                      >
+                        ⏳
+                      </div>
+                    </div>
 
-                  {downloadBlobUrl && (
+                    <div>
+                      <div style={{ fontSize: 16, fontWeight: 800, color: '#92400E' }}>
+                        Demande de Virement Enregistrée
+                      </div>
+                      <div
+                        style={{
+                          display: 'inline-block',
+                          background: '#FDE68A',
+                          color: '#78350F',
+                          fontSize: 11,
+                          fontWeight: 800,
+                          padding: '2px 8px',
+                          borderRadius: 6,
+                          marginTop: 4,
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.04em',
+                        }}
+                      >
+                        En attente de réception du virement
+                      </div>
+                    </div>
+
+                    <p style={{ margin: 0, fontSize: 12.5, color: '#78350F', lineHeight: 1.5 }}>
+                      Votre commande pour <strong>{product.name}</strong> a bien été créée.
+                      <br />
+                      <strong>Le lien de téléchargement direct est sécurisé</strong> et vous sera transmis dès confirmation du virement par le vendeur.
+                    </p>
+
+                    {/* Order Reference & Bank summary */}
+                    <div
+                      style={{
+                        background: '#FFFFFF',
+                        border: '1px solid #FCD34D',
+                        borderRadius: 12,
+                        padding: '12px',
+                        textAlign: 'left',
+                        fontSize: 12,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 6,
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ color: '#64748B', fontWeight: 600 }}>Réf Commande :</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span style={{ fontWeight: 800, fontFamily: 'monospace', color: '#0F172A' }}>{txId}</span>
+                          <button
+                            type="button"
+                            onClick={() => handleCopy(txId, 'txId')}
+                            style={{
+                              background: '#F1F5F9',
+                              border: 'none',
+                              borderRadius: 4,
+                              padding: '2px 6px',
+                              fontSize: 10.5,
+                              cursor: 'pointer',
+                              fontWeight: 700,
+                              color: '#334155',
+                            }}
+                          >
+                            {copiedKey === 'txId' ? '✓ Copié' : 'Copier'}
+                          </button>
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ color: '#64748B', fontWeight: 600 }}>Montant à virer :</span>
+                        <span style={{ fontWeight: 800, color: '#059669', fontSize: 13 }}>{product.price}</span>
+                      </div>
+
+                      {sellerPayoutSettings?.bankName && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ color: '#64748B', fontWeight: 600 }}>Banque :</span>
+                          <span style={{ fontWeight: 700, color: '#0F172A' }}>{sellerPayoutSettings.bankName}</span>
+                        </div>
+                      )}
+
+                      {(sellerPayoutSettings?.iban || sellerPayoutSettings?.moroccoRib) && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ color: '#64748B', fontWeight: 600 }}>
+                            {sellerPayoutSettings.iban ? 'IBAN :' : 'RIB :'}
+                          </span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <span style={{ fontWeight: 700, fontFamily: 'monospace', fontSize: 11, color: '#0F172A' }}>
+                              {sellerPayoutSettings.iban || sellerPayoutSettings.moroccoRib}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleCopy(sellerPayoutSettings.iban || sellerPayoutSettings.moroccoRib, 'bankNum')}
+                              style={{
+                                background: '#F1F5F9',
+                                border: 'none',
+                                borderRadius: 4,
+                                padding: '2px 6px',
+                                fontSize: 10.5,
+                                cursor: 'pointer',
+                                fontWeight: 700,
+                                color: '#334155',
+                              }}
+                            >
+                              {copiedKey === 'bankNum' ? '✓ Copié' : 'Copier'}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* WhatsApp Action Button */}
                     <a
-                      href={downloadBlobUrl}
-                      download={downloadFileName}
+                      href={waReceiptUrl}
                       target="_blank"
                       rel="noopener noreferrer"
                       style={{
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        gap: 6,
-                        background: '#047857',
+                        gap: 8,
+                        background: '#16A34A',
                         color: '#FFFFFF',
-                        padding: '10px 14px',
-                        borderRadius: 10,
+                        padding: '12px 14px',
+                        borderRadius: 12,
                         fontWeight: 800,
-                        fontSize: 13,
+                        fontSize: 13.5,
                         textDecoration: 'none',
+                        boxShadow: '0 2px 8px rgba(22,163,74,0.3)',
                       }}
                     >
-                      📥 Direct Download Link ({downloadFileName})
+                      <span>📲 Envoyer le reçu sur WhatsApp (Validation Rapide)</span>
                     </a>
-                  )}
-                </div>
-              )}
 
-              <button
-                type="button"
-                onClick={onClose}
-                style={{ background: 'transparent', border: 'none', color: '#047857', fontSize: 12, fontWeight: 700, cursor: 'pointer', marginTop: 4 }}
-              >
-                Close Window
-              </button>
-            </div>
+                    <div style={{ fontSize: 11, color: '#92400E', fontStyle: 'italic' }}>
+                      🔒 Dès que le créateur confirme la réception de votre virement, vous recevrez l'accès complet et immédiat à votre Ebook.
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={onClose}
+                      style={{
+                        background: 'transparent',
+                        border: 'none',
+                        color: '#78350F',
+                        fontSize: 12,
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        marginTop: 2,
+                      }}
+                    >
+                      Fermer la fenêtre
+                    </button>
+                  </div>
+                )
+              }
+
+              // Instant confirmed (Stripe Card payment or free product)
+              return (
+                <div
+                  style={{
+                    background: '#ECFDF5',
+                    border: '1px solid #A7F3D0',
+                    borderRadius: 16,
+                    padding: '16px',
+                    textAlign: 'center',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 8,
+                  }}
+                >
+                  <span style={{ fontSize: 32 }}>🎉</span>
+                  <div style={{ fontSize: 16, fontWeight: 800, color: '#065F46' }}>
+                    Payment & Order Confirmed!
+                  </div>
+                  <p style={{ margin: 0, fontSize: 12.5, color: '#047857' }}>
+                    Thank you for your purchase. 91% net earnings have been routed to the creator.
+                  </p>
+
+                  {(product.file_url || product.external_url) && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, width: '100%', marginTop: 4 }}>
+                      <button
+                        type="button"
+                        onClick={handleDirectDownload}
+                        disabled={downloading}
+                        style={{
+                          width: '100%',
+                          background: '#059669',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: 12,
+                          padding: '12px',
+                          fontSize: 13.5,
+                          fontWeight: 800,
+                          cursor: downloading ? 'wait' : 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: 6,
+                          opacity: downloading ? 0.8 : 1,
+                        }}
+                      >
+                        {downloading ? '⏳ Downloading File...' : `⚡ Download ${product.file_name ? `"${product.file_name}"` : 'Files'} Now ↗`}
+                      </button>
+
+                      {downloadBlobUrl && (
+                        <a
+                          href={downloadBlobUrl}
+                          download={downloadFileName}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: 6,
+                            background: '#047857',
+                            color: '#FFFFFF',
+                            padding: '10px 14px',
+                            borderRadius: 10,
+                            fontWeight: 800,
+                            fontSize: 13,
+                            textDecoration: 'none',
+                          }}
+                        >
+                          📥 Direct Download Link ({downloadFileName})
+                        </a>
+                      )}
+                    </div>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    style={{ background: 'transparent', border: 'none', color: '#047857', fontSize: 12, fontWeight: 700, cursor: 'pointer', marginTop: 4 }}
+                  >
+                    Close Window
+                  </button>
+                </div>
+              )
+            })()
           ) : isFree ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }}>
               <button
@@ -729,49 +974,165 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
                 </form>
               )}
 
-              {/* TAB 2: DIRECT PAYMENT (PayPal, Wise, IBAN, Crypto, Local Bank) */}
+              {/* TAB 2: DIRECT PAYMENT (CIH, Attijariwafa, Bank Transfer, IBAN) */}
               {payTab === 'direct' && (
-                <form onSubmit={handleDirectTransferPayment} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 10, padding: '8px 10px', fontSize: 11.5 }}>
-                    {sellerPayoutSettings?.paypalEmail ? (
-                      <div>
-                        <div style={{ fontWeight: 700, color: '#0079C1' }}>🅿️ PayPal: {sellerPayoutSettings.paypalEmail}</div>
-                        <div style={{ color: '#64748B', fontSize: 10.5 }}>Send exact amount & click confirm below.</div>
-                      </div>
-                    ) : sellerPayoutSettings?.iban ? (
-                      <div>
-                        <div style={{ fontWeight: 700, color: '#0F172A' }}>🏛️ Bank: {sellerPayoutSettings.bankName || 'International Wire'}</div>
-                        <div style={{ color: '#475569', fontFamily: 'monospace', fontSize: 11 }}>IBAN: {sellerPayoutSettings.iban}</div>
-                        {sellerPayoutSettings.swiftBic && <div style={{ color: '#64748B', fontSize: 10.5 }}>SWIFT/BIC: {sellerPayoutSettings.swiftBic}</div>}
-                      </div>
-                    ) : sellerPayoutSettings?.cryptoAddress ? (
-                      <div>
-                        <div style={{ fontWeight: 700, color: '#26A17B' }}>🪙 {sellerPayoutSettings.cryptoNetwork || 'USDT'}:</div>
-                        <div style={{ color: '#475569', fontFamily: 'monospace', fontSize: 10, wordBreak: 'break-all' }}>{sellerPayoutSettings.cryptoAddress}</div>
-                      </div>
-                    ) : (
-                      <div>
-                        <div style={{ fontWeight: 700, color: '#0F172A' }}>🏛️ Bank Transfer / PayPal</div>
-                        <div style={{ color: '#64748B', fontSize: 10.5 }}>Beneficiary: {sellerPayoutSettings?.accountHolder || profile?.display_name || username}</div>
-                        {sellerPayoutSettings?.moroccoRib && <div style={{ fontFamily: 'monospace', fontSize: 10.5 }}>RIB: {sellerPayoutSettings.moroccoRib}</div>}
+                <form onSubmit={handleDirectTransferPayment} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  <div
+                    style={{
+                      background: '#F8FAFC',
+                      border: '1px solid #E2E8F0',
+                      borderRadius: 12,
+                      padding: '12px',
+                      fontSize: 12,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 8,
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontWeight: 700, color: '#0F172A', fontSize: 13 }}>
+                        🏛️ Coordonnées Bancaires (Virement)
+                      </span>
+                      <span style={{ fontWeight: 800, color: '#059669', fontSize: 13 }}>
+                        {product.price}
+                      </span>
+                    </div>
+
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 11.5 }}>
+                      <span style={{ color: '#64748B' }}>Banque :</span>
+                      <span style={{ fontWeight: 700, color: '#1E293B' }}>
+                        {sellerPayoutSettings?.bankName || 'Virement Bancaire (CIH / Autre)'}
+                      </span>
+                    </div>
+
+                    {(sellerPayoutSettings?.iban || sellerPayoutSettings?.moroccoRib) && (
+                      <div
+                        style={{
+                          background: '#FFFFFF',
+                          border: '1px solid #CBD5E1',
+                          borderRadius: 8,
+                          padding: '8px 10px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: 6,
+                        }}
+                      >
+                        <div>
+                          <div style={{ fontSize: 10, color: '#64748B', fontWeight: 700 }}>
+                            {sellerPayoutSettings?.iban ? 'IBAN' : 'RIB BANCAIRE (24 CHIFFRES)'}
+                          </div>
+                          <div style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 12, color: '#0F172A' }}>
+                            {sellerPayoutSettings?.iban || sellerPayoutSettings?.moroccoRib}
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleCopy(sellerPayoutSettings?.iban || sellerPayoutSettings?.moroccoRib, 'tabBankNum')}
+                          style={{
+                            background: '#F1F5F9',
+                            border: '1px solid #E2E8F0',
+                            borderRadius: 6,
+                            padding: '4px 8px',
+                            fontSize: 11,
+                            cursor: 'pointer',
+                            fontWeight: 700,
+                            color: '#334155',
+                          }}
+                        >
+                          {copiedKey === 'tabBankNum' ? '✓ Copié' : 'Copier'}
+                        </button>
                       </div>
                     )}
+
+                    {sellerPayoutSettings?.swiftBic && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 11.5 }}>
+                        <span style={{ color: '#64748B' }}>SWIFT / BIC :</span>
+                        <span style={{ fontFamily: 'monospace', fontWeight: 700, color: '#1E293B' }}>
+                          {sellerPayoutSettings.swiftBic}
+                        </span>
+                      </div>
+                    )}
+
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 11.5 }}>
+                      <span style={{ color: '#64748B' }}>Titulaire du compte :</span>
+                      <span style={{ fontWeight: 700, color: '#1E293B' }}>
+                        {sellerPayoutSettings?.accountHolder || profile?.display_name || username}
+                      </span>
+                    </div>
                   </div>
 
-                  <input
-                    placeholder="Your Name / Email"
-                    value={buyerName}
-                    onChange={(e) => setBuyerName(e.target.value)}
-                    style={{
-                      width: '100%',
-                      boxSizing: 'border-box',
-                      borderRadius: 10,
-                      border: '1px solid rgba(0,0,0,0.15)',
-                      padding: '8px 10px',
-                      fontSize: 12,
-                      outline: 'none',
-                    }}
-                  />
+                  {/* Buyer details inputs */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <input
+                      placeholder="Votre Nom & Prénom"
+                      value={buyerName}
+                      onChange={(e) => setBuyerName(e.target.value)}
+                      required
+                      style={{
+                        width: '100%',
+                        boxSizing: 'border-box',
+                        borderRadius: 10,
+                        border: '1px solid rgba(0,0,0,0.15)',
+                        padding: '9px 12px',
+                        fontSize: 12.5,
+                        outline: 'none',
+                      }}
+                    />
+
+                    <input
+                      type="tel"
+                      placeholder="Numéro WhatsApp / Téléphone (Obligatoire pour l'envoi)"
+                      value={buyerPhone}
+                      onChange={(e) => setBuyerPhone(e.target.value)}
+                      required
+                      style={{
+                        width: '100%',
+                        boxSizing: 'border-box',
+                        borderRadius: 10,
+                        border: '1px solid rgba(0,0,0,0.15)',
+                        padding: '9px 12px',
+                        fontSize: 12.5,
+                        outline: 'none',
+                      }}
+                    />
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+                      <input
+                        type="email"
+                        placeholder="Email (Facultatif)"
+                        value={buyerEmail}
+                        onChange={(e) => setBuyerEmail(e.target.value)}
+                        style={{
+                          width: '100%',
+                          boxSizing: 'border-box',
+                          borderRadius: 10,
+                          border: '1px solid rgba(0,0,0,0.15)',
+                          padding: '9px 12px',
+                          fontSize: 12,
+                          outline: 'none',
+                        }}
+                      />
+                      <input
+                        placeholder="Réf Virement (Facultatif)"
+                        value={transferReference}
+                        onChange={(e) => setTransferReference(e.target.value)}
+                        style={{
+                          width: '100%',
+                          boxSizing: 'border-box',
+                          borderRadius: 10,
+                          border: '1px solid rgba(0,0,0,0.15)',
+                          padding: '9px 12px',
+                          fontSize: 12,
+                          outline: 'none',
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  <div style={{ fontSize: 11, color: '#64748B', lineHeight: 1.4, background: '#F1F5F9', padding: '6px 10px', borderRadius: 8 }}>
+                    🔒 <strong>Sécurité créateur :</strong> Le fichier n'est pas téléchargeable immédiatement. Vous pourrez envoyer votre reçu de virement pour validation rapide.
+                  </div>
 
                   <button
                     type="submit"
@@ -781,13 +1142,17 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
                       color: '#FFFFFF',
                       border: 'none',
                       borderRadius: 12,
-                      padding: '11px',
+                      padding: '12px',
                       fontSize: 13,
                       fontWeight: 800,
                       cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 6,
                     }}
                   >
-                    <span>{processing ? 'Confirming...' : '✓ I Have Sent The Payment'}</span>
+                    <span>{processing ? '⏳ Enregistrement...' : `✓ J'ai effectué le virement (${product.price})`}</span>
                   </button>
                 </form>
               )}
