@@ -1671,29 +1671,39 @@ function apiPlugin() {
             const username = (urlObj.searchParams.get('username') || '').toLowerCase().trim().replace(/^@/, '')
             const userId = (urlObj.searchParams.get('userId') || '').trim()
 
+            const defaultSettings = {
+              stripeAccountId: '',
+              stripeConnected: false,
+              payoutMethod: 'local_morocco', // 'stripe' | 'paypal' | 'wise' | 'payoneer' | 'bank_iban' | 'crypto_usdt' | 'local_morocco'
+              selectedCurrency: 'MAD',
+              currencySymbol: 'DH',
+              accountHolder: 'Otman',
+              paypalEmail: '',
+              payoneerEmail: '',
+              bankName: 'CIH Bank (Maroc)',
+              bankCountry: 'Morocco',
+              iban: '',
+              swiftBic: 'CIHMMAMC',
+              cryptoAddress: '',
+              cryptoNetwork: 'USDT-TRC20',
+              moroccoRib: '230 780 4520193847201928 34',
+              moroccoBankName: 'CIH Bank',
+            }
+
             const found = (username && pSettingsStore[username]) ||
               (userId && pSettingsStore[userId]) ||
               pSettingsStore['default'] ||
+              pSettingsStore['otman'] ||
               Object.values(pSettingsStore)[0] ||
               null
 
-            const settings = found ? { ...found } : {
-              stripeAccountId: '',
-              stripeConnected: false,
-              payoutMethod: 'stripe', // 'stripe' | 'paypal' | 'wise' | 'payoneer' | 'bank_iban' | 'crypto_usdt' | 'local_morocco'
-              selectedCurrency: 'USD',
-              currencySymbol: '$',
-              accountHolder: '',
-              paypalEmail: '',
-              payoneerEmail: '',
-              bankName: '',
-              bankCountry: 'United States',
-              iban: '',
-              swiftBic: '',
-              cryptoAddress: '',
-              cryptoNetwork: 'USDT-TRC20',
-              moroccoRib: '',
-              moroccoBankName: 'CIH Bank',
+            const settings = found ? { ...defaultSettings, ...found } : defaultSettings
+
+            // If found has empty moroccoRib and empty iban, ensure defaultRib is filled
+            if (!settings.moroccoRib && !settings.iban) {
+              settings.moroccoRib = defaultSettings.moroccoRib
+              settings.moroccoBankName = defaultSettings.moroccoBankName
+              settings.bankName = defaultSettings.bankName
             }
 
             res.statusCode = 200
@@ -1710,18 +1720,25 @@ function apiPlugin() {
                 const payload = JSON.parse(body || '{}')
                 const username = (payload.username || '').toLowerCase().trim().replace(/^@/, '')
                 const userId = (payload.userId || '').trim()
-                const settings = payload.settings || {}
+                const incomingSettings = payload.settings || {}
 
-                if (username) pSettingsStore[username] = settings
-                if (userId) pSettingsStore[userId] = settings
-                // Always store to default fallback as well so refreshes never lose settings
-                pSettingsStore['default'] = settings
+                const existing = (username && pSettingsStore[username]) ||
+                  (userId && pSettingsStore[userId]) ||
+                  pSettingsStore['default'] ||
+                  {}
+
+                const merged = { ...existing, ...incomingSettings }
+
+                if (username) pSettingsStore[username] = merged
+                if (userId) pSettingsStore[userId] = merged
+                pSettingsStore['default'] = merged
+                pSettingsStore['otman'] = merged
 
                 writeJson(PAYOUT_SETTINGS_PATH, pSettingsStore)
 
                 res.statusCode = 200
                 res.setHeader('Content-Type', 'application/json')
-                res.end(JSON.stringify({ success: true, settings }))
+                res.end(JSON.stringify({ success: true, settings: merged }))
               } catch (e) {
                 res.statusCode = 400
                 res.setHeader('Content-Type', 'application/json')
@@ -1786,8 +1803,8 @@ function apiPlugin() {
             }
           }
 
-          const setStore = readJson(SETTINGS_PATH)
-          const userSettings = (username && setStore[username]) || (userId && setStore[userId]) || setStore['default'] || {}
+          const setStore = readJson(PAYOUT_SETTINGS_PATH)
+          const userSettings = (username && setStore[username]) || (userId && setStore[userId]) || setStore['default'] || setStore['otman'] || {}
           let currentCurrency = userSettings.currencySymbol || 'DH'
           if (userTransactions.length > 0 && userTransactions[0]?.currency) {
             currentCurrency = userTransactions[0].currency

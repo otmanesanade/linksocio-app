@@ -1,0 +1,38 @@
+{
+  "default": {
+    "stripeAccountId": "",
+    "stripeConnected": false,
+    "payoutMethod": "local_morocco",
+    "selectedCurrency": "MAD",
+    "currencySymbol": "DH",
+    "accountHolder": "Otman",
+    "paypalEmail": "",
+    "payoneerEmail": "",
+    "bankName": "CIH Bank (Maroc)",
+    "bankCountry": "Morocco",
+    "iban": "",
+    "swiftBic": "CIHMMAMC",
+    "cryptoAddress": "",
+    "cryptoNetwork": "USDT-TRC20",
+    "moroccoRib": "230 780 4520193847201928 34",
+    "moroccoBankName": "CIH Bank"
+  },
+  "otman": {
+    "stripeAccountId": "",
+    "stripeConnected": false,
+    "payoutMethod": "local_morocco",
+    "selectedCurrency": "MAD",
+    "currencySymbol": "DH",
+    "accountHolder": "Otman",
+    "paypalEmail": "",
+    "payoneerEmail": "",
+    "bankName": "CIH Bank (Maroc)",
+    "bankCountry": "Morocco",
+    "iban": "",
+    "swiftBic": "CIHMMAMC",
+    "cryptoAddress": "",
+    "cryptoNetwork": "USDT-TRC20",
+    "moroccoRib": "230 780 4520193847201928 34",
+    "moroccoBankName": "CIH Bank"
+  }
+}

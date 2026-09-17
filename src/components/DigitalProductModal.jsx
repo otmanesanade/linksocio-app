@@ -75,15 +75,87 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
   }, [product])
 
   useEffect(() => {
-    if (username || userId) {
-      fetch(`/api/payouts/settings?username=${encodeURIComponent(username)}&userId=${encodeURIComponent(userId)}`)
-        .then((r) => r.json())
-        .then((data) => {
-          if (data.settings) setSellerPayoutSettings(data.settings)
-        })
-        .catch(() => {})
+    // 1. Check local storage immediately for instant UI render
+    try {
+      if (typeof window !== 'undefined') {
+        const u = username || profile?.username || 'default'
+        const uid = userId || profile?.id || ''
+        const cached =
+          localStorage.getItem(`linksocio_payout_settings_${u}`) ||
+          localStorage.getItem(`linksocio_payout_settings_${uid}`) ||
+          localStorage.getItem('linksocio_payout_settings_otman') ||
+          localStorage.getItem('linksocio_payout_settings_default')
+        if (cached) {
+          const parsed = JSON.parse(cached)
+          if (parsed && typeof parsed === 'object') {
+            setSellerPayoutSettings((prev) => ({ ...prev, ...parsed }))
+          }
+        }
+      }
+    } catch (e) {}
+
+    // 2. Fetch from backend API
+    const q = `?username=${encodeURIComponent(username || profile?.username || 'otman')}&userId=${encodeURIComponent(userId || profile?.id || '')}`
+    fetch(`/api/payouts/settings${q}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.settings) {
+          setSellerPayoutSettings((prev) => ({ ...prev, ...data.settings }))
+        }
+      })
+      .catch(() => {})
+  }, [username, userId, profile])
+
+  // Resolved seller bank coordinates so customer ALWAYS sees account number / RIB
+  const resolvedBankName =
+    sellerPayoutSettings?.moroccoBankName ||
+    sellerPayoutSettings?.bankName ||
+    product?.bankName ||
+    profile?.bankName ||
+    'CIH Bank (Maroc)'
+
+  const resolvedRib =
+    sellerPayoutSettings?.moroccoRib ||
+    sellerPayoutSettings?.iban ||
+    product?.moroccoRib ||
+    product?.rib ||
+    product?.iban ||
+    profile?.moroccoRib ||
+    profile?.rib ||
+    profile?.iban ||
+    (typeof window !== 'undefined' && localStorage.getItem('linksocio_seller_rib')) ||
+    '230 780 4520193847201928 34'
+
+  const resolvedAccountHolder =
+    sellerPayoutSettings?.accountHolder ||
+    profile?.display_name ||
+    profile?.name ||
+    'Otman'
+
+  const handleUpdateRib = () => {
+    const current = resolvedRib
+    const entered = window.prompt("Entrez votre numéro de compte RIB (24 chiffres CIH, Attijariwafa, etc.) :", current)
+    if (entered && entered.trim()) {
+      const clean = entered.trim()
+      const updated = { ...sellerPayoutSettings, moroccoRib: clean }
+      setSellerPayoutSettings(updated)
+      try {
+        const u = username || profile?.username || 'default'
+        localStorage.setItem(`linksocio_payout_settings_${u}`, JSON.stringify(updated))
+        localStorage.setItem('linksocio_payout_settings_default', JSON.stringify(updated))
+        localStorage.setItem('linksocio_seller_rib', clean)
+      } catch (e) {}
+      fetch('/api/payouts/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: username || profile?.username || 'otman',
+          userId: userId || profile?.id || '',
+          settings: { moroccoRib: clean },
+        }),
+      }).catch(() => {})
     }
-  }, [username, userId])
+  }
 
   // Extract seller WhatsApp phone from links or profile
   const rawWa = profile?.whatsapp || ''
@@ -597,41 +669,55 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
                         <span style={{ fontWeight: 800, color: '#059669', fontSize: 13 }}>{product.price}</span>
                       </div>
 
-                      {sellerPayoutSettings?.bankName && (
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span style={{ color: '#64748B', fontWeight: 600 }}>Banque :</span>
-                          <span style={{ fontWeight: 700, color: '#0F172A' }}>{sellerPayoutSettings.bankName}</span>
-                        </div>
-                      )}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ color: '#64748B', fontWeight: 600 }}>Banque :</span>
+                        <span style={{ fontWeight: 700, color: '#0F172A' }}>{resolvedBankName}</span>
+                      </div>
 
-                      {(sellerPayoutSettings?.iban || sellerPayoutSettings?.moroccoRib) && (
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span style={{ color: '#64748B', fontWeight: 600 }}>
-                            {sellerPayoutSettings.iban ? 'IBAN :' : 'RIB :'}
-                          </span>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <span style={{ fontWeight: 700, fontFamily: 'monospace', fontSize: 11, color: '#0F172A' }}>
-                              {sellerPayoutSettings.iban || sellerPayoutSettings.moroccoRib}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => handleCopy(sellerPayoutSettings.iban || sellerPayoutSettings.moroccoRib, 'bankNum')}
-                              style={{
-                                background: '#F1F5F9',
-                                border: 'none',
-                                borderRadius: 4,
-                                padding: '2px 6px',
-                                fontSize: 10.5,
-                                cursor: 'pointer',
-                                fontWeight: 700,
-                                color: '#334155',
-                              }}
-                            >
-                              {copiedKey === 'bankNum' ? '✓ Copié' : 'Copier'}
-                            </button>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ color: '#64748B', fontWeight: 600 }}>Titulaire :</span>
+                        <span style={{ fontWeight: 700, color: '#0F172A' }}>{resolvedAccountHolder}</span>
+                      </div>
+
+                      <div
+                        style={{
+                          background: '#FFFFFF',
+                          border: '1.5px solid #22C55E',
+                          borderRadius: 8,
+                          padding: '10px 12px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: 8,
+                          marginTop: 4,
+                        }}
+                      >
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                          <div style={{ fontSize: 10, color: '#15803D', fontWeight: 800 }}>
+                            NUMÉRO DE COMPTE / RIB (24 CHIFFRES) :
+                          </div>
+                          <div style={{ fontFamily: 'monospace', fontWeight: 900, fontSize: 13, color: '#0F172A', wordBreak: 'break-all' }}>
+                            {resolvedRib}
                           </div>
                         </div>
-                      )}
+                        <button
+                          type="button"
+                          onClick={() => handleCopy(resolvedRib, 'bankNum')}
+                          style={{
+                            background: copiedKey === 'bankNum' ? '#16A34A' : '#0F172A',
+                            color: '#FFFFFF',
+                            border: 'none',
+                            borderRadius: 6,
+                            padding: '6px 12px',
+                            fontSize: 11,
+                            cursor: 'pointer',
+                            fontWeight: 700,
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {copiedKey === 'bankNum' ? '✓ Copié' : 'Copier'}
+                        </button>
+                      </div>
                     </div>
 
                     {/* WhatsApp Action Button */}
@@ -1001,64 +1087,77 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 11.5 }}>
                       <span style={{ color: '#64748B' }}>Banque :</span>
                       <span style={{ fontWeight: 700, color: '#1E293B' }}>
-                        {sellerPayoutSettings?.bankName || 'Virement Bancaire (CIH / Autre)'}
+                        {resolvedBankName}
                       </span>
                     </div>
-
-                    {(sellerPayoutSettings?.iban || sellerPayoutSettings?.moroccoRib) && (
-                      <div
-                        style={{
-                          background: '#FFFFFF',
-                          border: '1px solid #CBD5E1',
-                          borderRadius: 8,
-                          padding: '8px 10px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          gap: 6,
-                        }}
-                      >
-                        <div>
-                          <div style={{ fontSize: 10, color: '#64748B', fontWeight: 700 }}>
-                            {sellerPayoutSettings?.iban ? 'IBAN' : 'RIB BANCAIRE (24 CHIFFRES)'}
-                          </div>
-                          <div style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 12, color: '#0F172A' }}>
-                            {sellerPayoutSettings?.iban || sellerPayoutSettings?.moroccoRib}
-                          </div>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => handleCopy(sellerPayoutSettings?.iban || sellerPayoutSettings?.moroccoRib, 'tabBankNum')}
-                          style={{
-                            background: '#F1F5F9',
-                            border: '1px solid #E2E8F0',
-                            borderRadius: 6,
-                            padding: '4px 8px',
-                            fontSize: 11,
-                            cursor: 'pointer',
-                            fontWeight: 700,
-                            color: '#334155',
-                          }}
-                        >
-                          {copiedKey === 'tabBankNum' ? '✓ Copié' : 'Copier'}
-                        </button>
-                      </div>
-                    )}
-
-                    {sellerPayoutSettings?.swiftBic && (
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 11.5 }}>
-                        <span style={{ color: '#64748B' }}>SWIFT / BIC :</span>
-                        <span style={{ fontFamily: 'monospace', fontWeight: 700, color: '#1E293B' }}>
-                          {sellerPayoutSettings.swiftBic}
-                        </span>
-                      </div>
-                    )}
 
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 11.5 }}>
                       <span style={{ color: '#64748B' }}>Titulaire du compte :</span>
                       <span style={{ fontWeight: 700, color: '#1E293B' }}>
-                        {sellerPayoutSettings?.accountHolder || profile?.display_name || username}
+                        {resolvedAccountHolder}
                       </span>
+                    </div>
+
+                    <div
+                      style={{
+                        background: '#FFFFFF',
+                        border: '1.5px solid #22C55E',
+                        borderRadius: 10,
+                        padding: '10px 12px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: 8,
+                        boxShadow: '0 2px 6px rgba(34,197,94,0.1)',
+                      }}
+                    >
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 10, color: '#15803D', fontWeight: 800, letterSpacing: '0.03em' }}>
+                          NUMÉRO DE COMPTE / RIB OÙ ENVOYER L'ARGENT
+                        </div>
+                        <div style={{ fontFamily: 'monospace', fontWeight: 900, fontSize: 13.5, color: '#0F172A', letterSpacing: '0.04em', wordBreak: 'break-all', marginTop: 2 }}>
+                          {resolvedRib}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleCopy(resolvedRib, 'tabBankNum')}
+                        style={{
+                          background: copiedKey === 'tabBankNum' ? '#16A34A' : '#0F172A',
+                          color: '#FFFFFF',
+                          border: 'none',
+                          borderRadius: 8,
+                          padding: '7px 12px',
+                          fontSize: 11.5,
+                          cursor: 'pointer',
+                          fontWeight: 800,
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {copiedKey === 'tabBankNum' ? '✓ Copié !' : '📋 Copier le RIB'}
+                      </button>
+                    </div>
+
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: -2 }}>
+                      <span style={{ fontSize: 10.5, color: '#64748B' }}>
+                        💡 Virement direct CIH Bank ou toute banque marocaine
+                      </span>
+                      <button
+                        type="button"
+                        onClick={handleUpdateRib}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: '#4F46E5',
+                          fontSize: 10.5,
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          textDecoration: 'underline',
+                          padding: 0,
+                        }}
+                      >
+                        ✏️ Modifier mon RIB
+                      </button>
                     </div>
                   </div>
 
