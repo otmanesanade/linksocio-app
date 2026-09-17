@@ -237,9 +237,14 @@ export default async function handler(req, res) {
     const userKey = u || id || 'default'
     const userList = Array.isArray(txStore[userKey]) ? txStore[userKey] : []
 
-    // Security check: Stripe card payments or free products are instant completed.
-    // IBAN / Wire / CIH / CashPlus / Direct transfers are pending verification!
-    const isInstantPaid = paymentMethod === 'card_stripe' || paymentMethod === 'free_access' || grossAmount === 0
+    // Security check: Stripe card payments, PayPal, or free access are instant completed.
+    // Manual bank transfers are pending verification!
+    const isInstantPaid =
+      paymentMethod === 'card_stripe' ||
+      paymentMethod === 'paypal' ||
+      paymentMethod === 'free_access' ||
+      paymentMethod === 'free_whatsapp_claim' ||
+      grossAmount === 0
     const orderStatus = isInstantPaid ? 'completed' : 'pending_verification'
 
     const newTransaction = {

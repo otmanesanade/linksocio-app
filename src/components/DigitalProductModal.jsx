@@ -6,7 +6,7 @@ import { useLanguage } from '../context/LanguageContext'
 
 export default function DigitalProductModal({ product, profile, theme, onClose, isEmbedded = false }) {
   const { t, isRTL, language } = useLanguage()
-  const [payTab, setPayTab] = useState('card') // 'card' | 'direct' | 'whatsapp'
+  const [payTab, setPayTab] = useState('card') // 'card' | 'paypal'
   const [buyerName, setBuyerName] = useState('')
   const [buyerPhone, setBuyerPhone] = useState('')
   const [buyerEmail, setBuyerEmail] = useState('')
@@ -134,9 +134,20 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
     profile?.name ||
     'Otman'
 
-  // Extract seller WhatsApp phone from links or profile
-  const rawWa = profile?.whatsapp || ''
-  const sellerPhone = rawWa.replace(/[^\d]/g, '') || ''
+  // Extract seller WhatsApp phone and PayPal address
+  const rawWa =
+    profile?.whatsapp ||
+    profile?.phone ||
+    (typeof window !== 'undefined' && (localStorage.getItem(`linksocio_contact_whatsapp_${username}`) || localStorage.getItem(`linksocio_contact_phone_${username}`))) ||
+    ''
+  const sellerPhone = rawWa.replace(/[^\d+]/g, '') || ''
+
+  const resolvedPaypalEmail =
+    sellerPayoutSettings?.paypalEmail ||
+    profile?.paypal_email ||
+    profile?.paypalEmail ||
+    profile?.email ||
+    'OtmanK514@gmail.com'
 
   const handleCardPayment = async (e) => {
     if (e) e.preventDefault()
@@ -193,16 +204,13 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
     }
   }
 
-  const handleDirectTransferPayment = async (e) => {
+  const handlePayPalPayment = async (e) => {
     if (e) e.preventDefault()
-    if (!buyerPhone && !buyerEmail && !buyerName) {
-      alert('Veuillez renseigner votre Nom et Numéro WhatsApp / Téléphone pour recevoir votre commande.')
-      return
-    }
     setProcessing(true)
+    setPaymentError(null)
 
     try {
-      const pMethod = sellerPayoutSettings?.payoutMethod || 'bank_transfer_iban'
+      // 1. Record order in system as instant paid
       const res = await fetch('/api/payouts/order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -211,76 +219,112 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
           userId,
           product,
           buyer: {
-            name: buyerName || 'Client Virement',
+            name: buyerName || 'PayPal Customer',
             email: buyerEmail || '',
             phone: buyerPhone || '',
-            reference: transferReference || '',
           },
-          paymentMethod: pMethod,
+          paymentMethod: 'paypal',
         }),
       })
 
-      if (res.ok) {
-        const json = await res.json()
-        try {
-          confetti({ particleCount: 50, spread: 60, origin: { y: 0.6 } })
-        } catch (err) {}
-        setOrderSuccess({
-          ...json,
-          isPendingVerification: json.isPendingVerification !== false,
-          method: pMethod,
-        })
+      const json = res.ok ? await res.json() : {}
+
+      // 2. Build PayPal checkout URL
+      const rawPrice = String(product.price || '0').replace(/[^\d.]/g, '') || '10'
+      const currency = /€|EUR/i.test(product.price) ? 'EUR' : 'USD'
+      const paypalTarget = (resolvedPaypalEmail || 'OtmanK514@gmail.com').trim()
+      const isPaypalMe = paypalTarget.includes('paypal.me/') || (!paypalTarget.includes('@') && !paypalTarget.includes('.'))
+
+      let paypalUrl = ''
+      if (isPaypalMe) {
+        const cleanHandle = paypalTarget.replace(/^https?:\/\//i, '').replace(/paypal\.me\//i, '').replace(/^\/+/, '')
+        paypalUrl = `https://paypal.me/${cleanHandle}/${rawPrice}`
+      } else {
+        paypalUrl = `https://www.paypal.com/cgi-bin/webscr?cmd=_xclick&business=${encodeURIComponent(paypalTarget)}&item_name=${encodeURIComponent(product.name)}&amount=${rawPrice}&currency_code=${currency}&no_shipping=1`
       }
+
+      try {
+        confetti({ particleCount: 50, spread: 60, origin: { y: 0.6 } })
+      } catch (err) {}
+
+      // Open PayPal checkout
+      if (typeof window !== 'undefined') {
+        window.open(paypalUrl, '_blank')
+      }
+
+      setOrderSuccess({
+        ...json,
+        isPendingVerification: false,
+        method: 'paypal',
+      })
     } catch (err) {
-      console.error(err)
+      console.error('PayPal payment error:', err)
+      setPaymentError(err.message || 'Error initializing PayPal. Please try again.')
     } finally {
       setProcessing(false)
     }
   }
 
-  const handleWhatsAppOrder = async (e) => {
+  const handleFreeWhatsAppClaim = async (e) => {
     if (e) e.preventDefault()
+    setProcessing(true)
 
     try {
-      confetti({ particleCount: 50, spread: 60, origin: { y: 0.6 } })
-    } catch (err) {}
+      // Record free claim in system
+      fetch('/api/payouts/order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username,
+          userId,
+          product,
+          buyer: {
+            name: buyerName || 'Free Claim Visitor',
+            email: buyerEmail || '',
+            phone: buyerPhone || '',
+          },
+          paymentMethod: 'free_whatsapp_claim',
+        }),
+      }).catch(() => {})
 
-    // Record order in system
-    fetch('/api/payouts/order', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        username,
-        userId,
-        product,
-        buyer: {
-          name: buyerName || 'WhatsApp Buyer',
-          phone: buyerPhone,
-          email: buyerEmail,
+      try {
+        confetti({ particleCount: 60, spread: 70, origin: { y: 0.6 } })
+      } catch (err) {}
+
+      // Language-aware WhatsApp message
+      let waMessage = ''
+      if (language === 'ar') {
+        waMessage = `👋 السلام عليكم، أود الحصول على النسخة المجانية من: *${product.name}* 🎁${buyerName ? `\n👤 الاسم: ${buyerName}` : ''}`
+      } else if (language === 'fr') {
+        waMessage = `👋 Bonjour ! Je souhaite recevoir mon exemplaire gratuit de : *${product.name}* 🎁${buyerName ? `\n👤 Nom : ${buyerName}` : ''}`
+      } else if (language === 'es') {
+        waMessage = `👋 ¡Hola! Me gustaría recibir mi copia gratuita de: *${product.name}* 🎁${buyerName ? `\n👤 Nombre: ${buyerName}` : ''}`
+      } else {
+        waMessage = `👋 Hello! I would like to get my free copy of: *${product.name}* 🎁${buyerName ? `\n👤 Name: ${buyerName}` : ''}`
+      }
+
+      const cleanSellerPhone = (sellerPhone || '').replace(/[^\d+]/g, '')
+      const waUrl = cleanSellerPhone
+        ? `https://wa.me/${cleanSellerPhone.replace(/^\+/, '')}?text=${encodeURIComponent(waMessage)}`
+        : `https://wa.me/?text=${encodeURIComponent(waMessage)}`
+
+      if (typeof window !== 'undefined') {
+        window.open(waUrl, '_blank')
+      }
+
+      setOrderSuccess({
+        transaction: {
+          id: 'FREE_' + Date.now().toString().slice(-6),
+          status: 'completed',
         },
-        paymentMethod: 'whatsapp',
-      }),
-    }).catch(() => {})
-
-    const text = [
-      `👋 *New Order Request: ${product.name}*`,
-      `💰 *Price:* ${product.price || 'Free'}`,
-      `📦 *Category:* ${categoryObj.label}`,
-      buyerName ? `👤 *Buyer:* ${buyerName}` : null,
-      buyerEmail ? `📧 *Email:* ${buyerEmail}` : null,
-      buyerPhone ? `📱 *Phone:* ${buyerPhone}` : null,
-      `🔗 *Product Link:* ${window.location.href}`,
-      '',
-      'Hello, I would like to purchase and access this digital product!',
-    ]
-      .filter(Boolean)
-      .join('\n')
-
-    const waUrl = sellerPhone
-      ? `https://wa.me/${sellerPhone}?text=${encodeURIComponent(text)}`
-      : `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`
-
-    window.open(waUrl, '_blank')
+        isPendingVerification: false,
+        method: 'free_whatsapp_claim',
+      })
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setProcessing(false)
+    }
   }
 
   const handleDirectDownload = async () => {
@@ -856,30 +900,90 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
               )
             })()
           ) : isFree ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }}>
+            /* 🎁 FREE PRODUCT: WHATSAPP CLAIM & INSTANT ACCESS */
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 4 }}>
+              <div
+                style={{
+                  background: '#F0FDF4',
+                  border: '1.5px dashed #22C55E',
+                  borderRadius: 14,
+                  padding: '14px 16px',
+                  textAlign: 'center',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 6,
+                }}
+              >
+                <div style={{ fontSize: 13.5, fontWeight: 800, color: '#15803D' }}>
+                  {t('digitalModal.freeProductGiftTitle', '🎁 Cadeau / Produit Gratuit')}
+                </div>
+                <div style={{ fontSize: 12, color: '#166534', lineHeight: 1.4 }}>
+                  {t('digitalModal.freeWhatsAppNotice', 'Ce produit est 100% GRATUIT ! Cliquez ci-dessous pour recevoir votre exemplaire gratuit directement sur WhatsApp.')}
+                </div>
+              </div>
+
+              {/* Optional Buyer Name for personalizing WhatsApp message */}
+              <input
+                placeholder={t('digitalModal.whatsAppNamePlaceholder', 'Votre Nom (Facultatif)')}
+                value={buyerName}
+                onChange={(e) => setBuyerName(e.target.value)}
+                style={{
+                  width: '100%',
+                  boxSizing: 'border-box',
+                  borderRadius: 10,
+                  border: '1px solid rgba(0,0,0,0.15)',
+                  padding: '9px 12px',
+                  fontSize: 12.5,
+                  outline: 'none',
+                  textAlign: isRTL ? 'right' : 'left',
+                }}
+              />
+
+              {/* Primary WhatsApp claim button */}
               <button
                 type="button"
-                onClick={handleDirectDownload}
-                disabled={downloading}
+                onClick={handleFreeWhatsAppClaim}
+                disabled={processing}
                 style={{
-                  background: color,
+                  background: '#22C55E',
                   color: '#FFFFFF',
                   border: 'none',
                   borderRadius: 14,
-                  padding: '12px',
-                  fontSize: 13.5,
-                  fontWeight: 700,
-                  cursor: downloading ? 'wait' : 'pointer',
+                  padding: '13px',
+                  fontSize: 14,
+                  fontWeight: 800,
+                  cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   gap: 8,
-                  boxShadow: `0 4px 14px ${color}40`,
-                  opacity: downloading ? 0.8 : 1,
+                  boxShadow: '0 4px 14px rgba(34,197,94,0.35)',
                 }}
               >
-                <span>{downloading ? t('digitalModal.downloadingFile', '⏳ Downloading File...') : t('digitalModal.freeInstantAccessBtn', '⚡ Free Instant Access / Download')}</span>
+                <span>{t('digitalModal.getFreeOnWhatsAppBtn', '💬 Obtenir gratuitement sur WhatsApp')}</span>
               </button>
+
+              {/* Discreet direct download link if product has a direct file */}
+              {(product.file_url || product.external_url) && (
+                <button
+                  type="button"
+                  onClick={handleDirectDownload}
+                  disabled={downloading}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    color: '#64748B',
+                    fontSize: 11,
+                    textDecoration: 'underline',
+                    cursor: downloading ? 'wait' : 'pointer',
+                    marginTop: 2,
+                  }}
+                >
+                  {downloading
+                    ? t('digitalModal.downloadingFile', '⏳ Téléchargement...')
+                    : t('digitalModal.orInstantDirectDownload', 'ou cliquez ici pour le téléchargement direct')}
+                </button>
+              )}
 
               {downloadBlobUrl && (
                 <div
@@ -887,55 +991,38 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
                     background: '#ECFDF5',
                     border: '1px solid #10B981',
                     borderRadius: 14,
-                    padding: '12px 14px',
+                    padding: '10px 12px',
                     textAlign: 'center',
                     display: 'flex',
                     flexDirection: 'column',
-                    gap: 6,
+                    gap: 4,
                   }}
                 >
-                  <div style={{ fontSize: 13, fontWeight: 700, color: '#065F46' }}>
-                    {t('digitalModal.fileReadyTitle', '✓ File Ready for Download!')}
-                  </div>
                   <a
                     href={downloadBlobUrl}
                     download={downloadFileName}
                     target="_blank"
                     rel="noopener noreferrer"
                     style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: 8,
                       background: '#059669',
                       color: '#FFFFFF',
-                      padding: '10px 14px',
-                      borderRadius: 10,
+                      padding: '8px 12px',
+                      borderRadius: 8,
                       fontWeight: 800,
-                      fontSize: 13,
+                      fontSize: 12,
                       textDecoration: 'none',
-                      boxShadow: '0 2px 8px rgba(5, 150, 105, 0.25)',
                     }}
                   >
-                    <span>{t('digitalModal.clickToDownloadBtn', '📥 Click to Download File')}</span>
+                    <span>{t('digitalModal.clickToDownloadBtn', '📥 Cliquer pour télécharger')}</span>
                   </a>
-                  <div style={{ fontSize: 11, color: '#047857' }}>
-                    {downloadFileName}
-                  </div>
-                </div>
-              )}
-
-              {downloadError && (
-                <div style={{ padding: '8px 12px', background: '#FEF2F2', border: '1px solid #FCA5A5', borderRadius: 10, color: '#B91C1C', fontSize: 12 }}>
-                  {downloadError}
                 </div>
               )}
             </div>
           ) : (
-            /* MULTI-METHOD GLOBAL PAYMENT CHECKOUT */
+            /* 💳 MULTI-METHOD GLOBAL CHECKOUT: STRIPE & PAYPAL */
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 4 }}>
-              {/* Payment Method Selector Tabs */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 4, background: 'rgba(0,0,0,0.04)', padding: 3, borderRadius: 12 }}>
+              {/* Payment Method Selector: Stripe Card vs PayPal */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4, background: 'rgba(0,0,0,0.04)', padding: 3, borderRadius: 12 }}>
                 <button
                   type="button"
                   onClick={() => setPayTab('card')}
@@ -943,49 +1030,32 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
                     background: payTab === 'card' ? '#FFFFFF' : 'transparent',
                     border: 'none',
                     borderRadius: 9,
-                    padding: '7px 4px',
-                    fontSize: 11,
+                    padding: '8px 6px',
+                    fontSize: 12,
                     fontWeight: payTab === 'card' ? 800 : 600,
                     color: payTab === 'card' ? '#635BFF' : '#64748B',
                     cursor: 'pointer',
                     boxShadow: payTab === 'card' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
                   }}
                 >
-                  {t('digitalModal.cardTab', '💳 Carte / Card')}
+                  {t('digitalModal.cardTab', '💳 Carte Bancaire')}
                 </button>
                 <button
                   type="button"
-                  onClick={() => setPayTab('direct')}
+                  onClick={() => setPayTab('paypal')}
                   style={{
-                    background: payTab === 'direct' ? '#FFFFFF' : 'transparent',
+                    background: payTab === 'paypal' ? '#FFFFFF' : 'transparent',
                     border: 'none',
                     borderRadius: 9,
-                    padding: '7px 4px',
-                    fontSize: 11,
-                    fontWeight: payTab === 'direct' ? 800 : 600,
-                    color: payTab === 'direct' ? '#0F172A' : '#64748B',
+                    padding: '8px 6px',
+                    fontSize: 12,
+                    fontWeight: payTab === 'paypal' ? 800 : 600,
+                    color: payTab === 'paypal' ? '#0070BA' : '#64748B',
                     cursor: 'pointer',
-                    boxShadow: payTab === 'direct' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                    boxShadow: payTab === 'paypal' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
                   }}
                 >
-                  {t('digitalModal.bankTab', '🏛️ Virement / RIB')}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPayTab('whatsapp')}
-                  style={{
-                    background: payTab === 'whatsapp' ? '#FFFFFF' : 'transparent',
-                    border: 'none',
-                    borderRadius: 9,
-                    padding: '7px 4px',
-                    fontSize: 11,
-                    fontWeight: payTab === 'whatsapp' ? 800 : 600,
-                    color: payTab === 'whatsapp' ? '#16A34A' : '#64748B',
-                    cursor: 'pointer',
-                    boxShadow: payTab === 'whatsapp' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-                  }}
-                >
-                  {t('digitalModal.whatsappTab', '💬 WhatsApp')}
+                  {t('digitalModal.paypalTab', '🅿️ PayPal')}
                 </button>
               </div>
 
@@ -1002,8 +1072,8 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
                       boxSizing: 'border-box',
                       borderRadius: 10,
                       border: '1px solid rgba(0,0,0,0.15)',
-                      padding: '8px 10px',
-                      fontSize: 12,
+                      padding: '9px 12px',
+                      fontSize: 12.5,
                       outline: 'none',
                       textAlign: isRTL ? 'right' : 'left',
                     }}
@@ -1019,8 +1089,8 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
                       boxSizing: 'border-box',
                       borderRadius: 10,
                       border: '1px solid rgba(0,0,0,0.15)',
-                      padding: '8px 10px',
-                      fontSize: 12,
+                      padding: '9px 12px',
+                      fontSize: 12.5,
                       outline: 'none',
                       textAlign: isRTL ? 'right' : 'left',
                     }}
@@ -1034,8 +1104,8 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
                       color: '#FFFFFF',
                       border: 'none',
                       borderRadius: 12,
-                      padding: '11px',
-                      fontSize: 13,
+                      padding: '12px',
+                      fontSize: 13.5,
                       fontWeight: 800,
                       cursor: 'pointer',
                       display: 'flex',
@@ -1068,203 +1138,53 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
                 </form>
               )}
 
-              {/* TAB 2: DIRECT PAYMENT (CIH, Attijariwafa, Bank Transfer, IBAN) */}
-              {payTab === 'direct' && (
-                <form onSubmit={handleDirectTransferPayment} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {/* TAB 2: PAYPAL WORLDWIDE CHECKOUT */}
+              {payTab === 'paypal' && (
+                <form onSubmit={handlePayPalPayment} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   <div
                     style={{
-                      background: '#F8FAFC',
-                      border: '1px solid #E2E8F0',
-                      borderRadius: 12,
-                      padding: '12px',
-                      fontSize: 12,
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: 8,
+                      background: '#F0F9FF',
+                      border: '1px solid #BAE6FD',
+                      borderRadius: 10,
+                      padding: '8px 10px',
+                      fontSize: 11.5,
+                      color: '#0369A1',
                       textAlign: isRTL ? 'right' : 'left',
                     }}
                   >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontWeight: 700, color: '#0F172A', fontSize: 13 }}>
-                        {t('digitalModal.bankDetailsTitle', '🏛️ Coordonnées Bancaires (Virement)')}
-                      </span>
-                      <span style={{ fontWeight: 800, color: '#059669', fontSize: 13 }}>
-                        {product.price}
-                      </span>
-                    </div>
-
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 11.5 }}>
-                      <span style={{ color: '#64748B' }}>{t('digitalModal.bankLabel', 'Banque :')}</span>
-                      <span style={{ fontWeight: 700, color: '#1E293B' }}>
-                        {resolvedBankName}
-                      </span>
-                    </div>
-
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 11.5 }}>
-                      <span style={{ color: '#64748B' }}>{t('digitalModal.accountHolderLabel', 'Titulaire du compte :')}</span>
-                      <span style={{ fontWeight: 700, color: '#1E293B' }}>
-                        {resolvedAccountHolder}
-                      </span>
-                    </div>
-
-                    <div
-                      style={{
-                        background: '#FFFFFF',
-                        border: '1.5px solid #22C55E',
-                        borderRadius: 10,
-                        padding: '10px 12px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        gap: 8,
-                        boxShadow: '0 2px 6px rgba(34,197,94,0.1)',
-                      }}
-                    >
-                      <div style={{ flex: 1, minWidth: 0, textAlign: isRTL ? 'right' : 'left' }}>
-                        <div style={{ fontSize: 10, color: '#15803D', fontWeight: 800, letterSpacing: '0.03em' }}>
-                          {t('digitalModal.ribLabel', "NUMÉRO DE COMPTE / RIB OÙ ENVOYER L'ARGENT")}
-                        </div>
-                        <div style={{ fontFamily: 'monospace', fontWeight: 900, fontSize: 13.5, color: '#0F172A', letterSpacing: '0.04em', wordBreak: 'break-all', marginTop: 2 }}>
-                          {resolvedRib}
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => handleCopy(resolvedRib, 'tabBankNum')}
-                        style={{
-                          background: copiedKey === 'tabBankNum' ? '#16A34A' : '#0F172A',
-                          color: '#FFFFFF',
-                          border: 'none',
-                          borderRadius: 8,
-                          padding: '7px 12px',
-                          fontSize: 11.5,
-                          cursor: 'pointer',
-                          fontWeight: 800,
-                          whiteSpace: 'nowrap',
-                        }}
-                      >
-                        {copiedKey === 'tabBankNum' ? t('digitalModal.copiedRib', '✓ Copié !') : t('digitalModal.copyRib', '📋 Copier le RIB')}
-                      </button>
-                    </div>
-
-                    <div style={{ fontSize: 10.5, color: '#64748B', marginTop: -2 }}>
-                      {t('digitalModal.moroccoBankTip', '💡 Virement direct CIH Bank ou toute banque')}
-                    </div>
+                    {t('digitalModal.paypalDirectTip', '💡 Paiement instantané et sécurisé dans le monde entier via PayPal.')}
                   </div>
 
-                  {/* Buyer details inputs */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                    <input
-                      placeholder={t('digitalModal.buyerNamePlaceholder', 'Votre Nom & Prénom')}
-                      value={buyerName}
-                      onChange={(e) => setBuyerName(e.target.value)}
-                      required
-                      style={{
-                        width: '100%',
-                        boxSizing: 'border-box',
-                        borderRadius: 10,
-                        border: '1px solid rgba(0,0,0,0.15)',
-                        padding: '9px 12px',
-                        fontSize: 12.5,
-                        outline: 'none',
-                        textAlign: isRTL ? 'right' : 'left',
-                      }}
-                    />
-
-                    <input
-                      type="tel"
-                      placeholder={t('digitalModal.buyerPhonePlaceholder', "Numéro WhatsApp / Téléphone (Obligatoire pour l'envoi)")}
-                      value={buyerPhone}
-                      onChange={(e) => setBuyerPhone(e.target.value)}
-                      required
-                      style={{
-                        width: '100%',
-                        boxSizing: 'border-box',
-                        borderRadius: 10,
-                        border: '1px solid rgba(0,0,0,0.15)',
-                        padding: '9px 12px',
-                        fontSize: 12.5,
-                        outline: 'none',
-                        textAlign: isRTL ? 'right' : 'left',
-                      }}
-                    />
-
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
-                      <input
-                        type="email"
-                        placeholder={t('digitalModal.buyerEmailOptionalPlaceholder', 'Email (Facultatif)')}
-                        value={buyerEmail}
-                        onChange={(e) => setBuyerEmail(e.target.value)}
-                        style={{
-                          width: '100%',
-                          boxSizing: 'border-box',
-                          borderRadius: 10,
-                          border: '1px solid rgba(0,0,0,0.15)',
-                          padding: '9px 12px',
-                          fontSize: 12,
-                          outline: 'none',
-                          textAlign: isRTL ? 'right' : 'left',
-                        }}
-                      />
-                      <input
-                        placeholder={t('digitalModal.transferRefOptionalPlaceholder', 'Réf Virement (Facultatif)')}
-                        value={transferReference}
-                        onChange={(e) => setTransferReference(e.target.value)}
-                        style={{
-                          width: '100%',
-                          boxSizing: 'border-box',
-                          borderRadius: 10,
-                          border: '1px solid rgba(0,0,0,0.15)',
-                          padding: '9px 12px',
-                          fontSize: 12,
-                          outline: 'none',
-                          textAlign: isRTL ? 'right' : 'left',
-                        }}
-                      />
-                    </div>
-                  </div>
-
-                  <div style={{ fontSize: 11, color: '#64748B', lineHeight: 1.4, background: '#F1F5F9', padding: '6px 10px', borderRadius: 8, textAlign: isRTL ? 'right' : 'left' }}>
-                    {t('digitalModal.creatorSecurityNotice', "🔒 Sécurité créateur : Le fichier n'est pas téléchargeable immédiatement. Vous pourrez envoyer votre reçu de virement pour validation rapide.")}
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={processing}
-                    style={{
-                      background: '#0F172A',
-                      color: '#FFFFFF',
-                      border: 'none',
-                      borderRadius: 12,
-                      padding: '12px',
-                      fontSize: 13,
-                      fontWeight: 800,
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: 6,
-                    }}
-                  >
-                    <span>{processing ? t('digitalModal.recording', '⏳ Enregistrement...') : `${t('digitalModal.confirmTransferBtn', "✓ J'ai effectué le virement")} ${product.price ? `(${product.price})` : ''}`}</span>
-                  </button>
-                </form>
-              )}
-
-              {/* TAB 3: WHATSAPP DIRECT */}
-              {payTab === 'whatsapp' && (
-                <form onSubmit={handleWhatsAppOrder} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   <input
-                    placeholder={t('digitalModal.whatsAppNamePlaceholder', 'Your Name (Optional)')}
+                    placeholder={t('digitalModal.buyerNamePlaceholder', 'Your Full Name')}
                     value={buyerName}
                     onChange={(e) => setBuyerName(e.target.value)}
+                    required
                     style={{
                       width: '100%',
                       boxSizing: 'border-box',
                       borderRadius: 10,
                       border: '1px solid rgba(0,0,0,0.15)',
-                      padding: '8px 10px',
-                      fontSize: 12,
+                      padding: '9px 12px',
+                      fontSize: 12.5,
+                      outline: 'none',
+                      textAlign: isRTL ? 'right' : 'left',
+                    }}
+                  />
+
+                  <input
+                    type="email"
+                    placeholder={t('digitalModal.cardEmailPlaceholder', 'Email Address (for instant file delivery)')}
+                    value={buyerEmail}
+                    onChange={(e) => setBuyerEmail(e.target.value)}
+                    required
+                    style={{
+                      width: '100%',
+                      boxSizing: 'border-box',
+                      borderRadius: 10,
+                      border: '1px solid rgba(0,0,0,0.15)',
+                      padding: '9px 12px',
+                      fontSize: 12.5,
                       outline: 'none',
                       textAlign: isRTL ? 'right' : 'left',
                     }}
@@ -1272,23 +1192,42 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
 
                   <button
                     type="submit"
+                    disabled={processing}
                     style={{
-                      background: '#22C55E',
+                      background: '#0070BA',
                       color: '#FFFFFF',
                       border: 'none',
                       borderRadius: 12,
-                      padding: '11px',
-                      fontSize: 13,
+                      padding: '12px',
+                      fontSize: 13.5,
                       fontWeight: 800,
                       cursor: 'pointer',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
                       gap: 6,
+                      boxShadow: '0 4px 12px rgba(0,112,186,0.3)',
                     }}
                   >
-                    <span>{t('digitalModal.orderOnWhatsAppBtn', '💬 Order on WhatsApp')}</span>
+                    <span>{processing ? t('digitalModal.recording', '⏳ Enregistrement...') : `${t('digitalModal.payWithPaypalBtn', '🅿️ Payer avec PayPal')} ${product.price ? `(${product.price})` : ''}`}</span>
                   </button>
+
+                  {paymentError && (
+                    <div
+                      style={{
+                        padding: '9px 12px',
+                        background: '#FEF2F2',
+                        border: '1px solid #FCA5A5',
+                        borderRadius: 10,
+                        color: '#991B1B',
+                        fontSize: 11.5,
+                        lineHeight: 1.4,
+                        textAlign: isRTL ? 'right' : 'left',
+                      }}
+                    >
+                      {paymentError}
+                    </div>
+                  )}
                 </form>
               )}
             </div>
