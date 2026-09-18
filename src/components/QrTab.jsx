@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import QRCode from 'qrcode'
 import confetti from 'canvas-confetti'
+import { useLanguage } from '../context/LanguageContext'
 
 const QR_COLOR_PRESETS = [
   { label: 'Jet Black', dark: '#0F172A', light: '#FFFFFF', name: 'Classic' },
@@ -15,6 +16,7 @@ const QR_COLOR_PRESETS = [
 ]
 
 export default function QrTab({ profile }) {
+  const { t, isRTL } = useLanguage()
   const [copiedLink, setCopiedLink] = useState(false)
   const [copiedImage, setCopiedImage] = useState(false)
   const [selectedColorIdx, setSelectedColorIdx] = useState(0)
@@ -324,49 +326,54 @@ export default function QrTab({ profile }) {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+    <div className="qr-studio-wrapper" style={{ display: 'flex', flexDirection: 'column', gap: 20, width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
       {/* Top Banner */}
       <div
+        className="qr-header-card"
         style={{
           background: 'white',
           border: '1px solid #E7EDEC',
           borderRadius: 20,
-          padding: '24px',
+          padding: '22px 24px',
           display: 'flex',
           justifyContent: 'space-between',
-          alignItems: 'flex-start',
+          alignItems: 'center',
           flexWrap: 'wrap',
           gap: 16,
+          boxSizing: 'border-box',
+          width: '100%',
         }}
       >
-        <div>
+        <div style={{ flex: '1 1 280px', minWidth: 0 }}>
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#E6F7F5', padding: '4px 12px', borderRadius: 100, marginBottom: 8 }}>
             <span style={{ fontSize: 13 }}>🎨</span>
-            <span style={{ fontSize: 12, fontWeight: 700, color: '#0D9488' }}>QR CODE STUDIO</span>
+            <span style={{ fontSize: 12, fontWeight: 700, color: '#0D9488' }}>{t('qr.badge', 'QR CODE STUDIO')}</span>
           </div>
           <h2 style={{ margin: '0 0 6px', fontSize: 20, fontWeight: 800, color: '#0F172A' }}>
-            Custom Branded QR Code
+            {t('qr.title', 'Custom Branded QR Code')}
           </h2>
           <p style={{ margin: 0, fontSize: 13.5, color: '#64748B', lineHeight: 1.5, maxWidth: 540 }}>
-            Customize your QR code with your profile photo, brand colors, and printable frames. Perfect for business cards, storefronts, and marketing materials.
+            {t('qr.desc', 'Customize your QR code with your profile photo, brand colors, and printable frames. Perfect for business cards, storefronts, and marketing materials.')}
           </p>
         </div>
 
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
           <button
             onClick={handleCopy}
+            type="button"
             style={{
               background: copiedLink ? '#E6F7F5' : '#F8FAFC',
               color: copiedLink ? '#0D9488' : '#0F172A',
               border: '1px solid #E2E8F0',
               borderRadius: 12,
-              padding: '9px 16px',
+              padding: '10px 18px',
               fontSize: 13,
               fontWeight: 600,
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
               gap: 6,
+              transition: 'all 0.15s ease',
             }}
           >
             <span>{copiedLink ? '✓ Copied' : '📋 Copy URL'}</span>
@@ -375,27 +382,15 @@ export default function QrTab({ profile }) {
       </div>
 
       {/* Main Studio Workspace Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(300px, 380px) 1fr', gap: 24, alignItems: 'start' }}>
+      <div className="qr-studio-grid">
         {/* Left Column: Live Interactive QR Preview */}
-        <div
-          style={{
-            background: 'white',
-            border: '1px solid #E7EDEC',
-            borderRadius: 24,
-            padding: '28px 24px',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            boxShadow: '0 4px 20px rgba(0,0,0,0.03)',
-            position: 'sticky',
-            top: 20,
-          }}
-        >
+        <div className="qr-preview-column">
           {/* Card Presentation Frame */}
           <div
             style={{
               width: '100%',
               maxWidth: 320,
+              margin: '0 auto',
               background: frameStyle === 'standee' ? 'linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 100%)' : '#FFFFFF',
               border: frameStyle === 'clean' ? 'none' : '1px solid #E2E8F0',
               borderRadius: 24,
@@ -406,6 +401,7 @@ export default function QrTab({ profile }) {
               alignItems: 'center',
               textAlign: 'center',
               transition: 'all 0.2s ease',
+              boxSizing: 'border-box',
             }}
           >
             {frameStyle === 'standee' && (
@@ -427,8 +423,9 @@ export default function QrTab({ profile }) {
               </div>
             )}
 
-            {/* The QR Canvas */}
+            {/* The QR Canvas Container */}
             <div
+              className="qr-canvas-wrapper"
               style={{
                 borderRadius: 16,
                 overflow: 'hidden',
@@ -436,25 +433,32 @@ export default function QrTab({ profile }) {
                 padding: 10,
                 border: `1px solid ${activeDark}15`,
                 display: 'inline-flex',
+                justifyContent: 'center',
+                alignItems: 'center',
                 boxShadow: '0 4px 14px rgba(0,0,0,0.04)',
+                maxWidth: '100%',
+                boxSizing: 'border-box',
               }}
             >
               <canvas
                 ref={previewCanvasRef}
+                className="qr-canvas-element"
                 style={{
                   width: 250,
-                  height: 250,
+                  maxWidth: '100%',
+                  height: 'auto',
+                  aspectRatio: '1 / 1',
                   display: 'block',
                 }}
               />
             </div>
 
             {frameStyle !== 'clean' && (
-              <div style={{ marginTop: 14 }}>
-                <p style={{ margin: 0, fontSize: 14.5, fontWeight: 700, color: '#0F172A' }}>
+              <div style={{ marginTop: 14, width: '100%' }}>
+                <p style={{ margin: 0, fontSize: 14.5, fontWeight: 700, color: '#0F172A', wordBreak: 'break-word' }}>
                   {profile?.display_name || `@${profile?.username || 'user'}`}
                 </p>
-                <p style={{ margin: '3px 0 0', fontSize: 12, color: '#64748B' }}>
+                <p style={{ margin: '3px 0 0', fontSize: 12, color: '#64748B', wordBreak: 'break-all' }}>
                   linksocio.com/{profile?.username}
                 </p>
               </div>
@@ -462,9 +466,10 @@ export default function QrTab({ profile }) {
           </div>
 
           {/* Quick Action Downloads */}
-          <div style={{ width: '100%', marginTop: 24, display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={{ width: '100%', maxWidth: 320, margin: '20px auto 0', display: 'flex', flexDirection: 'column', gap: 10 }}>
             <button
               onClick={() => handleDownload('png')}
+              type="button"
               style={{
                 width: '100%',
                 background: '#0F172A',
@@ -481,15 +486,17 @@ export default function QrTab({ profile }) {
                 gap: 8,
                 boxShadow: '0 4px 14px rgba(15,23,42,0.2)',
                 transition: 'all 0.15s ease',
+                minHeight: 46,
               }}
             >
               <span>📥</span>
-              <span>Download High-Res QR (PNG)</span>
+              <span>{t('qr.downloadPng', 'Download High-Res QR (PNG)')}</span>
             </button>
 
             {typeof ClipboardItem !== 'undefined' && (
               <button
                 onClick={handleCopyImage}
+                type="button"
                 style={{
                   width: '100%',
                   background: copiedImage ? '#E6F7F5' : '#F8FAFC',
@@ -504,6 +511,7 @@ export default function QrTab({ profile }) {
                   alignItems: 'center',
                   justifyContent: 'center',
                   gap: 6,
+                  minHeight: 42,
                 }}
               >
                 <span>{copiedImage ? '✓ Image Copied!' : '🖼️ Copy Image to Clipboard'}</span>
@@ -513,21 +521,21 @@ export default function QrTab({ profile }) {
         </div>
 
         {/* Right Column: Customization Controls */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+        <div className="qr-controls-column">
           {/* Section 1: Center Logo & Photo */}
-          <div style={{ background: 'white', border: '1px solid #E7EDEC', borderRadius: 20, padding: '22px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+          <div className="qr-control-card">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, gap: 12 }}>
               <div>
                 <h3 style={{ margin: '0 0 4px', fontSize: 15, fontWeight: 700, color: '#0F172A' }}>
-                  Center Logo & Photo
+                  {t('qr.centerLogoTitle', 'Center Logo & Photo')}
                 </h3>
                 <p style={{ margin: 0, fontSize: 12.5, color: '#64748B' }}>
-                  Embed your personal picture or brand mark in the center of the QR code.
+                  {t('qr.centerLogoDesc', 'Embed your personal picture or brand mark in the center of the QR code.')}
                 </p>
               </div>
 
               {/* Toggle switch */}
-              <label style={{ position: 'relative', display: 'inline-block', width: 44, height: 24, cursor: 'pointer' }}>
+              <label style={{ position: 'relative', display: 'inline-block', width: 44, height: 24, cursor: 'pointer', flexShrink: 0 }}>
                 <input
                   type="checkbox"
                   checked={showCenterLogo}
@@ -561,12 +569,12 @@ export default function QrTab({ profile }) {
             </div>
 
             {showCenterLogo && (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginTop: 14 }}>
+              <div className="qr-three-grid">
                 <button
                   type="button"
                   onClick={() => setCenterLogoType('avatar')}
                   style={{
-                    padding: '12px 10px',
+                    padding: '12px 8px',
                     borderRadius: 14,
                     border: centerLogoType === 'avatar' ? '2px solid #14B8A6' : '1px solid #E2E8F0',
                     background: centerLogoType === 'avatar' ? '#F0FDFA' : '#FAFAFA',
@@ -575,6 +583,7 @@ export default function QrTab({ profile }) {
                     flexDirection: 'column',
                     alignItems: 'center',
                     gap: 6,
+                    minWidth: 0,
                   }}
                 >
                   <div
@@ -584,16 +593,17 @@ export default function QrTab({ profile }) {
                       borderRadius: '50%',
                       background: profile?.avatar_url ? `url(${profile.avatar_url}) center/cover` : '#E2E8F0',
                       border: '1px solid #CBD5E1',
+                      flexShrink: 0,
                     }}
                   />
-                  <span style={{ fontSize: 12, fontWeight: 600, color: '#0F172A' }}>Profile Photo</span>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: '#0F172A', whiteSpace: 'nowrap' }}>Profile Photo</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => setCenterLogoType('brand')}
                   style={{
-                    padding: '12px 10px',
+                    padding: '12px 8px',
                     borderRadius: 14,
                     border: centerLogoType === 'brand' ? '2px solid #14B8A6' : '1px solid #E2E8F0',
                     background: centerLogoType === 'brand' ? '#F0FDFA' : '#FAFAFA',
@@ -602,6 +612,7 @@ export default function QrTab({ profile }) {
                     flexDirection: 'column',
                     alignItems: 'center',
                     gap: 6,
+                    minWidth: 0,
                   }}
                 >
                   <div
@@ -616,18 +627,19 @@ export default function QrTab({ profile }) {
                       justifyContent: 'center',
                       fontWeight: 800,
                       fontSize: 13,
+                      flexShrink: 0,
                     }}
                   >
                     LS
                   </div>
-                  <span style={{ fontSize: 12, fontWeight: 600, color: '#0F172A' }}>LinkSocio Logo</span>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: '#0F172A', whiteSpace: 'nowrap' }}>LinkSocio Logo</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => setCenterLogoType('initials')}
                   style={{
-                    padding: '12px 10px',
+                    padding: '12px 8px',
                     borderRadius: 14,
                     border: centerLogoType === 'initials' ? '2px solid #14B8A6' : '1px solid #E2E8F0',
                     background: centerLogoType === 'initials' ? '#F0FDFA' : '#FAFAFA',
@@ -636,6 +648,7 @@ export default function QrTab({ profile }) {
                     flexDirection: 'column',
                     alignItems: 'center',
                     gap: 6,
+                    minWidth: 0,
                   }}
                 >
                   <div
@@ -650,26 +663,27 @@ export default function QrTab({ profile }) {
                       justifyContent: 'center',
                       fontWeight: 800,
                       fontSize: 14,
+                      flexShrink: 0,
                     }}
                   >
                     {(profile?.display_name || profile?.username || 'U').charAt(0).toUpperCase()}
                   </div>
-                  <span style={{ fontSize: 12, fontWeight: 600, color: '#0F172A' }}>Name Initials</span>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: '#0F172A', whiteSpace: 'nowrap' }}>Name Initials</span>
                 </button>
               </div>
             )}
           </div>
 
           {/* Section 2: Color Themes */}
-          <div style={{ background: 'white', border: '1px solid #E7EDEC', borderRadius: 20, padding: '22px' }}>
+          <div className="qr-control-card">
             <h3 style={{ margin: '0 0 4px', fontSize: 15, fontWeight: 700, color: '#0F172A' }}>
-              Color Palettes
+              {t('qr.colorPalettes', 'Color Palettes')}
             </h3>
-            <p style={{ margin: '0 0 16px', fontSize: 12.5, color: '#64748B' }}>
-              Select a color palette or enter custom hex codes with guaranteed high contrast.
+            <p style={{ margin: '0 0 14px', fontSize: 12.5, color: '#64748B' }}>
+              {t('qr.colorPalettesDesc', 'Select a color palette or enter custom hex codes with guaranteed high contrast.')}
             </p>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+            <div className="qr-colors-grid">
               {QR_COLOR_PRESETS.map((p, idx) => {
                 const isSelected = !isCustomColor && selectedColorIdx === idx
                 return (
@@ -684,18 +698,19 @@ export default function QrTab({ profile }) {
                       display: 'flex',
                       alignItems: 'center',
                       gap: 8,
-                      padding: '10px 12px',
+                      padding: '9px 10px',
                       borderRadius: 12,
                       border: isSelected ? '2px solid #14B8A6' : '1px solid #E2E8F0',
                       background: isSelected ? '#F0FDFA' : '#FAFAFA',
                       cursor: 'pointer',
                       textAlign: 'left',
+                      minWidth: 0,
                     }}
                   >
                     <div
                       style={{
-                        width: 22,
-                        height: 22,
+                        width: 20,
+                        height: 20,
                         borderRadius: 6,
                         background: p.dark,
                         border: '1px solid rgba(0,0,0,0.1)',
@@ -711,10 +726,10 @@ export default function QrTab({ profile }) {
             </div>
 
             {/* Custom Color Pickers */}
-            <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid #F1F5F9' }}>
+            <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid #F1F5F9' }}>
               <button
                 type="button"
-                onClick={() => setIsCustomColor(true)}
+                onClick={() => setIsCustomColor(!isCustomColor)}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -757,15 +772,15 @@ export default function QrTab({ profile }) {
           </div>
 
           {/* Section 3: Frame / Standee Style */}
-          <div style={{ background: 'white', border: '1px solid #E7EDEC', borderRadius: 20, padding: '22px' }}>
+          <div className="qr-control-card">
             <h3 style={{ margin: '0 0 4px', fontSize: 15, fontWeight: 700, color: '#0F172A' }}>
-              Print & Frame Layout
+              {t('qr.frameLayoutTitle', 'Print & Frame Layout')}
             </h3>
-            <p style={{ margin: '0 0 16px', fontSize: 12.5, color: '#64748B' }}>
-              Select how your QR code will be displayed and framed when exported.
+            <p style={{ margin: '0 0 14px', fontSize: 12.5, color: '#64748B' }}>
+              {t('qr.frameLayoutDesc', 'Select how your QR code will be displayed and framed when exported.')}
             </p>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+            <div className="qr-three-grid">
               {[
                 { id: 'card', name: 'Branded Card', desc: 'With name & handle' },
                 { id: 'standee', name: 'Standee Poster', desc: 'Scan me badge' },
@@ -778,16 +793,17 @@ export default function QrTab({ profile }) {
                     type="button"
                     onClick={() => setFrameStyle(f.id)}
                     style={{
-                      padding: '12px 10px',
+                      padding: '12px 8px',
                       borderRadius: 14,
                       border: isSelected ? '2px solid #14B8A6' : '1px solid #E2E8F0',
                       background: isSelected ? '#F0FDFA' : '#FAFAFA',
                       cursor: 'pointer',
                       textAlign: 'center',
+                      minWidth: 0,
                     }}
                   >
-                    <p style={{ margin: 0, fontSize: 12.5, fontWeight: 700, color: '#0F172A' }}>{f.name}</p>
-                    <p style={{ margin: '3px 0 0', fontSize: 11, color: '#64748B' }}>{f.desc}</p>
+                    <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: '#0F172A', whiteSpace: 'nowrap' }}>{f.name}</p>
+                    <p style={{ margin: '3px 0 0', fontSize: 10.5, color: '#64748B', whiteSpace: 'nowrap' }}>{f.desc}</p>
                   </button>
                 )
               })}
@@ -795,29 +811,32 @@ export default function QrTab({ profile }) {
           </div>
 
           {/* Section 4: Resolution & Printing Tips */}
-          <div style={{ background: 'white', border: '1px solid #E7EDEC', borderRadius: 20, padding: '22px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
+          <div className="qr-control-card">
+            <div className="qr-resolution-row">
+              <div style={{ flex: 1, minWidth: 0 }}>
                 <h3 style={{ margin: '0 0 4px', fontSize: 14.5, fontWeight: 700, color: '#0F172A' }}>
-                  Export Resolution
+                  {t('qr.resolutionTitle', 'Export Resolution')}
                 </h3>
                 <p style={{ margin: 0, fontSize: 12, color: '#64748B' }}>
-                  Ultra-sharp rendering for high DPI professional printing.
+                  {t('qr.resolutionDesc', 'Ultra-sharp rendering for high DPI professional printing.')}
                 </p>
               </div>
 
               <select
                 value={qrSize}
                 onChange={(e) => setQrSize(Number(e.target.value))}
+                className="qr-resolution-select"
                 style={{
                   background: '#F8FAFC',
                   border: '1px solid #CBD5E1',
                   borderRadius: 10,
-                  padding: '7px 12px',
+                  padding: '9px 12px',
                   fontSize: 13,
                   fontWeight: 600,
                   color: '#0F172A',
                   outline: 'none',
+                  cursor: 'pointer',
+                  minWidth: 200,
                 }}
               >
                 <option value={600}>600 × 600 px (Web & Screen)</option>
@@ -828,6 +847,111 @@ export default function QrTab({ profile }) {
           </div>
         </div>
       </div>
+
+      <style>{`
+        .qr-studio-grid {
+          display: grid;
+          grid-template-columns: minmax(320px, 360px) minmax(0, 1fr);
+          gap: 24px;
+          align-items: start;
+          width: 100%;
+          max-width: 100%;
+        }
+        .qr-preview-column {
+          background: white;
+          border: 1px solid #E7EDEC;
+          border-radius: 24px;
+          padding: 28px 24px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          box-shadow: 0 4px 20px rgba(0,0,0,0.03);
+          position: sticky;
+          top: 20px;
+          width: 100%;
+          box-sizing: border-box;
+        }
+        .qr-controls-column {
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+          min-width: 0;
+          width: 100%;
+        }
+        .qr-control-card {
+          background: white;
+          border: 1px solid #E7EDEC;
+          border-radius: 20px;
+          padding: 22px;
+          box-sizing: border-box;
+          width: 100%;
+        }
+        .qr-colors-grid {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 10px;
+        }
+        .qr-three-grid {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 10px;
+        }
+        .qr-resolution-row {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 16px;
+        }
+
+        @media (max-width: 960px) {
+          .qr-studio-grid {
+            display: flex !important;
+            flex-direction: column !important;
+            gap: 18px !important;
+          }
+          .qr-preview-column {
+            position: static !important;
+            top: auto !important;
+            width: 100% !important;
+            padding: 22px 16px !important;
+            border-radius: 20px !important;
+          }
+          .qr-header-card {
+            padding: 16px !important;
+            border-radius: 16px !important;
+          }
+          .qr-control-card {
+            padding: 16px !important;
+            border-radius: 16px !important;
+          }
+          .qr-colors-grid {
+            grid-template-columns: repeat(auto-fill, minmax(95px, 1fr)) !important;
+            gap: 8px !important;
+          }
+          .qr-three-grid {
+            gap: 8px !important;
+          }
+          .qr-resolution-row {
+            flex-direction: column !important;
+            align-items: stretch !important;
+            gap: 12px !important;
+          }
+          .qr-resolution-select {
+            width: 100% !important;
+            min-width: 0 !important;
+          }
+        }
+
+        @media (max-width: 440px) {
+          .qr-colors-grid {
+            grid-template-columns: repeat(2, 1fr) !important;
+          }
+          .qr-canvas-element {
+            width: 220px !important;
+            height: 220px !important;
+          }
+        }
+      `}</style>
     </div>
   )
 }
