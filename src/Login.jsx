@@ -1,12 +1,21 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from './supabaseClient'
 import { ArrowLeft, Mail, Lock, Eye, EyeOff, ShieldCheck, ArrowRight, AlertCircle, Sparkles } from 'lucide-react'
 import LanguageSwitcher from './components/LanguageSwitcher'
 import { useLanguage } from './context/LanguageContext'
 import SocialAuthButtons from './components/SocialAuthButtons'
+import { updateSEO } from './utils/seo'
 
 export default function Login({ onDone, goHome, switchToSignUp, switchToForgot }) {
   const { t, isRTL } = useLanguage()
+
+  useEffect(() => {
+    updateSEO({
+      title: 'Login',
+      description: 'Sign in to your LinkSocio creator account and manage your bio link, digital store, and bookings.',
+      url: typeof window !== 'undefined' ? `${window.location.origin}/login` : 'https://linksocio.com/login',
+    })
+  }, [])
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)

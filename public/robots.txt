@@ -1,6 +1,32 @@
+# LinkSocio Robots.txt for Search Engine Optimization (SEO)
 User-agent: *
 Allow: /
 Disallow: /dashboard
+Disallow: /admin
+Disallow: /billing
+Disallow: /settings
+Disallow: /api/
 Disallow: /reset-password
+Disallow: /forgot-password
 
+# Search Engine Specific Crawlers
+User-agent: Googlebot
+Allow: /
+Disallow: /dashboard
+Disallow: /admin
+Disallow: /api/
+
+User-agent: Bingbot
+Allow: /
+Disallow: /dashboard
+Disallow: /admin
+Disallow: /api/
+
+User-agent: Applebot
+Allow: /
+Disallow: /dashboard
+Disallow: /admin
+Disallow: /api/
+
+# Sitemap Location
 Sitemap: https://linksocio.com/sitemap.xml

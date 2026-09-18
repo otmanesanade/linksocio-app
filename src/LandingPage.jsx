@@ -1,9 +1,10 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import confetti from 'canvas-confetti'
 import { THEMES, FONTS, BUTTON_STYLES } from './themes'
 import LanguageSwitcher from './components/LanguageSwitcher'
 import { useLanguage } from './context/LanguageContext'
 import PWAInstallButton from './components/PWAInstallButton'
+import { updateSEO, generateLandingJSONLD } from './utils/seo'
 
 // Social SVG Icons
 // Social SVG Icons
@@ -270,7 +271,7 @@ const SHOWCASE_PROFILES = [
 ]
 
 export default function LandingPage({ goToLogin, goToSignUp, goTo }) {
-  const { t } = useLanguage()
+  const { t, language } = useLanguage()
   const [claimHandle, setClaimHandle] = useState('')
   const [selectedProfileIndex, setSelectedProfileIndex] = useState(0)
   const [activeTab, setActiveTab] = useState('all')
@@ -280,6 +281,43 @@ export default function LandingPage({ goToLogin, goToSignUp, goTo }) {
   const [selectedProductCheckout, setSelectedProductCheckout] = useState(null)
   const [newsletterEmail, setNewsletterEmail] = useState('')
   const [newsletterSubscribed, setNewsletterSubscribed] = useState(false)
+
+  // Dynamic Multilingual SEO & Structured Data for Landing Page
+  useEffect(() => {
+    const seoData = {
+      ar: {
+        title: 'LinkSocio — منصة متكاملة لرابط البايو، المتاجر الرقمية وحجز المواعيد',
+        desc: 'أنشئ صفحة البايو المخصصة لعلامتك التجارية، بِع منتجاتك وملفاتك الرقمية، نظّم حجز مواعيدك واستقبل رسائل زبائنك عبر واتساب بكل سهولة مع LinkSocio.',
+        keywords: 'LinkSocio, رابط بايو, بيع منتجات رقمية, متجر رقمي, حجز مواعيد, واتساب, لينك ان بايو, لينك سوسيو, صناع المحتوى',
+      },
+      fr: {
+        title: 'LinkSocio — Plateforme Tout-en-Un Bio Link, Boutique Digitale & Prise de Rendez-vous',
+        desc: 'Créez votre page bio link personnalisée, vendez vos produits digitaux (ebooks, formations, templates) et gérez vos rendez-vous avec LinkSocio. Le storefront ultime pour créateurs.',
+        keywords: 'LinkSocio, bio link, page de liens, boutique digitale, vendre ebook, réservation en ligne, leads whatsapp, créateurs',
+      },
+      en: {
+        title: 'LinkSocio — All-in-One Bio Link, Digital Store & Booking Platform',
+        desc: 'Build your branded bio link page, sell digital products, book appointments, and capture WhatsApp leads in minutes with LinkSocio. The ultimate creator storefront.',
+        keywords: 'LinkSocio, bio link, link in bio, digital storefront, linktree alternative, sell digital products, booking calendar, whatsapp leads',
+      },
+      es: {
+        title: 'LinkSocio — Plataforma Todo en Uno Bio Link, Tienda Digital y Reservas',
+        desc: 'Crea tu página bio link personalizada, vende productos digitales, gestiona reservas y capta clientes por WhatsApp en minutos con LinkSocio.',
+        keywords: 'LinkSocio, bio link, enlace en bio, tienda digital, vender productos digitales, reservas, citas online, whatsapp leads',
+      },
+    }
+
+    const current = seoData[language] || seoData.fr || seoData.en
+
+    updateSEO({
+      title: current.title,
+      description: current.desc,
+      keywords: current.keywords,
+      url: typeof window !== 'undefined' ? `${window.location.origin}/` : 'https://linksocio.com/',
+      type: 'website',
+      jsonLd: generateLandingJSONLD(language || 'fr'),
+    })
+  }, [language])
 
   const currentProfile = SHOWCASE_PROFILES[selectedProfileIndex]
   const currentThemeObj = THEMES[customTheme] || THEMES.midnight

@@ -1,8 +1,18 @@
+import { useEffect } from 'react'
 import { useLanguage } from './context/LanguageContext'
 import LanguageSwitcher from './components/LanguageSwitcher'
+import { updateSEO } from './utils/seo'
 
 export default function TermsOfService({ goBack }) {
   const { t, isRTL } = useLanguage()
+
+  useEffect(() => {
+    updateSEO({
+      title: 'Terms of Service',
+      description: 'Terms of service and creator agreement for using the LinkSocio platform.',
+      url: typeof window !== 'undefined' ? `${window.location.origin}/terms` : 'https://linksocio.com/terms',
+    })
+  }, [])
 
   return (
     <div

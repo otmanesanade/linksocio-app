@@ -1,8 +1,18 @@
+import { useEffect } from 'react'
 import { useLanguage } from './context/LanguageContext'
 import LanguageSwitcher from './components/LanguageSwitcher'
+import { updateSEO } from './utils/seo'
 
 export default function PrivacyPolicy({ goBack }) {
   const { t, isRTL } = useLanguage()
+
+  useEffect(() => {
+    updateSEO({
+      title: 'Privacy Policy',
+      description: 'Privacy policy and data protection terms for LinkSocio creators, customers and visitors.',
+      url: typeof window !== 'undefined' ? `${window.location.origin}/privacy` : 'https://linksocio.com/privacy',
+    })
+  }, [])
 
   return (
     <div

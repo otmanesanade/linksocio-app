@@ -6,6 +6,7 @@ import { fetchServerBookingSettings } from './BookingTab'
 import { fetchServerRestaurantMenu } from './RestaurantTab'
 import { fetchServerSocials, fetchServerLinksMeta, fetchServerProfileMeta } from './utils/socialPlatforms'
 import { useLanguage } from './context/LanguageContext'
+import { updateSEO, generateProfileJSONLD } from './utils/seo'
 
 export default function PublicProfile({ username }) {
   const { t } = useLanguage()
@@ -28,6 +29,11 @@ export default function PublicProfile({ username }) {
     if (!cleanUser) {
       setNotFound(true)
       setLoading(false)
+      updateSEO({
+        title: 'Page Not Found — LinkSocio',
+        description: 'The requested LinkSocio page could not be found.',
+        noIndex: true,
+      })
       return
     }
 
@@ -62,6 +68,11 @@ export default function PublicProfile({ username }) {
     if (!profileData) {
       setNotFound(true)
       setLoading(false)
+      updateSEO({
+        title: `@${cleanUser} — Page Not Found · LinkSocio`,
+        description: `The LinkSocio profile @${cleanUser} does not exist or has been moved.`,
+        noIndex: true,
+      })
       return
     }
 
@@ -269,10 +280,34 @@ export default function PublicProfile({ username }) {
       }
     }
     setSocials([...finalSocials])
-
     setLinks(enrichedLinks)
     setProducts(finalProducts)
     setLoading(false)
+
+    // Dynamic SEO & Structured Data (Schema.org JSON-LD)
+    const displayName = profileData.name || profileData.full_name || `@${profileData.username || cleanUser}`
+    const bioText = profileData.bio ? profileData.bio.trim() : `Boutique et profil officiel de ${displayName} sur LinkSocio. Liens utiles, produits digitaux et prise de rendez-vous.`
+    const prodNames = finalProducts.map((p) => p.name || p.title).filter(Boolean)
+    const keywordsList = [
+      profileData.username,
+      displayName,
+      'LinkSocio',
+      'bio link',
+      'boutique digitale',
+      'digital products',
+      'booking',
+      ...prodNames,
+    ].filter(Boolean).join(', ')
+
+    updateSEO({
+      title: `${displayName} (@${profileData.username || cleanUser})`,
+      description: bioText,
+      keywords: keywordsList,
+      image: profileData.avatar_url,
+      url: `${typeof window !== 'undefined' ? window.location.origin : 'https://linksocio.com'}/${profileData.username || cleanUser}`,
+      type: 'profile',
+      jsonLd: generateProfileJSONLD(profileData, enrichedLinks, finalProducts, finalSocials),
+    })
   }
 
   const isPaid =

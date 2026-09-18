@@ -256,6 +256,104 @@ function apiPlugin() {
   }
 
   const apiMiddleware = async (req, res, next) => {
+    // Dynamic SEO Sitemap.xml Generator with automatic creator indexing
+    if (req.url && (req.url === '/sitemap.xml' || req.url.startsWith('/sitemap.xml?'))) {
+      try {
+        const host = req.headers.host || 'linksocio.com'
+        const isLocal = host.includes('localhost') || host.includes('127.0.0.1')
+        // Use verified production domain for Google Search Console compliance
+        const baseUrl = isLocal ? `http://${host}` : 'https://linksocio.com'
+
+        const isCleanHandle = (h) => {
+          if (!h || typeof h !== 'string') return false
+          const clean = h.trim().toLowerCase()
+          if (clean.startsWith('_') || clean.length < 2 || clean.length > 35) return false
+          if (clean.includes('@') || clean.includes('/') || clean.includes(' ') || clean.includes(':')) return false
+          // Skip internal UUIDs
+          if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(clean)) return false
+          return /^[a-z0-9_.-]+$/.test(clean)
+        }
+
+        // Collect all distinct creator handles
+        const handlesSet = new Set(['otman', 'otmank514'])
+
+        const profileMeta = readJson(PROFILE_META_PATH) || {}
+        Object.keys(profileMeta).forEach((k) => {
+          if (isCleanHandle(k)) handlesSet.add(k.toLowerCase())
+        })
+
+        const productsStore = readJson(PRODUCTS_STORE_PATH) || {}
+        Object.keys(productsStore).forEach((k) => {
+          if (isCleanHandle(k)) handlesSet.add(k.toLowerCase())
+        })
+
+        const bookingSettings = readJson(BOOKING_SETTINGS_PATH) || {}
+        Object.keys(bookingSettings).forEach((k) => {
+          if (isCleanHandle(k)) handlesSet.add(k.toLowerCase())
+        })
+
+        const now = new Date().toISOString().split('T')[0]
+
+        let xml = `<?xml version="1.0" encoding="UTF-8"?>\n`
+        xml += `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">\n`
+
+        // 1. Homepage with multilingual alternates
+        xml += `  <url>\n`
+        xml += `    <loc>${baseUrl}/</loc>\n`
+        xml += `    <xhtml:link rel="alternate" hreflang="ar" href="${baseUrl}/?lang=ar"/>\n`
+        xml += `    <xhtml:link rel="alternate" hreflang="fr" href="${baseUrl}/?lang=fr"/>\n`
+        xml += `    <xhtml:link rel="alternate" hreflang="en" href="${baseUrl}/?lang=en"/>\n`
+        xml += `    <xhtml:link rel="alternate" hreflang="es" href="${baseUrl}/?lang=es"/>\n`
+        xml += `    <xhtml:link rel="alternate" hreflang="x-default" href="${baseUrl}/"/>\n`
+        xml += `    <lastmod>${now}</lastmod>\n`
+        xml += `    <changefreq>daily</changefreq>\n`
+        xml += `    <priority>1.0</priority>\n`
+        xml += `  </url>\n`
+
+        // 2. Creator Storefronts & Bio Links
+        for (const handle of handlesSet) {
+          xml += `  <url>\n`
+          xml += `    <loc>${baseUrl}/${handle}</loc>\n`
+          xml += `    <lastmod>${now}</lastmod>\n`
+          xml += `    <changefreq>daily</changefreq>\n`
+          xml += `    <priority>0.9</priority>\n`
+          xml += `  </url>\n`
+        }
+
+        // 3. System Public Pages
+        const systemPages = [
+          { path: '/signup', priority: '0.8', freq: 'monthly' },
+          { path: '/login', priority: '0.7', freq: 'monthly' },
+          { path: '/terms', priority: '0.5', freq: 'yearly' },
+          { path: '/privacy', priority: '0.5', freq: 'yearly' },
+        ]
+
+        for (const p of systemPages) {
+          xml += `  <url>\n`
+          xml += `    <loc>${baseUrl}${p.path}</loc>\n`
+          xml += `    <lastmod>${now}</lastmod>\n`
+          xml += `    <changefreq>${p.freq}</changefreq>\n`
+          xml += `    <priority>${p.priority}</priority>\n`
+          xml += `  </url>\n`
+        }
+
+        xml += `</urlset>`
+
+        // Also sync to public/sitemap.xml for static deployments
+        try {
+          fs.writeFileSync(path.join(process.cwd(), 'public', 'sitemap.xml'), xml, 'utf-8')
+        } catch (we) {}
+
+        res.statusCode = 200
+        res.setHeader('Content-Type', 'application/xml; charset=utf-8')
+        res.setHeader('Cache-Control', 'public, max-age=3600, s-maxage=3600')
+        res.end(xml)
+        return
+      } catch (err) {
+        // Fall back to static
+      }
+    }
+
     // Direct uploaded digital product file download handler
     if (req.url && (req.url.startsWith('/uploads/') || req.url.startsWith('/api/download'))) {
       res.setHeader('Access-Control-Allow-Origin', '*')
