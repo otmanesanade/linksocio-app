@@ -214,6 +214,7 @@ export default function Dashboard({ user, initialTab }) {
   })
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [showMobilePreviewModal, setShowMobilePreviewModal] = useState(false)
+  const [desktopPreviewOpen, setDesktopPreviewOpen] = useState(true)
   const [bookingCount, setBookingCount] = useState(0)
   const [leadsCount, setLeadsCount] = useState(0)
   const [floatingToast, setFloatingToast] = useState(null)
@@ -1003,11 +1004,13 @@ export default function Dashboard({ user, initialTab }) {
         className="linksocio-grid"
         style={{
           width: '100%',
-          maxWidth: tab === 'admin' ? 1380 : 1220,
+          maxWidth: tab === 'admin' || !desktopPreviewOpen ? 1380 : 1220,
           margin: '0 auto',
           padding: '24px 16px 64px',
           display: 'grid',
-          gridTemplateColumns: tab === 'admin' ? '200px minmax(0, 1fr)' : '200px minmax(0, 1fr) 340px',
+          gridTemplateColumns: tab === 'admin'
+            ? '200px minmax(0, 1fr)'
+            : (desktopPreviewOpen ? '200px minmax(0, 1fr) 340px' : '200px minmax(0, 1fr)'),
           gap: 24,
           alignItems: 'start',
         }}
@@ -1331,7 +1334,7 @@ export default function Dashboard({ user, initialTab }) {
         </div>
 
         {/* Right Phone Mockup Live Preview */}
-        {tab !== 'admin' && (
+        {tab !== 'admin' && desktopPreviewOpen && (
           <div
             className="linksocio-preview-panel"
             style={{
@@ -1349,16 +1352,47 @@ export default function Dashboard({ user, initialTab }) {
                   {t('dashboard.livePreview', 'LIVE PREVIEW')}
                 </span>
               </div>
-              {profile?.username && (
-                <a
-                  href={`/${profile.username}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  style={{ fontSize: 11, color: '#14B8A6', fontWeight: 600, textDecoration: 'none' }}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                {profile?.username && (
+                  <a
+                    href={`/${profile.username}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{ fontSize: 11, color: '#14B8A6', fontWeight: 600, textDecoration: 'none' }}
+                  >
+                    {t('dashboard.openInNewTab', 'Open ↗')}
+                  </a>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setDesktopPreviewOpen(false)}
+                  title={t('dashboard.hidePreview', 'Hide Preview to expand workspace')}
+                  style={{
+                    background: '#F1F5F9',
+                    border: 'none',
+                    borderRadius: 6,
+                    padding: '2px 6px',
+                    fontSize: 10.5,
+                    fontWeight: 600,
+                    color: '#64748B',
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 3,
+                    transition: 'all 0.15s ease',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = '#E2E8F0'
+                    e.currentTarget.style.color = '#0F172A'
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = '#F1F5F9'
+                    e.currentTarget.style.color = '#64748B'
+                  }}
                 >
-                  {t('dashboard.openInNewTab', 'Open in new tab ↗')}
-                </a>
-              )}
+                  ✕
+                </button>
+              </div>
             </div>
 
             {/* Device Mockup Shell */}
@@ -1438,10 +1472,44 @@ export default function Dashboard({ user, initialTab }) {
         </div>
       )}
 
+      {/* Floating Reopen Button for Desktop when Preview is Hidden */}
+      {tab !== 'admin' && !desktopPreviewOpen && (
+        <button
+          type="button"
+          onClick={() => setDesktopPreviewOpen(true)}
+          className="desktop-reopen-preview-btn"
+          style={{
+            position: 'fixed',
+            bottom: 24,
+            right: 24,
+            background: '#0F172A',
+            color: 'white',
+            padding: '11px 18px',
+            borderRadius: 100,
+            fontSize: 13,
+            fontWeight: 700,
+            border: 'none',
+            boxShadow: '0 8px 24px rgba(15,23,42,0.22)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            cursor: 'pointer',
+            zIndex: 90,
+            transition: 'all 0.15s ease',
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.transform = 'translateY(-2px)')}
+          onMouseLeave={(e) => (e.currentTarget.style.transform = 'translateY(0)')}
+        >
+          <span>📱</span>
+          <span>{t('dashboard.showLivePreview', 'Show Live Preview')}</span>
+        </button>
+      )}
+
       <style>{`
         @media (max-width: 1024px) {
           .linksocio-grid { grid-template-columns: minmax(0, 1fr) !important; padding: 12px 12px 48px !important; }
           .linksocio-preview-panel { display: none !important; }
+          .desktop-reopen-preview-btn { display: none !important; }
           .mobile-header { display: flex !important; }
           .linksocio-sidebar { display: none !important; }
         }

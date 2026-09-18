@@ -30,6 +30,21 @@ export default function QrTab({ profile }) {
 
   const canvasRef = useRef(null)
   const previewCanvasRef = useRef(null)
+  const studioRef = useRef(null)
+  const [isNarrow, setIsNarrow] = useState(false)
+
+  useEffect(() => {
+    if (!studioRef.current) return
+    const updateSize = () => {
+      if (studioRef.current) {
+        setIsNarrow(studioRef.current.clientWidth < 780)
+      }
+    }
+    updateSize()
+    const ro = new ResizeObserver(updateSize)
+    ro.observe(studioRef.current)
+    return () => ro.disconnect()
+  }, [])
 
   const currentOrigin = typeof window !== 'undefined' ? window.location.origin : 'https://linksocio.com'
   const profileUrl = `${currentOrigin}/${profile?.username || ''}`
@@ -326,7 +341,11 @@ export default function QrTab({ profile }) {
   }
 
   return (
-    <div className="qr-studio-wrapper" style={{ display: 'flex', flexDirection: 'column', gap: 20, width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
+    <div
+      ref={studioRef}
+      className="qr-studio-wrapper"
+      style={{ display: 'flex', flexDirection: 'column', gap: 20, width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}
+    >
       {/* Top Banner */}
       <div
         className="qr-header-card"
@@ -382,7 +401,7 @@ export default function QrTab({ profile }) {
       </div>
 
       {/* Main Studio Workspace Grid */}
-      <div className="qr-studio-grid">
+      <div className={`qr-studio-grid ${isNarrow ? 'is-stacked' : ''}`}>
         {/* Left Column: Live Interactive QR Preview */}
         <div className="qr-preview-column">
           {/* Card Presentation Frame */}
@@ -574,7 +593,7 @@ export default function QrTab({ profile }) {
                   type="button"
                   onClick={() => setCenterLogoType('avatar')}
                   style={{
-                    padding: '12px 8px',
+                    padding: '12px 6px',
                     borderRadius: 14,
                     border: centerLogoType === 'avatar' ? '2px solid #14B8A6' : '1px solid #E2E8F0',
                     background: centerLogoType === 'avatar' ? '#F0FDFA' : '#FAFAFA',
@@ -596,14 +615,16 @@ export default function QrTab({ profile }) {
                       flexShrink: 0,
                     }}
                   />
-                  <span style={{ fontSize: 12, fontWeight: 600, color: '#0F172A', whiteSpace: 'nowrap' }}>Profile Photo</span>
+                  <span style={{ fontSize: 11.5, fontWeight: 600, color: '#0F172A', textAlign: 'center', lineHeight: 1.25, wordBreak: 'break-word' }}>
+                    Profile Photo
+                  </span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => setCenterLogoType('brand')}
                   style={{
-                    padding: '12px 8px',
+                    padding: '12px 6px',
                     borderRadius: 14,
                     border: centerLogoType === 'brand' ? '2px solid #14B8A6' : '1px solid #E2E8F0',
                     background: centerLogoType === 'brand' ? '#F0FDFA' : '#FAFAFA',
@@ -632,14 +653,16 @@ export default function QrTab({ profile }) {
                   >
                     LS
                   </div>
-                  <span style={{ fontSize: 12, fontWeight: 600, color: '#0F172A', whiteSpace: 'nowrap' }}>LinkSocio Logo</span>
+                  <span style={{ fontSize: 11.5, fontWeight: 600, color: '#0F172A', textAlign: 'center', lineHeight: 1.25, wordBreak: 'break-word' }}>
+                    LinkSocio Logo
+                  </span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => setCenterLogoType('initials')}
                   style={{
-                    padding: '12px 8px',
+                    padding: '12px 6px',
                     borderRadius: 14,
                     border: centerLogoType === 'initials' ? '2px solid #14B8A6' : '1px solid #E2E8F0',
                     background: centerLogoType === 'initials' ? '#F0FDFA' : '#FAFAFA',
@@ -668,7 +691,9 @@ export default function QrTab({ profile }) {
                   >
                     {(profile?.display_name || profile?.username || 'U').charAt(0).toUpperCase()}
                   </div>
-                  <span style={{ fontSize: 12, fontWeight: 600, color: '#0F172A', whiteSpace: 'nowrap' }}>Name Initials</span>
+                  <span style={{ fontSize: 11.5, fontWeight: 600, color: '#0F172A', textAlign: 'center', lineHeight: 1.25, wordBreak: 'break-word' }}>
+                    Name Initials
+                  </span>
                 </button>
               </div>
             )}
@@ -717,7 +742,7 @@ export default function QrTab({ profile }) {
                         flexShrink: 0,
                       }}
                     />
-                    <span style={{ fontSize: 12, fontWeight: 600, color: '#0F172A', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: '#0F172A', lineHeight: 1.2 }}>
                       {p.name}
                     </span>
                   </button>
@@ -793,7 +818,7 @@ export default function QrTab({ profile }) {
                     type="button"
                     onClick={() => setFrameStyle(f.id)}
                     style={{
-                      padding: '12px 8px',
+                      padding: '12px 6px',
                       borderRadius: 14,
                       border: isSelected ? '2px solid #14B8A6' : '1px solid #E2E8F0',
                       background: isSelected ? '#F0FDFA' : '#FAFAFA',
@@ -802,8 +827,8 @@ export default function QrTab({ profile }) {
                       minWidth: 0,
                     }}
                   >
-                    <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: '#0F172A', whiteSpace: 'nowrap' }}>{f.name}</p>
-                    <p style={{ margin: '3px 0 0', fontSize: 10.5, color: '#64748B', whiteSpace: 'nowrap' }}>{f.desc}</p>
+                    <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: '#0F172A', lineHeight: 1.25 }}>{f.name}</p>
+                    <p style={{ margin: '3px 0 0', fontSize: 10.5, color: '#64748B', lineHeight: 1.2 }}>{f.desc}</p>
                   </button>
                 )
               })}
@@ -849,10 +874,13 @@ export default function QrTab({ profile }) {
       </div>
 
       <style>{`
+        .qr-studio-wrapper {
+          container-type: inline-size;
+        }
         .qr-studio-grid {
           display: grid;
-          grid-template-columns: minmax(320px, 360px) minmax(0, 1fr);
-          gap: 24px;
+          grid-template-columns: minmax(300px, 340px) minmax(0, 1fr);
+          gap: 20px;
           align-items: start;
           width: 100%;
           max-width: 100%;
@@ -861,7 +889,7 @@ export default function QrTab({ profile }) {
           background: white;
           border: 1px solid #E7EDEC;
           border-radius: 24px;
-          padding: 28px 24px;
+          padding: 24px 20px;
           display: flex;
           flex-direction: column;
           align-items: center;
@@ -882,25 +910,60 @@ export default function QrTab({ profile }) {
           background: white;
           border: 1px solid #E7EDEC;
           border-radius: 20px;
-          padding: 22px;
+          padding: 20px;
           box-sizing: border-box;
           width: 100%;
         }
         .qr-colors-grid {
           display: grid;
-          grid-template-columns: repeat(3, 1fr);
-          gap: 10px;
+          grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+          gap: 9px;
         }
         .qr-three-grid {
           display: grid;
           grid-template-columns: repeat(3, 1fr);
-          gap: 10px;
+          gap: 8px;
         }
         .qr-resolution-row {
           display: flex;
           justify-content: space-between;
           align-items: center;
           gap: 16px;
+        }
+
+        /* Stack layout for narrow containers (e.g. laptop 3-column dashboard or tablet/mobile) */
+        .qr-studio-grid.is-stacked {
+          display: flex !important;
+          flex-direction: column !important;
+          align-items: center !important;
+          gap: 20px !important;
+        }
+        .qr-studio-grid.is-stacked .qr-preview-column {
+          position: static !important;
+          max-width: 380px !important;
+          width: 100% !important;
+          margin: 0 auto !important;
+        }
+        .qr-studio-grid.is-stacked .qr-controls-column {
+          width: 100% !important;
+        }
+
+        @container (max-width: 780px) {
+          .qr-studio-grid {
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: center !important;
+            gap: 20px !important;
+          }
+          .qr-preview-column {
+            position: static !important;
+            max-width: 380px !important;
+            width: 100% !important;
+            margin: 0 auto !important;
+          }
+          .qr-controls-column {
+            width: 100% !important;
+          }
         }
 
         @media (max-width: 960px) {
@@ -913,8 +976,10 @@ export default function QrTab({ profile }) {
             position: static !important;
             top: auto !important;
             width: 100% !important;
+            max-width: 380px !important;
             padding: 22px 16px !important;
             border-radius: 20px !important;
+            margin: 0 auto !important;
           }
           .qr-header-card {
             padding: 16px !important;
@@ -923,13 +988,6 @@ export default function QrTab({ profile }) {
           .qr-control-card {
             padding: 16px !important;
             border-radius: 16px !important;
-          }
-          .qr-colors-grid {
-            grid-template-columns: repeat(auto-fill, minmax(95px, 1fr)) !important;
-            gap: 8px !important;
-          }
-          .qr-three-grid {
-            gap: 8px !important;
           }
           .qr-resolution-row {
             flex-direction: column !important;
@@ -945,6 +1003,9 @@ export default function QrTab({ profile }) {
         @media (max-width: 440px) {
           .qr-colors-grid {
             grid-template-columns: repeat(2, 1fr) !important;
+          }
+          .qr-three-grid {
+            grid-template-columns: repeat(auto-fit, minmax(85px, 1fr)) !important;
           }
           .qr-canvas-element {
             width: 220px !important;
