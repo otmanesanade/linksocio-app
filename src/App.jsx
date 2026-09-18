@@ -86,6 +86,7 @@ export default function App() {
   }
 
   const reservedPaths = [
+    'admin',
     'dashboard',
     'billing',
     'settings',
@@ -147,10 +148,10 @@ export default function App() {
     )
   }
 
-  // Dashboard, Billing & Settings routes
-  if (path === 'dashboard' || path === 'billing' || path === 'settings') {
+  // Dashboard, Billing, Settings & Admin routes
+  if (path === 'dashboard' || path === 'billing' || path === 'settings' || path === 'admin') {
     if (user) {
-      const initialTab = path === 'billing' ? 'billing' : path === 'settings' ? 'settings' : undefined
+      const initialTab = path === 'admin' ? 'admin' : path === 'billing' ? 'billing' : path === 'settings' ? 'settings' : undefined
       return <Dashboard user={user} initialTab={initialTab} />
     }
     return (

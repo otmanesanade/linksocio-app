@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import confetti from 'canvas-confetti'
 import { useLanguage } from './context/LanguageContext'
+import AdminMasterDashboard from './components/AdminMasterDashboard'
 
 // Global payout options for all countries
 export const MOROCCAN_BANKS = [
@@ -2466,93 +2467,7 @@ export default function PayoutsTab({ user, profile, products = [] }) {
 
       {/* SUB-TAB 5: Platform Admin Overview */}
       {activeSubTab === 'admin' && (
-        <div style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: 20, padding: 22, display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div>
-              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: '#0F172A' }}>
-                👑 Platform Administration & 9% Revenue
-              </h3>
-              <p style={{ margin: '3px 0 0', fontSize: 12.5, color: '#64748B' }}>
-                Overview of platform-wide 9% fee collections and pending withdrawal approvals.
-              </p>
-            </div>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
-            <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 14, padding: '14px 16px' }}>
-              <span style={{ fontSize: 11, fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>
-                Total Platform 9% Fees Collected
-              </span>
-              <div style={{ fontSize: 24, fontWeight: 800, color: '#0F172A', marginTop: 4 }}>
-                {currSym}{platformOverview.totalFees9Percent.toFixed(2)}
-              </div>
-            </div>
-
-            <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 14, padding: '14px 16px' }}>
-              <span style={{ fontSize: 11, fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>
-                Total Gross Volume
-              </span>
-              <div style={{ fontSize: 24, fontWeight: 800, color: '#0F172A', marginTop: 4 }}>
-                {currSym}{platformOverview.totalGross.toFixed(2)}
-              </div>
-            </div>
-          </div>
-
-          {/* Pending Payout Actions */}
-          <div style={{ marginTop: 10 }}>
-            <h4 style={{ margin: '0 0 10px', fontSize: 13.5, fontWeight: 700, color: '#0F172A' }}>
-              Pending Global Withdrawal Requests to Process:
-            </h4>
-            {payoutRequests.filter((p) => p.status !== 'completed').length === 0 ? (
-              <p style={{ fontSize: 12.5, color: '#94A3B8' }}>✓ All payout requests have been settled.</p>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {payoutRequests
-                  .filter((p) => p.status !== 'completed')
-                  .map((req) => (
-                    <div
-                      key={req.id}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        background: '#FFFBEB',
-                        border: '1px solid #FDE68A',
-                        borderRadius: 12,
-                        padding: '12px 16px',
-                      }}
-                    >
-                      <div>
-                        <div style={{ fontSize: 14, fontWeight: 800, color: '#92400E' }}>
-                          Withdrawal: {currSym}{req.amount}
-                        </div>
-                        <div style={{ fontSize: 12, color: '#78350F', marginTop: 2 }}>
-                          Method: {req.method?.toUpperCase()} · Destination: {req.details?.paypalEmail || req.details?.iban || req.details?.cryptoAddress || req.details?.stripeAccountId || 'Saved Profile'}
-                        </div>
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={() => handleApprovePayout(req.id)}
-                        style={{
-                          background: '#059669',
-                          color: '#FFFFFF',
-                          border: 'none',
-                          borderRadius: 8,
-                          padding: '7px 14px',
-                          fontSize: 12,
-                          fontWeight: 700,
-                          cursor: 'pointer',
-                        }}
-                      >
-                        ✓ Mark as Paid & Transferred
-                      </button>
-                    </div>
-                  ))}
-              </div>
-            )}
-          </div>
-        </div>
+        <AdminMasterDashboard user={user} profile={profile} />
       )}
 
       {/* WITHDRAW BALANCE MODAL */}

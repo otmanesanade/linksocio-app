@@ -2043,16 +2043,22 @@ function apiPlugin() {
                 }
 
                 const reqStore = readJson(PAYOUT_REQUESTS_PATH)
+                const profStore = readJson(PROFILE_META_PATH)
                 const userKey = username || userId || 'default'
                 const userList = Array.isArray(reqStore[userKey]) ? reqStore[userKey] : []
+                const creatorInfo = (username && profStore[username]) || (userId && profStore[userId]) || {}
 
                 const payoutItem = {
                   id: 'payout_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+                  creatorUsername: username || userKey,
+                  creatorUserId: userId || '',
+                  creatorEmail: payload.email || creatorInfo.email || details.email || details.paypalEmail || '',
+                  creatorPhone: payload.phone || creatorInfo.whatsapp || details.phone || details.whatsapp || '',
                   amount: Math.round(amount * 100) / 100,
-                  currency: 'DH',
-                  method, // 'bank_cih' | 'stripe' | 'paypal' | 'cashplus'
+                  currency: payload.currency || 'DH',
+                  method, // 'bank_cih' | 'stripe' | 'paypal' | 'cashplus' | 'wise'
                   details,
-                  status: 'processing', // 'requested' | 'processing' | 'completed'
+                  status: 'processing', // 'requested' | 'processing' | 'completed' | 'rejected'
                   createdAt: new Date().toISOString(),
                 }
 
@@ -2076,7 +2082,301 @@ function apiPlugin() {
           }
         }
 
-        // 14. Admin Approve Payout
+        // 14. Admin Overview & Master Data API
+        if (urlObj.pathname === '/api/admin/overview') {
+          try {
+            const reqStore = readJson(PAYOUT_REQUESTS_PATH)
+            const txStore = readJson(TRANSACTIONS_PATH)
+            const profStore = readJson(PROFILE_META_PATH)
+            const prodStore = readJson(PRODUCTS_STORE_PATH)
+
+            // Deduplicate all payout requests
+            const payoutMap = new Map()
+            for (const [key, list] of Object.entries(reqStore)) {
+              if (Array.isArray(list)) {
+                for (const item of list) {
+                  if (item && item.id && !payoutMap.has(item.id)) {
+                    const creatorMeta = (item.creatorUsername && profStore[item.creatorUsername]) || (key && profStore[key]) || {}
+                    payoutMap.set(item.id, {
+                      ...item,
+                      creatorUsername: item.creatorUsername || key,
+                      creatorEmail: item.creatorEmail || creatorMeta.email || item.details?.paypalEmail || item.details?.email || '',
+                      creatorPhone: item.creatorPhone || creatorMeta.whatsapp || item.details?.phone || '',
+                    })
+                  }
+                }
+              }
+            }
+            const allPayouts = Array.from(payoutMap.values()).sort(
+              (a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)
+            )
+
+            // Deduplicate all transactions/orders
+            const txMap = new Map()
+            for (const [key, list] of Object.entries(txStore)) {
+              if (Array.isArray(list)) {
+                for (const tx of list) {
+                  if (tx && tx.id && !txMap.has(tx.id)) {
+                    txMap.set(tx.id, {
+                      ...tx,
+                      sellerUsername: tx.sellerUsername || tx.username || key,
+                    })
+                  }
+                }
+              }
+            }
+            const allTransactions = Array.from(txMap.values()).sort(
+              (a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)
+            )
+
+            // Collect all unique users across profiles, products, and transactions
+            const userMap = new Map()
+            // From Profile Meta
+            for (const [uname, meta] of Object.entries(profStore)) {
+              if (uname && typeof meta === 'object') {
+                const cleanUname = uname.toLowerCase().replace(/^@/, '')
+                userMap.set(cleanUname, {
+                  username: cleanUname,
+                  email: meta.email || (cleanUname === 'otman' || cleanUname === 'otmank514' ? 'OtmanK514@gmail.com' : ''),
+                  whatsapp: meta.whatsapp || (cleanUname === 'otman' || cleanUname === 'otmank514' ? '+34642887658' : ''),
+                  location: meta.location || '',
+                  updatedAt: meta.updatedAt || null,
+                })
+              }
+            }
+
+            // Always ensure owner Otman is present
+            if (!userMap.has('otman')) {
+              userMap.set('otman', {
+                username: 'otman',
+                email: 'OtmanK514@gmail.com',
+                whatsapp: '+34642887658',
+                location: 'Morocco / Spain',
+                updatedAt: new Date().toISOString(),
+              })
+            }
+
+            // Also check transactions for sellers/buyers
+            for (const tx of allTransactions) {
+              const sUname = (tx.sellerUsername || '').toLowerCase().replace(/^@/, '')
+              if (sUname && !userMap.has(sUname)) {
+                userMap.set(sUname, {
+                  username: sUname,
+                  email: '',
+                  whatsapp: '',
+                  location: '',
+                })
+              }
+            }
+
+            // Compile stats per user
+            const usersList = Array.from(userMap.values()).map((u) => {
+              const uProds = (prodStore[u.username] || []).length
+              const uTxs = allTransactions.filter(
+                (t) => (t.sellerUsername || '').toLowerCase().replace(/^@/, '') === u.username
+              )
+              const uGross = uTxs.reduce((sum, t) => sum + (Number(t.grossAmount) || 0), 0)
+              const uFees = uTxs.reduce((sum, t) => sum + (Number(t.platformFee) || Math.round((Number(t.grossAmount) || 0) * 0.09 * 100) / 100), 0)
+              const uNet = uTxs.reduce((sum, t) => sum + (Number(t.sellerNet) || Math.round((Number(t.grossAmount) || 0) * 0.91 * 100) / 100), 0)
+
+              const uPayouts = allPayouts.filter(
+                (p) => (p.creatorUsername || '').toLowerCase().replace(/^@/, '') === u.username
+              )
+              const uPaid = uPayouts
+                .filter((p) => p.status === 'completed' || p.status === 'paid')
+                .reduce((sum, p) => sum + (Number(p.amount) || 0), 0)
+              const uPendingPayout = uPayouts
+                .filter((p) => p.status === 'processing' || p.status === 'requested')
+                .reduce((sum, p) => sum + (Number(p.amount) || 0), 0)
+
+              return {
+                ...u,
+                productsCount: uProds,
+                ordersCount: uTxs.length,
+                totalGross: Math.round(uGross * 100) / 100,
+                platformFee9Percent: Math.round(uFees * 100) / 100,
+                sellerNet91Percent: Math.round(uNet * 100) / 100,
+                totalPaidOut: Math.round(uPaid * 100) / 100,
+                pendingPayout: Math.round(uPendingPayout * 100) / 100,
+                availableBalance: Math.max(0, Math.round((uNet - uPaid) * 100) / 100),
+              }
+            })
+
+            // Calculate Platform Financial Totals
+            let totalGross = 0
+            let totalFees = 0
+            let totalSellerNet = 0
+            for (const tx of allTransactions) {
+              const g = Number(tx.grossAmount) || 0
+              const f = Number(tx.platformFee) || Math.round(g * 0.09 * 100) / 100
+              const n = Number(tx.sellerNet) || Math.round((g - f) * 100) / 100
+              totalGross += g
+              totalFees += f
+              totalSellerNet += n
+            }
+
+            let totalPaidOut = 0
+            let pendingWithdrawalsAmount = 0
+            let pendingWithdrawalsCount = 0
+            for (const p of allPayouts) {
+              const a = Number(p.amount) || 0
+              if (p.status === 'completed' || p.status === 'paid') {
+                totalPaidOut += a
+              } else if (p.status === 'processing' || p.status === 'requested') {
+                pendingWithdrawalsAmount += a
+                pendingWithdrawalsCount += 1
+              }
+            }
+
+            let totalProductsCount = 0
+            for (const list of Object.values(prodStore)) {
+              if (Array.isArray(list)) totalProductsCount += list.length
+            }
+
+            res.statusCode = 200
+            res.setHeader('Content-Type', 'application/json')
+            res.end(
+              JSON.stringify({
+                success: true,
+                financials: {
+                  totalGross: Math.round(totalGross * 100) / 100,
+                  totalFees9Percent: Math.round(totalFees * 100) / 100,
+                  totalSellerNet91Percent: Math.round(totalSellerNet * 100) / 100,
+                  totalPaidOut: Math.round(totalPaidOut * 100) / 100,
+                  pendingWithdrawalsAmount: Math.round(pendingWithdrawalsAmount * 100) / 100,
+                  pendingWithdrawalsCount,
+                  totalTransactionsCount: allTransactions.length,
+                  totalUsersCount: usersList.length,
+                  totalProductsCount,
+                  platformFeeRate: 9,
+                },
+                payoutRequests: allPayouts,
+                transactions: allTransactions,
+                users: usersList,
+              })
+            )
+          } catch (err) {
+            console.error('Admin overview API error:', err)
+            res.statusCode = 500
+            res.setHeader('Content-Type', 'application/json')
+            res.end(JSON.stringify({ error: err.message }))
+          }
+          return
+        }
+
+        // 14b. Admin Payout Action (Approve / Reject / Reset)
+        if (urlObj.pathname === '/api/admin/payouts/action') {
+          if (req.method === 'POST') {
+            let body = ''
+            req.on('data', (chunk) => { body += chunk })
+            req.on('end', () => {
+              try {
+                const payload = JSON.parse(body || '{}')
+                const { payoutId, action, paymentRef, rejectionReason, notes } = payload
+                if (!payoutId) {
+                  res.statusCode = 400
+                  res.setHeader('Content-Type', 'application/json')
+                  res.end(JSON.stringify({ error: 'Missing payoutId' }))
+                  return
+                }
+
+                const reqStore = readJson(PAYOUT_REQUESTS_PATH)
+                let foundPayout = null
+
+                for (const [k, list] of Object.entries(reqStore)) {
+                  if (Array.isArray(list)) {
+                    for (const pr of list) {
+                      if (pr.id === payoutId) {
+                        if (action === 'approve') {
+                          pr.status = 'completed'
+                          pr.paymentRef = paymentRef || `VIR_${Date.now()}`
+                          pr.completedAt = new Date().toISOString()
+                          if (notes) pr.notes = notes
+                        } else if (action === 'reject') {
+                          pr.status = 'rejected'
+                          pr.rejectionReason = rejectionReason || 'Information bancaire invalide'
+                          pr.rejectedAt = new Date().toISOString()
+                        } else if (action === 'reset') {
+                          pr.status = 'processing'
+                          delete pr.completedAt
+                          delete pr.rejectedAt
+                        }
+                        foundPayout = pr
+                      }
+                    }
+                  }
+                }
+
+                if (foundPayout) {
+                  writeJson(PAYOUT_REQUESTS_PATH, reqStore)
+                  res.statusCode = 200
+                  res.setHeader('Content-Type', 'application/json')
+                  res.end(JSON.stringify({ success: true, payout: foundPayout }))
+                } else {
+                  res.statusCode = 404
+                  res.setHeader('Content-Type', 'application/json')
+                  res.end(JSON.stringify({ error: 'Payout not found' }))
+                }
+              } catch (e) {
+                res.statusCode = 400
+                res.setHeader('Content-Type', 'application/json')
+                res.end(JSON.stringify({ error: 'Invalid payload' }))
+              }
+            })
+            return
+          }
+        }
+
+        // 14c. Admin Orders Action (Confirm order / Update status)
+        if (urlObj.pathname === '/api/admin/orders/action') {
+          if (req.method === 'POST') {
+            let body = ''
+            req.on('data', (chunk) => { body += chunk })
+            req.on('end', () => {
+              try {
+                const payload = JSON.parse(body || '{}')
+                const { transactionId, action } = payload
+                const txStore = readJson(TRANSACTIONS_PATH)
+                let foundTx = null
+
+                for (const [, list] of Object.entries(txStore)) {
+                  if (Array.isArray(list)) {
+                    for (const tx of list) {
+                      if (tx.id === transactionId) {
+                        if (action === 'confirm') {
+                          tx.status = 'completed'
+                          tx.confirmedAt = new Date().toISOString()
+                        } else if (action === 'refund') {
+                          tx.status = 'refunded'
+                          tx.refundedAt = new Date().toISOString()
+                        }
+                        foundTx = tx
+                      }
+                    }
+                  }
+                }
+
+                if (foundTx) {
+                  writeJson(TRANSACTIONS_PATH, txStore)
+                  res.statusCode = 200
+                  res.setHeader('Content-Type', 'application/json')
+                  res.end(JSON.stringify({ success: true, transaction: foundTx }))
+                } else {
+                  res.statusCode = 404
+                  res.setHeader('Content-Type', 'application/json')
+                  res.end(JSON.stringify({ error: 'Transaction not found' }))
+                }
+              } catch (e) {
+                res.statusCode = 400
+                res.setHeader('Content-Type', 'application/json')
+                res.end(JSON.stringify({ error: 'Invalid payload' }))
+              }
+            })
+            return
+          }
+        }
+
+        // 14. Admin Approve Payout (Legacy compatibility)
         if (urlObj.pathname === '/api/payouts/admin/approve') {
           if (req.method === 'POST') {
             let body = ''

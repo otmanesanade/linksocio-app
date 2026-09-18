@@ -14,6 +14,7 @@ import NotificationTab from './NotificationTab'
 import PayoutsTab from './PayoutsTab'
 import SettingsTab from './SettingsTab'
 import BillingSettings from './components/BillingSettings'
+import AdminMasterDashboard from './components/AdminMasterDashboard'
 import { getNotificationSettings, playNotificationSound } from './notificationService'
 import { LivePagePreview } from './components/LivePagePreview'
 import confetti from 'canvas-confetti'
@@ -595,7 +596,10 @@ export default function Dashboard({ user, initialTab }) {
     window.location.reload()
   }
 
+  const isOwnerAdmin = checkIsOwnerOrVip(user, profile) || trial.isOwner
+
   const navItems = [
+    ...(isOwnerAdmin ? [{ key: 'admin', label: '🛡️ Admin Master Hub', icon: '👑', isFeatured: true }] : []),
     { key: 'links', label: t('nav.links', 'Links & Bio'), icon: '🔗' },
     { key: 'restaurant', label: t('nav.restaurant', 'Restaurant & Menu'), icon: '🍽️' },
     { key: 'bookings', label: t('nav.bookings', 'Appointments & Calendar'), icon: '🗓️' },
@@ -999,11 +1003,11 @@ export default function Dashboard({ user, initialTab }) {
         className="linksocio-grid"
         style={{
           width: '100%',
-          maxWidth: 1220,
+          maxWidth: tab === 'admin' ? 1380 : 1220,
           margin: '0 auto',
           padding: '24px 16px 64px',
           display: 'grid',
-          gridTemplateColumns: '200px minmax(0, 1fr) 340px',
+          gridTemplateColumns: tab === 'admin' ? '200px minmax(0, 1fr)' : '200px minmax(0, 1fr) 340px',
           gap: 24,
           alignItems: 'start',
         }}
@@ -1176,22 +1180,41 @@ export default function Dashboard({ user, initialTab }) {
                   </div>
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={() => setTab('billing')}
-                style={{
-                  background: 'rgba(20, 184, 166, 0.2)',
-                  border: '1px solid #14B8A6',
-                  color: '#2DD4BF',
-                  borderRadius: 10,
-                  padding: '7px 14px',
-                  fontSize: 12,
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                }}
-              >
-                {t('dashboard.vipBillingBtn', 'VIP Billing & Plan ⚡')}
-              </button>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <button
+                  type="button"
+                  onClick={() => setTab('admin')}
+                  style={{
+                    background: tab === 'admin' ? '#14B8A6' : '#0F172A',
+                    border: '1px solid #14B8A6',
+                    color: tab === 'admin' ? '#0F172A' : '#2DD4BF',
+                    borderRadius: 10,
+                    padding: '7px 14px',
+                    fontSize: 12,
+                    fontWeight: 800,
+                    cursor: 'pointer',
+                    boxShadow: '0 2px 8px rgba(20, 184, 166, 0.25)',
+                  }}
+                >
+                  🛡️ Admin Master Hub 👑
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTab('billing')}
+                  style={{
+                    background: 'rgba(20, 184, 166, 0.2)',
+                    border: '1px solid #14B8A6',
+                    color: '#2DD4BF',
+                    borderRadius: 10,
+                    padding: '7px 14px',
+                    fontSize: 12,
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                  }}
+                >
+                  {t('dashboard.vipBillingBtn', 'VIP Billing & Plan ⚡')}
+                </button>
+              </div>
             </div>
           )}
 
@@ -1302,85 +1325,90 @@ export default function Dashboard({ user, initialTab }) {
           {tab === 'settings' && (
             <SettingsTab user={user} profile={profile} onSaved={loadProfile} initialSubTab="profile" />
           )}
+          {tab === 'admin' && (
+            <AdminMasterDashboard user={user} profile={profile} onNavigateToTab={(t) => setTab(t)} />
+          )}
         </div>
 
         {/* Right Phone Mockup Live Preview */}
-        <div
-          className="linksocio-preview-panel"
-          style={{
-            position: 'sticky',
-            top: 24,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', maxWidth: 310, marginBottom: 10 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#22C55E', display: 'inline-block' }} />
-              <span style={{ fontSize: 11, fontWeight: 700, color: '#64748B', letterSpacing: 0.5 }}>
-                {t('dashboard.livePreview', 'LIVE PREVIEW')}
-              </span>
-            </div>
-            {profile?.username && (
-              <a
-                href={`/${profile.username}`}
-                target="_blank"
-                rel="noreferrer"
-                style={{ fontSize: 11, color: '#14B8A6', fontWeight: 600, textDecoration: 'none' }}
-              >
-                {t('dashboard.openInNewTab', 'Open in new tab ↗')}
-              </a>
-            )}
-          </div>
-
-          {/* Device Mockup Shell */}
+        {tab !== 'admin' && (
           <div
+            className="linksocio-preview-panel"
             style={{
-              width: 310,
-              background: '#0F172A',
-              borderRadius: 42,
-              padding: '12px 10px',
-              boxShadow: '0 20px 40px -15px rgba(15,23,42,0.25), 0 0 0 1px rgba(15,23,42,0.08)',
-              position: 'relative',
+              position: 'sticky',
+              top: 24,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
             }}
           >
-            {/* Dynamic Island / Speaker notch */}
-            <div
-              style={{
-                width: 76,
-                height: 18,
-                background: '#0F172A',
-                borderRadius: 100,
-                position: 'absolute',
-                top: 18,
-                left: '50%',
-                transform: 'translateX(-50%)',
-                zIndex: 10,
-              }}
-            />
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', maxWidth: 310, marginBottom: 10 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#22C55E', display: 'inline-block' }} />
+                <span style={{ fontSize: 11, fontWeight: 700, color: '#64748B', letterSpacing: 0.5 }}>
+                  {t('dashboard.livePreview', 'LIVE PREVIEW')}
+                </span>
+              </div>
+              {profile?.username && (
+                <a
+                  href={`/${profile.username}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{ fontSize: 11, color: '#14B8A6', fontWeight: 600, textDecoration: 'none' }}
+                >
+                  {t('dashboard.openInNewTab', 'Open in new tab ↗')}
+                </a>
+              )}
+            </div>
 
-            {/* Mockup screen */}
+            {/* Device Mockup Shell */}
             <div
               style={{
-                borderRadius: 32,
-                overflow: 'hidden',
-                maxHeight: 560,
-                overflowY: 'auto',
-                scrollbarWidth: 'none',
+                width: 310,
+                background: '#0F172A',
+                borderRadius: 42,
+                padding: '12px 10px',
+                boxShadow: '0 20px 40px -15px rgba(15,23,42,0.25), 0 0 0 1px rgba(15,23,42,0.08)',
+                position: 'relative',
               }}
             >
-              <LivePagePreview
-                profile={profile}
-                links={links}
-                products={products}
-                socials={socials}
-                isEmbedded={true}
-                activeTabOverride={tab === 'shop' ? 'shop' : 'links'}
+              {/* Dynamic Island / Speaker notch */}
+              <div
+                style={{
+                  width: 76,
+                  height: 18,
+                  background: '#0F172A',
+                  borderRadius: 100,
+                  position: 'absolute',
+                  top: 18,
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  zIndex: 10,
+                }}
               />
+
+              {/* Mockup screen */}
+              <div
+                style={{
+                  borderRadius: 32,
+                  overflow: 'hidden',
+                  maxHeight: 560,
+                  overflowY: 'auto',
+                  scrollbarWidth: 'none',
+                }}
+              >
+                <LivePagePreview
+                  profile={profile}
+                  links={links}
+                  products={products}
+                  socials={socials}
+                  isEmbedded={true}
+                  activeTabOverride={tab === 'shop' ? 'shop' : 'links'}
+                />
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Mobile Preview Modal */}

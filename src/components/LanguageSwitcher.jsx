@@ -7,7 +7,7 @@ export default function LanguageSwitcher({
   className = '',
   style = {},
 }) {
-  const { language, setLanguage, isRTL } = useLanguage()
+  const { language, setLanguage, isRTL, isAuto } = useLanguage()
   const [isOpen, setIsOpen] = useState(false)
   const dropdownRef = useRef(null)
 
@@ -68,7 +68,10 @@ export default function LanguageSwitcher({
         }}
       >
         <span style={{ fontSize: variant === 'compact' ? 13 : 14 }}>{current.flag}</span>
-        <span style={{ fontWeight: 700, letterSpacing: '0.02em' }}>{current.code.toUpperCase()}</span>
+        <span style={{ fontWeight: 700, letterSpacing: '0.02em' }}>
+          {current.code.toUpperCase()}
+          {isAuto && <span style={{ fontSize: 9.5, opacity: 0.75, marginLeft: 3, fontWeight: 800 }}>AUTO</span>}
+        </span>
         <svg
           className="lang-chevron-arrow"
           width="11"
@@ -95,7 +98,7 @@ export default function LanguageSwitcher({
             position: 'absolute',
             top: 'calc(100% + 6px)',
             [isRTL ? 'left' : 'right']: 0,
-            minWidth: 145,
+            minWidth: 165,
             background: '#FFFFFF',
             border: '1px solid #E2E8F0',
             borderRadius: 14,
@@ -108,8 +111,53 @@ export default function LanguageSwitcher({
             animation: 'linksocio_dropdown_fade 0.15s cubic-bezier(0.16, 1, 0.3, 1)',
           }}
         >
+          {/* Automatic Option */}
+          <button
+            type="button"
+            onClick={() => {
+              setLanguage('auto')
+              setIsOpen(false)
+            }}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 10,
+              width: '100%',
+              background: isAuto ? '#F0FDFA' : 'transparent',
+              border: 'none',
+              borderRadius: 9,
+              padding: '8px 10px',
+              fontSize: 12.5,
+              fontWeight: isAuto ? 700 : 500,
+              color: isAuto ? '#0D9488' : '#334155',
+              cursor: 'pointer',
+              textAlign: 'left',
+              transition: 'all 0.12s ease',
+              borderBottom: '1px solid #F1F5F9',
+              marginBottom: 3,
+            }}
+            onMouseEnter={(e) => {
+              if (!isAuto) e.currentTarget.style.background = '#F8FAFC'
+            }}
+            onMouseLeave={(e) => {
+              if (!isAuto) e.currentTarget.style.background = 'transparent'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 14 }}>⚡</span>
+              <div>
+                <div style={{ fontSize: 12.5, fontWeight: isAuto ? 800 : 600 }}>Automatique</div>
+                <div style={{ fontSize: 10, color: '#94A3B8' }}>Détecter appareil</div>
+              </div>
+            </div>
+            {isAuto && (
+              <span style={{ fontSize: 12, fontWeight: 800, color: '#0D9488' }}>✓</span>
+            )}
+          </button>
+
           {LANGUAGES.map((lang) => {
-            const isSelected = lang.code === language
+            const isSelected = !isAuto && lang.code === language
             return (
               <button
                 key={lang.code}
