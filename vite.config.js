@@ -1993,6 +1993,34 @@ function apiPlugin() {
           }
         }
 
+        // 12c. Check Order Status API (Polled or Checked by Buyer)
+        if (urlObj.pathname === '/api/payouts/check-order') {
+          const txId = urlObj.searchParams.get('id') || urlObj.searchParams.get('txId')
+          const txStore = readJson(TRANSACTIONS_PATH)
+          let foundTx = null
+          for (const [, list] of Object.entries(txStore)) {
+            if (Array.isArray(list)) {
+              for (const tx of list) {
+                if (tx.id === txId) {
+                  foundTx = tx
+                  break
+                }
+              }
+            }
+            if (foundTx) break
+          }
+          if (foundTx) {
+            res.statusCode = 200
+            res.setHeader('Content-Type', 'application/json')
+            res.end(JSON.stringify({ success: true, transaction: foundTx, status: foundTx.status, isCompleted: foundTx.status === 'completed' }))
+          } else {
+            res.statusCode = 404
+            res.setHeader('Content-Type', 'application/json')
+            res.end(JSON.stringify({ error: 'Order not found' }))
+          }
+          return
+        }
+
         // 13. Request Payout (Moroccan Bank, CIH, CashPlus, Stripe)
         if (urlObj.pathname === '/api/payouts/request') {
           if (req.method === 'POST') {

@@ -20,6 +20,36 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
   const [paymentError, setPaymentError] = useState(null)
   const [transferReference, setTransferReference] = useState('')
   const [copiedKey, setCopiedKey] = useState(null)
+  const [checkingPayment, setCheckingPayment] = useState(false)
+  const [checkStatusNotice, setCheckStatusNotice] = useState(null)
+
+  const handleCheckPaymentStatus = async (targetTxId) => {
+    if (!targetTxId) return
+    setCheckingPayment(true)
+    setCheckStatusNotice(null)
+    try {
+      const r = await fetch(`/api/payouts/check-order?id=${encodeURIComponent(targetTxId)}`)
+      if (r.ok) {
+        const data = await r.json()
+        if (data.isCompleted || data.status === 'completed') {
+          try {
+            confetti({ particleCount: 70, spread: 80, origin: { y: 0.6 } })
+          } catch (e) {}
+          setOrderSuccess((prev) => ({
+            ...prev,
+            ...data,
+            isPendingVerification: false,
+          }))
+          return
+        }
+      }
+      setCheckStatusNotice(t('digitalModal.paymentStillPendingNotice', '⏳ Le paiement est toujours en attente de confirmation. Votre téléchargement se débloquera dès validation.'))
+    } catch (e) {
+      setCheckStatusNotice(t('digitalModal.paymentStillPendingNotice', '⏳ Le paiement est toujours en attente de confirmation.'))
+    } finally {
+      setCheckingPayment(false)
+    }
+  }
 
   const handleCopy = (text, key) => {
     if (!text) return
@@ -66,11 +96,25 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search)
-      if (params.get('order_success') === 'true') {
+      const isSuccess = params.get('order_success') === 'true' || params.get('paypal_success') === 'true'
+      const prodId = params.get('prod_id')
+      if (isSuccess && (!prodId || prodId === String(product?.id))) {
+        const targetTxId = params.get('tx_id') || params.get('order_id')
+        if (targetTxId) {
+          fetch('/api/payouts/confirm-order', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ transactionId: targetTxId }),
+          }).catch(() => {})
+        }
+        try {
+          confetti({ particleCount: 60, spread: 70, origin: { y: 0.6 } })
+        } catch (e) {}
         setOrderSuccess({
           success: true,
-          method: 'card_stripe',
+          method: params.get('method') || 'paypal',
           product,
+          isPendingVerification: false,
         })
       }
     }
@@ -210,7 +254,7 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
     setPaymentError(null)
 
     try {
-      // 1. Record order in system as instant paid
+      // 1. Record order in system as pending verification
       const res = await fetch('/api/payouts/order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -228,6 +272,7 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
       })
 
       const json = res.ok ? await res.json() : {}
+      const txId = json?.transaction?.id || `tx_pp_${Date.now()}`
 
       // 2. Build PayPal checkout URL
       const rawPrice = String(product.price || '0').replace(/[^\d.]/g, '') || '10'
@@ -235,27 +280,32 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
       const paypalTarget = (resolvedPaypalEmail || 'OtmanK514@gmail.com').trim()
       const isPaypalMe = paypalTarget.includes('paypal.me/') || (!paypalTarget.includes('@') && !paypalTarget.includes('.'))
 
+      const origin = typeof window !== 'undefined' ? window.location.origin : ''
+      const profilePath = username ? `/${username.replace(/^@+/, '')}` : ''
+      const successReturnUrl = `${origin}${profilePath}?order_success=true&method=paypal&prod_id=${product.id}&tx_id=${txId}`
+      const cancelReturnUrl = `${origin}${profilePath}?paypal_cancel=true&prod_id=${product.id}`
+
       let paypalUrl = ''
       if (isPaypalMe) {
         const cleanHandle = paypalTarget.replace(/^https?:\/\//i, '').replace(/paypal\.me\//i, '').replace(/^\/+/, '')
         paypalUrl = `https://paypal.me/${cleanHandle}/${rawPrice}`
       } else {
-        paypalUrl = `https://www.paypal.com/cgi-bin/webscr?cmd=_xclick&business=${encodeURIComponent(paypalTarget)}&item_name=${encodeURIComponent(product.name)}&amount=${rawPrice}&currency_code=${currency}&no_shipping=1`
+        paypalUrl = `https://www.paypal.com/cgi-bin/webscr?cmd=_xclick&business=${encodeURIComponent(paypalTarget)}&item_name=${encodeURIComponent(product.name)}&amount=${rawPrice}&currency_code=${currency}&no_shipping=1&return=${encodeURIComponent(successReturnUrl)}&cancel_return=${encodeURIComponent(cancelReturnUrl)}&custom=${encodeURIComponent(txId)}`
       }
 
-      try {
-        confetti({ particleCount: 50, spread: 60, origin: { y: 0.6 } })
-      } catch (err) {}
-
-      // Open PayPal checkout
+      // Open PayPal checkout in a new window/tab
       if (typeof window !== 'undefined') {
         window.open(paypalUrl, '_blank')
       }
 
+      // Keep order in PENDING verification state - do NOT give download access until payment is completed!
       setOrderSuccess({
         ...json,
-        isPendingVerification: false,
+        isPendingVerification: true,
         method: 'paypal',
+        txId,
+        paypalUrl,
+        paypalTarget,
       })
     } catch (err) {
       console.error('PayPal payment error:', err)
@@ -618,6 +668,224 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
                 : `https://api.whatsapp.com/send?text=${encodeURIComponent(waMessage)}`
 
               if (isPending) {
+                // Dedicated PayPal pending verification screen
+                if (orderSuccess.method === 'paypal' || orderSuccess.transaction?.payment_method === 'paypal') {
+                  const paypalWaText = language === 'ar'
+                    ? `👋 السلام عليكم، قمت بإجراء الدفع عبر بايبال لطلب المنتج: *${product.name}*\n💰 المبلغ: ${product.price}\n🔖 رقم الطلب: ${txId}\n👤 المشتري: ${buyerName || 'زبون بايبال'}\n\n📎 المرجو تأكيد استلام الدفعة على بايبال لتفعيل رابط التحميل. شكراً لك!`
+                    : language === 'fr'
+                    ? `👋 Bonjour, je viens d'effectuer le paiement PayPal pour commander : *${product.name}*\n💰 Montant : ${product.price}\n🔖 Réf Commande : ${txId}\n👤 Mon Nom : ${buyerName || 'Client'}\n\n📎 Merci de confirmer la réception de mon paiement PayPal pour activer mon téléchargement direct !`
+                    : language === 'es'
+                    ? `👋 Hola, he realizado el pago por PayPal para : *${product.name}*\n💰 Importe : ${product.price}\n🔖 Ref Pedido : ${txId}\n👤 Nombre : ${buyerName || 'Cliente'}\n\n📎 ¡Por favor confirme la recepción para activar la descarga!`
+                    : `👋 Hello, I have sent payment via PayPal for: *${product.name}*\n💰 Amount: ${product.price}\n🔖 Order Ref: ${txId}\n👤 Name: ${buyerName || 'Buyer'}\n\n📎 Please confirm receipt to unlock my download link. Thank you!`
+
+                  const paypalWaUrl = cleanSellerPhone
+                    ? `https://wa.me/${cleanSellerPhone.replace(/^\+/, '')}?text=${encodeURIComponent(paypalWaText)}`
+                    : `https://api.whatsapp.com/send?text=${encodeURIComponent(paypalWaText)}`
+
+                  return (
+                    <div
+                      style={{
+                        background: '#F0F9FF',
+                        border: '1px solid #BAE6FD',
+                        borderRadius: 16,
+                        padding: '18px 16px',
+                        textAlign: 'center',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 12,
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'center' }}>
+                        <div
+                          style={{
+                            width: 52,
+                            height: 52,
+                            borderRadius: '50%',
+                            background: '#0070BA',
+                            color: '#FFFFFF',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: 24,
+                            fontWeight: 900,
+                            boxShadow: '0 4px 12px rgba(0, 112, 186, 0.25)',
+                          }}
+                        >
+                          🅿️
+                        </div>
+                      </div>
+
+                      <div>
+                        <div style={{ fontSize: 16, fontWeight: 800, color: '#0369A1' }}>
+                          {t('digitalModal.awaitingPaypalTitle', 'En attente du paiement sur PayPal...')}
+                        </div>
+                        <div
+                          style={{
+                            display: 'inline-block',
+                            background: '#E0F2FE',
+                            color: '#0284C7',
+                            fontSize: 11,
+                            fontWeight: 800,
+                            padding: '3px 10px',
+                            borderRadius: 6,
+                            marginTop: 4,
+                            letterSpacing: '0.02em',
+                          }}
+                        >
+                          {t('digitalModal.awaitingPaypalBadge', 'Paiement en cours')}
+                        </div>
+                      </div>
+
+                      <p style={{ margin: 0, fontSize: 12.5, color: '#0C4A6E', lineHeight: 1.5 }}>
+                        {t('digitalModal.awaitingPaypalNotice', 'Veuillez finaliser votre paiement dans la fenêtre PayPal. Votre téléchargement sera débloqué dès la confirmation du paiement.')}
+                      </p>
+
+                      {/* Order Details */}
+                      <div
+                        style={{
+                          background: '#FFFFFF',
+                          border: '1px solid #BAE6FD',
+                          borderRadius: 12,
+                          padding: '12px',
+                          textAlign: isRTL ? 'right' : 'left',
+                          fontSize: 12,
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: 6,
+                        }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ color: '#64748B', fontWeight: 600 }}>{t('digitalModal.orderRefLabel', 'Réf Commande :')}</span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <span style={{ fontWeight: 800, fontFamily: 'monospace', color: '#0F172A' }}>{txId}</span>
+                            <button
+                              type="button"
+                              onClick={() => handleCopy(txId, 'txId')}
+                              style={{
+                                background: '#F1F5F9',
+                                border: 'none',
+                                borderRadius: 4,
+                                padding: '2px 6px',
+                                fontSize: 10.5,
+                                cursor: 'pointer',
+                                fontWeight: 700,
+                                color: '#334155',
+                              }}
+                            >
+                              {copiedKey === 'txId' ? t('digitalModal.copied', '✓ Copié') : t('digitalModal.copy', 'Copier')}
+                            </button>
+                          </div>
+                        </div>
+
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ color: '#64748B', fontWeight: 600 }}>{t('digitalModal.amountToTransferLabel', 'Montant :')}</span>
+                          <span style={{ fontWeight: 800, color: '#0284C7', fontSize: 13 }}>{product.price}</span>
+                        </div>
+
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ color: '#64748B', fontWeight: 600 }}>{t('digitalModal.sellerPaypalEmailLabel', 'Compte PayPal :')}</span>
+                          <span style={{ fontWeight: 700, color: '#0F172A', fontSize: 11 }}>{resolvedPaypalEmail || 'OtmanK514@gmail.com'}</span>
+                        </div>
+                      </div>
+
+                      {/* Action 1: Re-open PayPal if user closed the tab */}
+                      {orderSuccess.paypalUrl && (
+                        <a
+                          href={orderSuccess.paypalUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: 8,
+                            background: '#0070BA',
+                            color: '#FFFFFF',
+                            padding: '12px 14px',
+                            borderRadius: 12,
+                            fontWeight: 800,
+                            fontSize: 13.5,
+                            textDecoration: 'none',
+                            boxShadow: '0 2px 8px rgba(0, 112, 186, 0.25)',
+                          }}
+                        >
+                          <span>{t('digitalModal.reopenPaypalBtn', '↗ Continuer vers PayPal')}</span>
+                        </a>
+                      )}
+
+                      {/* Action 2: Check payment confirmation status */}
+                      <button
+                        type="button"
+                        onClick={() => handleCheckPaymentStatus(txId)}
+                        disabled={checkingPayment}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: 6,
+                          background: '#FFFFFF',
+                          border: '1.5px solid #0284C7',
+                          color: '#0284C7',
+                          padding: '10px 14px',
+                          borderRadius: 12,
+                          fontWeight: 800,
+                          fontSize: 12.5,
+                          cursor: checkingPayment ? 'wait' : 'pointer',
+                          opacity: checkingPayment ? 0.7 : 1,
+                        }}
+                      >
+                        <span>{checkingPayment ? '⏳ ...' : t('digitalModal.checkPaymentStatusBtn', '🔄 Vérifier le statut du paiement')}</span>
+                      </button>
+
+                      {checkStatusNotice && (
+                        <div style={{ fontSize: 11.5, color: '#0369A1', background: '#E0F2FE', padding: '8px 10px', borderRadius: 8, lineHeight: 1.4 }}>
+                          {checkStatusNotice}
+                        </div>
+                      )}
+
+                      {/* Action 3: Send confirmation to WhatsApp */}
+                      {cleanSellerPhone && (
+                        <a
+                          href={paypalWaUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: 8,
+                            background: '#16A34A',
+                            color: '#FFFFFF',
+                            padding: '11px 14px',
+                            borderRadius: 12,
+                            fontWeight: 700,
+                            fontSize: 12.5,
+                            textDecoration: 'none',
+                          }}
+                        >
+                          <span>{t('digitalModal.sendProofWhatsAppBtn', '📲 Envoyer la confirmation sur WhatsApp')}</span>
+                        </a>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={onClose}
+                        style={{
+                          background: 'transparent',
+                          border: 'none',
+                          color: '#64748B',
+                          fontSize: 12,
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          marginTop: 2,
+                        }}
+                      >
+                        {t('digitalModal.close', 'Fermer la fenêtre')}
+                      </button>
+                    </div>
+                  )
+                }
+
                 return (
                   <div
                     style={{
