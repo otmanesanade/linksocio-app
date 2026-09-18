@@ -132,6 +132,24 @@ export default function ShopTab({ user, profile, products = [], reloadProducts }
   const [highlightInput, setHighlightInput] = useState('')
   const [highlights, setHighlights] = useState([])
 
+  // Editing state
+  const [editingId, setEditingId] = useState(null)
+
+  // Desktop File Upload state for digital product
+  const [fileSourceMode, setFileSourceMode] = useState('upload') // 'upload' | 'link'
+  const [uploadedFile, setUploadedFile] = useState(null) // { name, size, type, url }
+  const [uploadingFile, setUploadingFile] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState(0)
+  const [uploadError, setUploadError] = useState('')
+  const [isDraggingFile, setIsDraggingFile] = useState(false)
+
+  // Loading & interaction states
+  const [saving, setSaving] = useState(false)
+  const [fetching, setFetching] = useState(false)
+  const [draggedIdx, setDraggedIdx] = useState(null)
+  const [successMsg, setSuccessMsg] = useState('')
+  const [previewProduct, setPreviewProduct] = useState(null)
+
   // Currency synchronization with Wallet
   const [currencyCode, setCurrencyCode] = useState(() => {
     if (Array.isArray(products) && products.length > 0) {
@@ -208,24 +226,6 @@ export default function ShopTab({ user, profile, products = [], reloadProducts }
     window.addEventListener('linksocio:currency_changed', handler)
     return () => window.removeEventListener('linksocio:currency_changed', handler)
   }, [])
-
-  // Desktop File Upload state for digital product
-  const [fileSourceMode, setFileSourceMode] = useState('upload') // 'upload' | 'link'
-  const [uploadedFile, setUploadedFile] = useState(null) // { name, size, type, url }
-  const [uploadingFile, setUploadingFile] = useState(false)
-  const [uploadProgress, setUploadProgress] = useState(0)
-  const [uploadError, setUploadError] = useState('')
-  const [isDraggingFile, setIsDraggingFile] = useState(false)
-
-  // Editing state
-  const [editingId, setEditingId] = useState(null)
-
-  // Loading & interaction states
-  const [saving, setSaving] = useState(false)
-  const [fetching, setFetching] = useState(false)
-  const [draggedIdx, setDraggedIdx] = useState(null)
-  const [successMsg, setSuccessMsg] = useState('')
-  const [previewProduct, setPreviewProduct] = useState(null)
 
   // Upload digital file from desktop
   const handleDigitalFileUpload = async (file) => {
