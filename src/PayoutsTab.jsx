@@ -140,7 +140,11 @@ export default function PayoutsTab({ user, profile, products = [] }) {
       try {
         const u = profile?.username || user?.user_metadata?.username || ''
         const uid = profile?.id || user?.id || ''
-        const cached = localStorage.getItem(`linksocio_payout_settings_${u || uid || 'default'}`) || localStorage.getItem('linksocio_payout_settings_default')
+        const cached =
+          localStorage.getItem(`linksocio_payout_settings_${u}`) ||
+          localStorage.getItem(`linksocio_payout_settings_${uid}`) ||
+          localStorage.getItem('linksocio_payout_settings_otman') ||
+          localStorage.getItem('linksocio_payout_settings_default')
         if (cached) {
           const parsed = JSON.parse(cached)
           return { ...base, ...parsed }
@@ -257,14 +261,23 @@ export default function PayoutsTab({ user, profile, products = [] }) {
       if (setRes.ok) {
         const json = await setRes.json()
         if (json.settings) {
+          // Backend settings take authority for server-side linked methods (e.g. Stripe, verified accounts)
           let merged = { ...json.settings }
           try {
-            const cacheKey = `linksocio_payout_settings_${username || userId || 'default'}`
-            const cached = localStorage.getItem(cacheKey)
+            const u = username || profile?.username || 'default'
+            const uid = userId || profile?.id || ''
+            const cached =
+              localStorage.getItem(`linksocio_payout_settings_${u}`) ||
+              localStorage.getItem(`linksocio_payout_settings_${uid}`) ||
+              localStorage.getItem('linksocio_payout_settings_otman') ||
+              localStorage.getItem('linksocio_payout_settings_default')
             if (cached) {
               const parsed = JSON.parse(cached)
-              merged = { ...merged, ...parsed }
+              merged = { ...parsed, ...merged }
             }
+            // Sync cache back with the merged authoritative data
+            const primaryKey = `linksocio_payout_settings_${username || userId || 'default'}`
+            localStorage.setItem(primaryKey, JSON.stringify(merged))
           } catch (e) {}
           setSettings((prev) => ({ ...prev, ...merged }))
           if (merged.stripeAccountId) {
@@ -1007,20 +1020,87 @@ export default function PayoutsTab({ user, profile, products = [] }) {
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <span style={{ fontSize: 24 }}>{isBankConnected || isStripeConnected ? '✅' : '⚠️'}</span>
             <div>
-              <h4 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: isBankConnected || isStripeConnected ? '#15803D' : '#92400E' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <h4 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: isBankConnected || isStripeConnected ? '#15803D' : '#92400E' }}>
+                  {isBankConnected && isStripeConnected
+                    ? t('payoutsTab.banner.bothConnected', 'Bank Account & Stripe Connect Active')
+                    : isStripeConnected
+                    ? t('payoutsTab.banner.stripeConnected', '💳 Stripe Connect Account Linked & Active')
+                    : isIntlBankConnected
+                    ? `${t('payoutsTab.banner.intlConnected', '🏛️ International Bank Account Linked (IBAN)')} (${settings.bankCountry || 'Global'})`
+                    : isMoroccoBankConnected
+                    ? `${t('payoutsTab.banner.moroccoConnected', '🇲🇦 Moroccan Bank Account Linked & Verified')} (${settings.moroccoBankName || 'Bank'})`
+                    : t('payoutsTab.banner.notConnected', 'No bank or Stripe account is connected yet')}
+                </h4>
+                {isStripeConnected && (
+                  <span
+                    onClick={() => setActiveSubTab('stripe')}
+                    style={{
+                      background: '#EEF2FF',
+                      color: '#4338CA',
+                      border: '1px solid #C7D2FE',
+                      borderRadius: 100,
+                      padding: '2px 9px',
+                      fontSize: 11,
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 4,
+                    }}
+                    title="Click to view Stripe Direct Connect settings"
+                  >
+                    <span>💳 Stripe:</span>
+                    <span style={{ fontFamily: 'monospace' }}>{settings.stripeAccountId}</span>
+                    <span style={{ color: '#16A34A', fontSize: 10 }}>●</span>
+                  </span>
+                )}
+                {isMoroccoBankConnected && (
+                  <span
+                    style={{
+                      background: '#DCFCE7',
+                      color: '#15803D',
+                      border: '1px solid #86EFAC',
+                      borderRadius: 100,
+                      padding: '2px 9px',
+                      fontSize: 11,
+                      fontWeight: 700,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 4,
+                    }}
+                  >
+                    <span>🇲🇦 {settings.moroccoBankName || 'Bank'}</span>
+                    <span style={{ color: '#16A34A', fontSize: 10 }}>●</span>
+                  </span>
+                )}
+                {isIntlBankConnected && (
+                  <span
+                    style={{
+                      background: '#DCFCE7',
+                      color: '#15803D',
+                      border: '1px solid #86EFAC',
+                      borderRadius: 100,
+                      padding: '2px 9px',
+                      fontSize: 11,
+                      fontWeight: 700,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 4,
+                    }}
+                  >
+                    <span>🏛️ IBAN Wire</span>
+                    <span style={{ color: '#16A34A', fontSize: 10 }}>●</span>
+                  </span>
+                )}
+              </div>
+              <p style={{ margin: '3px 0 0', fontSize: 12.5, color: isBankConnected || isStripeConnected ? '#166534' : '#B45309' }}>
                 {isBankConnected && isStripeConnected
-                  ? t('payoutsTab.banner.bothConnected', 'Bank Account & Stripe Connect Active')
-                  : isIntlBankConnected
-                  ? `${t('payoutsTab.banner.intlConnected', '🏛️ International Bank Account Linked (IBAN)')} (${settings.bankCountry || 'Global'})`
-                  : isMoroccoBankConnected
-                  ? `${t('payoutsTab.banner.moroccoConnected', '🇲🇦 Moroccan Bank Account Linked & Verified')} (${settings.moroccoBankName || 'Bank'})`
-                  : isStripeConnected
-                  ? t('payoutsTab.banner.stripeConnected', '💳 Stripe Connect Account Linked & Active')
-                  : t('payoutsTab.banner.notConnected', 'No bank or Stripe account is connected yet')}
-              </h4>
-              <p style={{ margin: '2px 0 0', fontSize: 12.5, color: isBankConnected || isStripeConnected ? '#166534' : '#B45309' }}>
-                {isBankConnected || isStripeConnected
                   ? t('payoutsTab.banner.bothDesc', 'Your sales earnings (91% net) will be transferred directly to this account.')
+                  : isStripeConnected
+                  ? t('payoutsTab.banner.stripeDesc', 'Direct credit card payments (Visa, MasterCard, Apple Pay) are active with automatic 91% net deposits.')
+                  : isBankConnected
+                  ? t('payoutsTab.banner.bankDesc', 'Bank transfer coordinates are linked. You can also connect Stripe for instant card checkouts.')
                   : t('payoutsTab.banner.notConnectedDesc', 'Connect your Stripe account, International Bank (IBAN / SWIFT), or local bank to receive sales earnings.')}
               </p>
             </div>
@@ -1229,7 +1309,13 @@ export default function PayoutsTab({ user, profile, products = [] }) {
       <div style={{ display: 'flex', gap: 6, borderBottom: '1px solid #E2E8F0', paddingBottom: 6, overflowX: 'auto' }}>
         {[
           { id: 'global', label: `🌍 ${t('payoutsTab.subTabs.global', 'Payout Methods & Bank')}`, icon: '🌐' },
-          { id: 'stripe', label: `💳 ${t('payoutsTab.subTabs.stripe', 'Direct Stripe Connect')}`, icon: '⚡' },
+          {
+            id: 'stripe',
+            label: isStripeConnected
+              ? `💳 ${t('payoutsTab.subTabs.stripe', 'Direct Stripe Connect')} (Active ●)`
+              : `💳 ${t('payoutsTab.subTabs.stripe', 'Direct Stripe Connect')}`,
+            icon: '⚡',
+          },
           { id: 'history', label: `📋 ${t('payoutsTab.subTabs.history', 'Sales & Splits Ledger')} (${transactions.length})`, icon: '📊' },
           { id: 'calculator', label: `🧮 ${t('payoutsTab.subTabs.calculator', '91% Calculator')}`, icon: '🔢' },
           { id: 'admin', label: `👑 ${t('payoutsTab.subTabs.admin', 'Admin Overview')}`, icon: '🛡️' },
