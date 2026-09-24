@@ -1804,6 +1804,11 @@ function apiPlugin() {
               settings.bankName = defaultSettings.bankName
             }
 
+            // Ensure stripeConnected is true if a valid stripeAccountId is present
+            if (settings.stripeAccountId && settings.stripeAccountId.trim()) {
+              settings.stripeConnected = true
+            }
+
             res.statusCode = 200
             res.setHeader('Content-Type', 'application/json')
             res.end(JSON.stringify({ success: true, settings }))
@@ -1823,9 +1828,17 @@ function apiPlugin() {
                 const existing = (username && pSettingsStore[username]) ||
                   (userId && pSettingsStore[userId]) ||
                   pSettingsStore['default'] ||
+                  pSettingsStore['otman'] ||
                   {}
 
                 const merged = { ...existing, ...incomingSettings }
+
+                // Automatically preserve and link Stripe if stripeAccountId is provided
+                if (incomingSettings.stripeAccountId && incomingSettings.stripeAccountId.trim()) {
+                  merged.stripeAccountId = incomingSettings.stripeAccountId.trim()
+                  merged.stripeConnected = true
+                  merged.payoutMethod = 'stripe'
+                }
 
                 if (username) pSettingsStore[username] = merged
                 if (userId) pSettingsStore[userId] = merged
@@ -1833,6 +1846,10 @@ function apiPlugin() {
                 pSettingsStore['otman'] = merged
 
                 writeJson(PAYOUT_SETTINGS_PATH, pSettingsStore)
+                try {
+                  const altPath = path.join(process.cwd(), '.payout_settings_store.json')
+                  writeJson(altPath, pSettingsStore)
+                } catch (err) {}
 
                 res.statusCode = 200
                 res.setHeader('Content-Type', 'application/json')

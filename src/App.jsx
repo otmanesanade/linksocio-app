@@ -90,6 +90,9 @@ export default function App() {
     'dashboard',
     'billing',
     'settings',
+    'payouts',
+    'stripe',
+    'wallet',
     'login',
     'signup',
     'privacy',
@@ -148,10 +151,19 @@ export default function App() {
     )
   }
 
-  // Dashboard, Billing, Settings & Admin routes
-  if (path === 'dashboard' || path === 'billing' || path === 'settings' || path === 'admin') {
+  // Dashboard, Billing, Settings, Admin & Payouts/Stripe routes
+  if (path === 'dashboard' || path === 'billing' || path === 'settings' || path === 'admin' || path === 'payouts' || path === 'stripe' || path === 'wallet') {
     if (user) {
-      const initialTab = path === 'admin' ? 'admin' : path === 'billing' ? 'billing' : path === 'settings' ? 'settings' : undefined
+      const initialTab =
+        path === 'admin'
+          ? 'admin'
+          : path === 'billing'
+          ? 'billing'
+          : path === 'settings'
+          ? 'settings'
+          : path === 'payouts' || path === 'stripe' || path === 'wallet'
+          ? 'payouts'
+          : undefined
       return <Dashboard user={user} initialTab={initialTab} />
     }
     return (

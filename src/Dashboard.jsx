@@ -206,10 +206,22 @@ export default function Dashboard({ user, initialTab }) {
     try {
       const search = new URLSearchParams(window.location.search)
       const qTab = search.get('tab')
-      if (qTab) return qTab
+      if (qTab) {
+        if (qTab === 'stripe') return 'payouts'
+        return qTab
+      }
       if (search.get('session_id')) return 'billing'
+      if (search.get('stripe_connected') === 'true' || search.get('acct')) return 'payouts'
+      const cachedTab = localStorage.getItem('linksocio_active_dashboard_tab')
+      if (cachedTab) {
+        if (cachedTab === 'stripe') return 'payouts'
+        return cachedTab
+      }
     } catch (e) {}
-    if (initialTab) return initialTab
+    if (initialTab) {
+      if (initialTab === 'stripe') return 'payouts'
+      return initialTab
+    }
     return 'links'
   })
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -236,10 +248,24 @@ export default function Dashboard({ user, initialTab }) {
     try {
       const search = new URLSearchParams(window.location.search)
       const qTab = search.get('tab')
-      if (qTab) setTab(qTab)
+      if (qTab) setTab(qTab === 'stripe' ? 'payouts' : qTab)
       else if (search.get('session_id')) setTab('billing')
+      else if (search.get('stripe_connected') === 'true' || search.get('acct')) setTab('payouts')
     } catch (e) {}
   }, [])
+
+  useEffect(() => {
+    try {
+      if (typeof window !== 'undefined' && tab) {
+        localStorage.setItem('linksocio_active_dashboard_tab', tab)
+        const currentUrl = new URL(window.location.href)
+        if (currentUrl.searchParams.get('tab') !== tab) {
+          currentUrl.searchParams.set('tab', tab)
+          window.history.replaceState({}, '', currentUrl.toString())
+        }
+      }
+    } catch (e) {}
+  }, [tab])
 
   useEffect(() => {
     loadProfile()

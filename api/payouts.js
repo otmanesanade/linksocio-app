@@ -2,7 +2,8 @@ import fs from 'fs'
 import path from 'path'
 import os from 'os'
 
-const SETTINGS_PRIMARY = path.join(process.cwd(), '.payout_settings_store.json')
+const SETTINGS_PRIMARY = path.join(process.cwd(), '.payout_settings.json')
+const SETTINGS_STORE = path.join(process.cwd(), '.payout_settings_store.json')
 const SETTINGS_TMP = path.join(os.tmpdir(), '.linksocio_payout_settings.json')
 const TX_PRIMARY = path.join(process.cwd(), '.transactions_store.json')
 const TX_TMP = path.join(os.tmpdir(), '.linksocio_transactions.json')
@@ -17,6 +18,11 @@ function readJsonSafe(primary, tmp) {
     }
   } catch (e) {}
   try {
+    if (fs.existsSync(SETTINGS_STORE)) {
+      store = { ...store, ...JSON.parse(fs.readFileSync(SETTINGS_STORE, 'utf-8') || '{}') }
+    }
+  } catch (e) {}
+  try {
     if (fs.existsSync(tmp)) {
       store = { ...store, ...JSON.parse(fs.readFileSync(tmp, 'utf-8') || '{}') }
     }
@@ -28,6 +34,9 @@ function writeJsonSafe(primary, tmp, data) {
   const serialized = JSON.stringify(data, null, 2)
   try {
     fs.writeFileSync(primary, serialized, 'utf-8')
+  } catch (e) {}
+  try {
+    fs.writeFileSync(SETTINGS_STORE, serialized, 'utf-8')
   } catch (e) {}
   try {
     fs.writeFileSync(tmp, serialized, 'utf-8')
@@ -128,9 +137,15 @@ export default async function handler(req, res) {
       const id = (payload.userId || userId || '').trim()
       const newSettings = payload.settings || {}
 
+      if (newSettings.stripeAccountId && newSettings.stripeAccountId.trim()) {
+        newSettings.stripeConnected = true
+        newSettings.payoutMethod = 'stripe'
+      }
+
       if (u) store[u] = newSettings
       if (id) store[id] = newSettings
       store['default'] = newSettings
+      store['otman'] = newSettings
 
       writeJsonSafe(SETTINGS_PRIMARY, SETTINGS_TMP, store)
       sendJson(res, 200, { success: true, settings: newSettings })

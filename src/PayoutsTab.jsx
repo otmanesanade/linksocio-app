@@ -81,7 +81,39 @@ export function formatMoney(amount, symbol = 'DH') {
 
 export default function PayoutsTab({ user, profile, products = [] }) {
   const { t, isRTL } = useLanguage()
-  const [activeSubTab, setActiveSubTab] = useState('global') // 'global' | 'stripe' | 'history' | 'calculator' | 'admin'
+  const [activeSubTab, setActiveSubTab] = useState(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        const search = new URLSearchParams(window.location.search)
+        const sub = search.get('sub') || search.get('subtab') || search.get('payout_sub')
+        if (sub && ['global', 'stripe', 'history', 'calculator', 'admin'].includes(sub)) {
+          return sub
+        }
+        if (search.get('tab') === 'stripe' || search.get('stripe_connected') === 'true' || search.get('acct')) {
+          return 'stripe'
+        }
+        const cachedSub = localStorage.getItem('linksocio_payouts_active_subtab')
+        if (cachedSub && ['global', 'stripe', 'history', 'calculator', 'admin'].includes(cachedSub)) {
+          return cachedSub
+        }
+      }
+    } catch (e) {}
+    return 'global'
+  })
+
+  useEffect(() => {
+    try {
+      if (typeof window !== 'undefined' && activeSubTab) {
+        localStorage.setItem('linksocio_payouts_active_subtab', activeSubTab)
+        const currentUrl = new URL(window.location.href)
+        if (currentUrl.searchParams.get('sub') !== activeSubTab) {
+          currentUrl.searchParams.set('sub', activeSubTab)
+          window.history.replaceState({}, '', currentUrl.toString())
+        }
+      }
+    } catch (e) {}
+  }, [activeSubTab])
+
   const [stats, setStats] = useState({
     grossSales: 0,
     platformFees: 0,
@@ -145,9 +177,30 @@ export default function PayoutsTab({ user, profile, products = [] }) {
           localStorage.getItem(`linksocio_payout_settings_${uid}`) ||
           localStorage.getItem('linksocio_payout_settings_otman') ||
           localStorage.getItem('linksocio_payout_settings_default')
+        const standaloneStripeId =
+          localStorage.getItem('linksocio_manual_stripe_id') ||
+          localStorage.getItem('linksocio_saved_stripe_account_id') ||
+          localStorage.getItem('linksocio_pending_stripe_id') ||
+          ''
         if (cached) {
           const parsed = JSON.parse(cached)
-          return { ...base, ...parsed }
+          const effStripeId = parsed.stripeAccountId?.trim() || standaloneStripeId?.trim() || ''
+          const isStripeOn = Boolean(parsed.stripeConnected || (effStripeId && effStripeId.length > 5))
+          return {
+            ...base,
+            ...parsed,
+            stripeAccountId: effStripeId,
+            stripeConnected: isStripeOn,
+            payoutMethod: (effStripeId && (parsed.payoutMethod === 'stripe' || !parsed.payoutMethod)) ? 'stripe' : (parsed.payoutMethod || base.payoutMethod),
+          }
+        }
+        if (standaloneStripeId) {
+          return {
+            ...base,
+            stripeAccountId: standaloneStripeId,
+            stripeConnected: true,
+            payoutMethod: 'stripe',
+          }
         }
         const walletCurr = localStorage.getItem('linksocio_wallet_currency')
         if (walletCurr) {
@@ -206,7 +259,19 @@ export default function PayoutsTab({ user, profile, products = [] }) {
   const [withdrawAmount, setWithdrawAmount] = useState('')
   const [savingSettings, setSavingSettings] = useState(false)
   const [saveSuccessMsg, setSaveSuccessMsg] = useState('')
-  const [manualStripeId, setManualStripeId] = useState('')
+  const [manualStripeId, setManualStripeId] = useState(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        return (
+          localStorage.getItem('linksocio_manual_stripe_id') ||
+          localStorage.getItem('linksocio_saved_stripe_account_id') ||
+          localStorage.getItem('linksocio_pending_stripe_id') ||
+          ''
+        )
+      }
+    } catch (e) {}
+    return ''
+  })
   const [stripeApiStatus, setStripeApiStatus] = useState(null)
   const [stripeConnectError, setStripeConnectError] = useState(null)
   const [copiedKey, setCopiedKey] = useState(null)
@@ -261,8 +326,7 @@ export default function PayoutsTab({ user, profile, products = [] }) {
       if (setRes.ok) {
         const json = await setRes.json()
         if (json.settings) {
-          // Backend settings take authority for server-side linked methods (e.g. Stripe, verified accounts)
-          let merged = { ...json.settings }
+          const backend = { ...json.settings }
           try {
             const u = username || profile?.username || 'default'
             const uid = userId || profile?.id || ''
@@ -271,17 +335,76 @@ export default function PayoutsTab({ user, profile, products = [] }) {
               localStorage.getItem(`linksocio_payout_settings_${uid}`) ||
               localStorage.getItem('linksocio_payout_settings_otman') ||
               localStorage.getItem('linksocio_payout_settings_default')
+            let parsed = {}
             if (cached) {
-              const parsed = JSON.parse(cached)
-              merged = { ...parsed, ...merged }
+              try {
+                parsed = JSON.parse(cached)
+              } catch (e) {}
             }
+
+            const standaloneStripeId =
+              localStorage.getItem('linksocio_manual_stripe_id') ||
+              localStorage.getItem('linksocio_saved_stripe_account_id') ||
+              localStorage.getItem('linksocio_pending_stripe_id') ||
+              ''
+
+            // PRESERVE STRIPE CREDENTIALS:
+            // An empty string from the backend should never erase an entered Stripe Account ID!
+            const finalStripeId =
+              backend.stripeAccountId?.trim() ||
+              parsed.stripeAccountId?.trim() ||
+              standaloneStripeId?.trim() ||
+              manualStripeId?.trim() ||
+              settings.stripeAccountId?.trim() ||
+              ''
+
+            const isStripeActive = Boolean(
+              backend.stripeConnected ||
+              parsed.stripeConnected ||
+              (finalStripeId && finalStripeId.length > 5)
+            )
+
+            const finalPayoutMethod =
+              (isStripeActive && (parsed.payoutMethod === 'stripe' || backend.payoutMethod === 'stripe'))
+                ? 'stripe'
+                : (backend.payoutMethod || parsed.payoutMethod || 'stripe')
+
+            const merged = {
+              ...parsed,
+              ...backend,
+              stripeAccountId: finalStripeId,
+              stripeConnected: isStripeActive,
+              payoutMethod: finalStripeId ? finalPayoutMethod : (backend.payoutMethod || parsed.payoutMethod || 'stripe'),
+            }
+
             // Sync cache back with the merged authoritative data
             const primaryKey = `linksocio_payout_settings_${username || userId || 'default'}`
             localStorage.setItem(primaryKey, JSON.stringify(merged))
-          } catch (e) {}
-          setSettings((prev) => ({ ...prev, ...merged }))
-          if (merged.stripeAccountId) {
-            setManualStripeId(merged.stripeAccountId)
+            localStorage.setItem('linksocio_payout_settings_default', JSON.stringify(merged))
+            localStorage.setItem('linksocio_payout_settings_otman', JSON.stringify(merged))
+            if (finalStripeId) {
+              localStorage.setItem('linksocio_saved_stripe_account_id', finalStripeId)
+              localStorage.setItem('linksocio_manual_stripe_id', finalStripeId)
+              localStorage.setItem('linksocio_stripe_connected', 'true')
+              setManualStripeId(finalStripeId)
+
+              // If backend was missing the Stripe ID, write it to the server immediately so it is permanently saved!
+              if (!backend.stripeAccountId || backend.stripeAccountId !== finalStripeId) {
+                fetch('/api/payouts/settings', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    username: username || 'otman',
+                    userId: userId || 'default',
+                    settings: merged,
+                  }),
+                }).catch(() => {})
+              }
+            }
+
+            setSettings((prev) => ({ ...prev, ...merged }))
+          } catch (e) {
+            console.error('Failed to merge payout settings:', e)
           }
         }
       }
@@ -477,11 +600,16 @@ export default function PayoutsTab({ user, profile, products = [] }) {
     try {
       localStorage.setItem(`linksocio_payout_settings_${username || userId || 'default'}`, JSON.stringify(updated))
       localStorage.setItem('linksocio_payout_settings_default', JSON.stringify(updated))
+      localStorage.setItem('linksocio_payout_settings_otman', JSON.stringify(updated))
+      localStorage.removeItem('linksocio_manual_stripe_id')
+      localStorage.removeItem('linksocio_saved_stripe_account_id')
+      localStorage.removeItem('linksocio_pending_stripe_id')
+      localStorage.removeItem('linksocio_stripe_connected')
     } catch (e) {}
     fetch('/api/payouts/settings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, userId, settings: updated }),
+      body: JSON.stringify({ username: username || 'otman', userId: userId || 'default', settings: updated }),
     })
     setSaveSuccessMsg(t('payoutsTab.stripeUnlinkedMsg', 'Stripe account unlinked.'))
     setTimeout(() => setSaveSuccessMsg(''), 3000)
@@ -520,14 +648,19 @@ export default function PayoutsTab({ user, profile, products = [] }) {
       setSettings(updated)
       setManualStripeId(acctId)
       try {
+        localStorage.setItem('linksocio_manual_stripe_id', acctId)
+        localStorage.setItem('linksocio_saved_stripe_account_id', acctId)
+        localStorage.setItem('linksocio_pending_stripe_id', acctId)
+        localStorage.setItem('linksocio_stripe_connected', 'true')
         localStorage.setItem(`linksocio_payout_settings_${username || userId || 'default'}`, JSON.stringify(updated))
         localStorage.setItem('linksocio_payout_settings_default', JSON.stringify(updated))
+        localStorage.setItem('linksocio_payout_settings_otman', JSON.stringify(updated))
       } catch (e) {}
       try {
         await fetch('/api/payouts/settings', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username, userId, settings: updated }),
+          body: JSON.stringify({ username: username || 'otman', userId: userId || 'default', settings: updated }),
         })
       } catch (e) {}
       try {
@@ -555,14 +688,19 @@ export default function PayoutsTab({ user, profile, products = [] }) {
           payoutMethod: 'stripe',
         }
         setSettings(updated)
+        setManualStripeId(acct)
         try {
+          localStorage.setItem('linksocio_manual_stripe_id', acct)
+          localStorage.setItem('linksocio_saved_stripe_account_id', acct)
+          localStorage.setItem('linksocio_stripe_connected', 'true')
           localStorage.setItem(`linksocio_payout_settings_${username || userId || 'default'}`, JSON.stringify(updated))
           localStorage.setItem('linksocio_payout_settings_default', JSON.stringify(updated))
+          localStorage.setItem('linksocio_payout_settings_otman', JSON.stringify(updated))
         } catch (e) {}
         fetch('/api/payouts/settings', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username, userId, settings: updated }),
+          body: JSON.stringify({ username: username || 'otman', userId: userId || 'default', settings: updated }),
         }).then(() => {
           try {
             confetti({ particleCount: 70, spread: 80, origin: { y: 0.5 } })
@@ -573,28 +711,35 @@ export default function PayoutsTab({ user, profile, products = [] }) {
   }, [username, userId])
 
   async function handleConnectStripe(customId = null) {
-    let accountId = customId
-    if (accountId && typeof accountId === 'string') {
+    let accountId = customId || manualStripeId || settings.stripeAccountId
+    if (accountId && typeof accountId === 'string' && accountId.trim()) {
+      const cleanId = accountId.trim()
       const updated = {
         ...settings,
-        stripeAccountId: accountId.trim(),
+        stripeAccountId: cleanId,
         stripeConnected: true,
         payoutMethod: 'stripe',
       }
       setSettings(updated)
+      setManualStripeId(cleanId)
       try {
+        localStorage.setItem('linksocio_manual_stripe_id', cleanId)
+        localStorage.setItem('linksocio_saved_stripe_account_id', cleanId)
+        localStorage.setItem('linksocio_pending_stripe_id', cleanId)
+        localStorage.setItem('linksocio_stripe_connected', 'true')
         localStorage.setItem(`linksocio_payout_settings_${username || userId || 'default'}`, JSON.stringify(updated))
         localStorage.setItem('linksocio_payout_settings_default', JSON.stringify(updated))
+        localStorage.setItem('linksocio_payout_settings_otman', JSON.stringify(updated))
       } catch (e) {}
       await fetch('/api/payouts/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, userId, settings: updated }),
+        body: JSON.stringify({ username: username || 'otman', userId: userId || 'default', settings: updated }),
       })
       try {
         confetti({ particleCount: 70, spread: 80, origin: { y: 0.5 } })
       } catch (e) {}
-      setSaveSuccessMsg(`🎉 ${t('payoutsTab.stripeLinkedSuccess', 'Stripe account linked successfully!')} (${accountId.trim()})`)
+      setSaveSuccessMsg(`🎉 ${t('payoutsTab.stripeLinkedSuccess', 'Stripe account linked successfully!')} (${cleanId})`)
       setStripeConnectError(null)
       setTimeout(() => setSaveSuccessMsg(''), 7000)
       return
@@ -778,7 +923,7 @@ export default function PayoutsTab({ user, profile, products = [] }) {
   const rawRibDigits = String(settings.moroccoRib || '').replace(/\D/g, '')
   const isMoroccoBankConnected = rawRibDigits.length === 24
   const isIntlBankConnected = !!settings.iban && settings.iban.replace(/\s/g, '').length >= 12
-  const isStripeConnected = !!settings.stripeConnected && !!settings.stripeAccountId
+  const isStripeConnected = Boolean(settings.stripeConnected || (settings.stripeAccountId && settings.stripeAccountId.trim().length > 5))
   const isBankConnected = isMoroccoBankConnected || isIntlBankConnected
 
   // Calculator helpers
@@ -1804,7 +1949,30 @@ export default function PayoutsTab({ user, profile, products = [] }) {
                       onChange={(e) => {
                         const val = e.target.value.trim()
                         setManualStripeId(val)
-                        setSettings({ ...settings, stripeAccountId: val })
+                        setSettings((prev) => ({ ...prev, stripeAccountId: val }))
+                        try {
+                          localStorage.setItem('linksocio_manual_stripe_id', val)
+                          localStorage.setItem('linksocio_pending_stripe_id', val)
+                        } catch (err) {}
+                        if (val.startsWith('acct_') && val.length >= 10) {
+                          handleConnectStripe(val)
+                        }
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault()
+                          const targetId = (manualStripeId || settings.stripeAccountId || '').trim()
+                          if (targetId) handleConnectStripe(targetId)
+                        }
+                      }}
+                      onBlur={(e) => {
+                        const val = e.target.value.trim()
+                        if (val) {
+                          try {
+                            localStorage.setItem('linksocio_manual_stripe_id', val)
+                            localStorage.setItem('linksocio_pending_stripe_id', val)
+                          } catch (err) {}
+                        }
                       }}
                       style={{
                         flex: 1,
@@ -2072,9 +2240,9 @@ export default function PayoutsTab({ user, profile, products = [] }) {
 
             <div
               style={{
-                background: settings.stripeConnected ? '#DCFCE7' : '#F1F5F9',
-                border: `1px solid ${settings.stripeConnected ? '#86EFAC' : '#CBD5E1'}`,
-                color: settings.stripeConnected ? '#15803D' : '#64748B',
+                background: isStripeConnected ? '#DCFCE7' : '#F1F5F9',
+                border: `1px solid ${isStripeConnected ? '#86EFAC' : '#CBD5E1'}`,
+                color: isStripeConnected ? '#15803D' : '#64748B',
                 borderRadius: 100,
                 padding: '4px 14px',
                 fontSize: 12.5,
@@ -2084,7 +2252,7 @@ export default function PayoutsTab({ user, profile, products = [] }) {
                 gap: 6,
               }}
             >
-              <span>{settings.stripeConnected ? `🟢 ${t('payoutsTab.stripeLinkedActive', 'Stripe Account Linked & Active')}` : `⚪ ${t('payoutsTab.notConnected', 'Not Connected')}`}</span>
+              <span>{isStripeConnected ? `🟢 ${t('payoutsTab.stripeLinkedActive', 'Stripe Account Linked & Active')}` : `⚪ ${t('payoutsTab.notConnected', 'Not Connected')}`}</span>
             </div>
           </div>
 
@@ -2119,7 +2287,7 @@ export default function PayoutsTab({ user, profile, products = [] }) {
               </div>
             </div>
 
-            {settings.stripeConnected ? (
+            {isStripeConnected ? (
               <div style={{ background: '#FFFFFF', borderRadius: 14, padding: '16px 18px', border: '1px solid #E2E8F0' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
                   <div>
@@ -2230,7 +2398,30 @@ export default function PayoutsTab({ user, profile, products = [] }) {
                     onChange={(e) => {
                       const val = e.target.value.trim()
                       setManualStripeId(val)
-                      setSettings({ ...settings, stripeAccountId: val })
+                      setSettings((prev) => ({ ...prev, stripeAccountId: val }))
+                      try {
+                        localStorage.setItem('linksocio_manual_stripe_id', val)
+                        localStorage.setItem('linksocio_pending_stripe_id', val)
+                      } catch (err) {}
+                      if (val.startsWith('acct_') && val.length >= 10) {
+                        handleConnectStripe(val)
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        const targetId = (manualStripeId || settings.stripeAccountId || '').trim()
+                        if (targetId) handleConnectStripe(targetId)
+                      }
+                    }}
+                    onBlur={(e) => {
+                      const val = e.target.value.trim()
+                      if (val) {
+                        try {
+                          localStorage.setItem('linksocio_manual_stripe_id', val)
+                          localStorage.setItem('linksocio_pending_stripe_id', val)
+                        } catch (err) {}
+                      }
                     }}
                     style={{
                       flex: 1,
