@@ -43,22 +43,22 @@ const GLOBAL_PAYOUT_METHODS = [
 ]
 
 export const CURRENCIES = [
-  { code: 'MAD', symbol: 'DH', name: 'Moroccan Dirham (DH / MAD)' },
-  { code: 'USD', symbol: '$', name: 'US Dollar ($)' },
-  { code: 'EUR', symbol: '€', name: 'Euro (€)' },
-  { code: 'GBP', symbol: '£', name: 'British Pound (£)' },
-  { code: 'SAR', symbol: 'SAR', name: 'Saudi Riyal (SAR)' },
-  { code: 'AED', symbol: 'AED', name: 'UAE Dirham (AED)' },
-  { code: 'CAD', symbol: 'CA$', name: 'Canadian Dollar (CA$)' },
-  { code: 'USDT', symbol: 'USDT', name: 'USDT (Tether)' },
+  { code: 'USD', symbol: '$', name: '🇺🇸 US Dollar ($ / USD)' },
+  { code: 'EUR', symbol: '€', name: '🇪🇺 Euro (€ / EUR)' },
+  { code: 'MAD', symbol: 'DH', name: '🇲🇦 Moroccan Dirham (DH / MAD)' },
+  { code: 'GBP', symbol: '£', name: '🇬🇧 British Pound (£ / GBP)' },
+  { code: 'SAR', symbol: 'SAR', name: '🇸🇦 Saudi Riyal (SAR / ريال)' },
+  { code: 'AED', symbol: 'AED', name: '🇦🇪 UAE Dirham (AED / درهم)' },
+  { code: 'CAD', symbol: 'CA$', name: '🇨🇦 Canadian Dollar (CA$)' },
+  { code: 'USDT', symbol: 'USDT', name: '🟢 USDT (Crypto Tether)' },
 ]
 
 export function detectCurrency(str) {
   if (!str || typeof str !== 'string') return null
   const s = str.trim().toUpperCase()
-  if (/\b(MAD|DH|DIRHAM)\b/i.test(s)) return CURRENCIES[0]
-  if (s.includes('$') || /\bUSD\b/i.test(s)) return CURRENCIES[1]
-  if (s.includes('€') || /\bEUR\b/i.test(s)) return CURRENCIES[2]
+  if (s.includes('$') || /\bUSD\b/i.test(s)) return CURRENCIES[0]
+  if (s.includes('€') || /\bEUR\b/i.test(s)) return CURRENCIES[1]
+  if (/\b(MAD|DH|DIRHAM)\b/i.test(s)) return CURRENCIES[2]
   if (s.includes('£') || /\bGBP\b/i.test(s)) return CURRENCIES[3]
   if (/\bSAR\b/i.test(s) || s.includes('ريال')) return CURRENCIES[4]
   if (/\bAED\b/i.test(s) || s.includes('درهم')) return CURRENCIES[5]
@@ -67,7 +67,7 @@ export function detectCurrency(str) {
   return null
 }
 
-export function formatMoney(amount, symbol = 'DH') {
+export function formatMoney(amount, symbol = '$') {
   const n = Number(amount) || 0
   const formatted = n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
   if (symbol === '$' || symbol === '£') {
@@ -122,7 +122,7 @@ export default function PayoutsTab({ user, profile, products = [] }) {
     availableBalance: 0,
     feePercentage: 9,
     sellerPercentage: 91,
-    currency: 'DH',
+    currency: '$',
   })
   const [transactions, setTransactions] = useState([])
   const [payoutRequests, setPayoutRequests] = useState([])
@@ -130,10 +130,25 @@ export default function PayoutsTab({ user, profile, products = [] }) {
 
   // Settings
   const [settings, setSettings] = useState(() => {
-    // Check if products has a currency
-    let initialCode = 'MAD'
-    let initialSymbol = 'DH'
-    if (Array.isArray(products) && products.length > 0) {
+    let initialCode = 'USD'
+    let initialSymbol = '$'
+
+    // Check creator's explicitly saved choice first
+    if (typeof window !== 'undefined') {
+      try {
+        const creatorCurr = localStorage.getItem('linksocio_creator_currency') || localStorage.getItem('linksocio_wallet_currency')
+        if (creatorCurr) {
+          const parsed = JSON.parse(creatorCurr)
+          if (parsed.code && parsed.symbol) {
+            initialCode = parsed.code
+            initialSymbol = parsed.symbol
+          }
+        }
+      } catch (e) {}
+    }
+
+    // Fallback: detect from products if no explicit choice yet
+    if (initialCode === 'USD' && Array.isArray(products) && products.length > 0) {
       const pWithPrice = products.find((p) => p.price && p.price !== 'Free' && p.price !== 'Gratuit') || products[0]
       const det = detectCurrency(pWithPrice?.currency || pWithPrice?.price)
       if (det) {
@@ -189,6 +204,8 @@ export default function PayoutsTab({ user, profile, products = [] }) {
           return {
             ...base,
             ...parsed,
+            selectedCurrency: initialCode !== 'USD' ? initialCode : (parsed.selectedCurrency || base.selectedCurrency),
+            currencySymbol: initialSymbol !== '$' ? initialSymbol : (parsed.currencySymbol || base.currencySymbol),
             stripeAccountId: effStripeId,
             stripeConnected: isStripeOn,
             payoutMethod: (effStripeId && (parsed.payoutMethod === 'stripe' || !parsed.payoutMethod)) ? 'stripe' : (parsed.payoutMethod || base.payoutMethod),
@@ -202,40 +219,71 @@ export default function PayoutsTab({ user, profile, products = [] }) {
             payoutMethod: 'stripe',
           }
         }
-        const walletCurr = localStorage.getItem('linksocio_wallet_currency')
-        if (walletCurr) {
-          const parsed = JSON.parse(walletCurr)
-          if (parsed.code && parsed.symbol) {
-            return { ...base, selectedCurrency: parsed.code, currencySymbol: parsed.symbol }
-          }
-        }
       } catch (e) {}
     }
     return base
   })
 
-  // Synchronize currency when products prop updates
-  useEffect(() => {
-    if (Array.isArray(products) && products.length > 0) {
-      const pWithPrice = products.find((p) => p.price && p.price !== 'Free' && p.price !== 'Gratuit') || products[0]
-      if (pWithPrice) {
-        const det = detectCurrency(pWithPrice.currency || pWithPrice.price)
-        if (det) {
-          setSettings((prev) => ({
-            ...prev,
-            selectedCurrency: det.code,
-            currencySymbol: det.symbol,
-          }))
-          setStats((prev) => ({
-            ...prev,
-            currency: det.symbol,
-          }))
-        }
-      }
+  // Select and immediately persist payout method to server & cache so it never reverts on refresh
+  function handleSelectPayoutMethod(methodId) {
+    const updated = {
+      ...settings,
+      payoutMethod: methodId,
     }
-  }, [products])
+    setSettings(updated)
+    try {
+      localStorage.setItem('linksocio_payout_method', methodId)
+      const primaryKey = `linksocio_payout_settings_${username || userId || 'default'}`
+      localStorage.setItem(primaryKey, JSON.stringify(updated))
+      localStorage.setItem('linksocio_payout_settings_default', JSON.stringify(updated))
+      localStorage.setItem('linksocio_payout_settings_otman', JSON.stringify(updated))
+    } catch (e) {}
+    fetch('/api/payouts/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username: username || 'otman',
+        userId: userId || 'default',
+        settings: updated,
+      }),
+    }).catch(() => {})
+  }
 
-  // Listen to currency changes made in ShopTab or other components in real time
+  // Change currency on demand & sync everywhere
+  function handleCurrencyChange(code) {
+    const cObj = CURRENCIES.find((c) => c.code === code) || CURRENCIES[0]
+    const updated = {
+      ...settings,
+      selectedCurrency: cObj.code,
+      currencySymbol: cObj.symbol,
+    }
+    setSettings(updated)
+    setStats((prev) => ({ ...prev, currency: cObj.symbol }))
+    try {
+      localStorage.setItem('linksocio_creator_currency', JSON.stringify({ code: cObj.code, symbol: cObj.symbol }))
+      localStorage.setItem('linksocio_wallet_currency', JSON.stringify({ code: cObj.code, symbol: cObj.symbol }))
+      const primaryKey = `linksocio_payout_settings_${username || userId || 'default'}`
+      localStorage.setItem(primaryKey, JSON.stringify(updated))
+      localStorage.setItem('linksocio_payout_settings_default', JSON.stringify(updated))
+      localStorage.setItem('linksocio_payout_settings_otman', JSON.stringify(updated))
+      window.dispatchEvent(
+        new CustomEvent('linksocio:currency_changed', {
+          detail: { code: cObj.code, symbol: cObj.symbol },
+        })
+      )
+    } catch (e) {}
+    fetch('/api/payouts/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username: username || 'otman',
+        userId: userId || 'default',
+        settings: updated,
+      }),
+    }).catch(() => {})
+  }
+
+  // Creator's choice is respected. Real-time sync with CurrencySwitcher and other tabs
   useEffect(() => {
     const handler = (e) => {
       if (e.detail?.code && e.detail?.symbol) {
@@ -307,7 +355,8 @@ export default function PayoutsTab({ user, profile, products = [] }) {
         const json = await statsRes.json()
         if (json.stats) {
           setStats(json.stats)
-          if (json.stats.currency) {
+          const localChoice = typeof window !== 'undefined' && (localStorage.getItem('linksocio_creator_currency') || localStorage.getItem('linksocio_wallet_currency'))
+          if (!localChoice && json.stats.currency) {
             const cObj = CURRENCIES.find((c) => c.symbol === json.stats.currency || c.code === json.stats.currency)
             if (cObj) {
               setSettings((prev) => ({
@@ -364,17 +413,43 @@ export default function PayoutsTab({ user, profile, products = [] }) {
               (finalStripeId && finalStripeId.length > 5)
             )
 
+            const savedMethod =
+              localStorage.getItem('linksocio_payout_method') ||
+              parsed.payoutMethod ||
+              settings.payoutMethod
+
             const finalPayoutMethod =
-              (isStripeActive && (parsed.payoutMethod === 'stripe' || backend.payoutMethod === 'stripe'))
+              (isStripeActive || savedMethod === 'stripe' || backend.payoutMethod === 'stripe')
                 ? 'stripe'
-                : (backend.payoutMethod || parsed.payoutMethod || 'stripe')
+                : (savedMethod || backend.payoutMethod || 'stripe')
+
+            // Preserve creator's chosen currency
+            let effCode = settings.selectedCurrency
+            let effSymbol = settings.currencySymbol
+            if (localChoice) {
+              try {
+                const parsedC = JSON.parse(localChoice)
+                if (parsedC.code && parsedC.symbol) {
+                  effCode = parsedC.code
+                  effSymbol = parsedC.symbol
+                }
+              } catch (e) {}
+            } else if (backend.selectedCurrency) {
+              effCode = backend.selectedCurrency
+              effSymbol = backend.currencySymbol || '$'
+            } else if (parsed.selectedCurrency) {
+              effCode = parsed.selectedCurrency
+              effSymbol = parsed.currencySymbol || '$'
+            }
 
             const merged = {
               ...parsed,
               ...backend,
+              selectedCurrency: effCode,
+              currencySymbol: effSymbol,
               stripeAccountId: finalStripeId,
               stripeConnected: isStripeActive,
-              payoutMethod: finalStripeId ? finalPayoutMethod : (backend.payoutMethod || parsed.payoutMethod || 'stripe'),
+              payoutMethod: (isStripeActive || savedMethod === 'stripe') ? 'stripe' : (savedMethod || backend.payoutMethod || 'stripe'),
             }
 
             // Sync cache back with the merged authoritative data
@@ -1054,6 +1129,89 @@ export default function PayoutsTab({ user, profile, products = [] }) {
         />
       </div>
 
+      {/* Creator Currency Choice Bar (Freedom to pick any global currency) */}
+      <div
+        style={{
+          background: '#FFFFFF',
+          border: '1.5px solid #E2E8F0',
+          borderRadius: 18,
+          padding: '14px 20px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: 14,
+          boxShadow: '0 2px 6px rgba(0,0,0,0.02)',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div
+            style={{
+              width: 42,
+              height: 42,
+              borderRadius: 12,
+              background: '#EEF2FF',
+              color: '#4338CA',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: 22,
+            }}
+          >
+            💱
+          </div>
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 800, color: '#0F172A', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <span>{t('payoutsTab.currencyChoiceTitle', 'Devise du Store & du Wallet (Store & Wallet Currency)')}</span>
+              <span
+                style={{
+                  background: '#ECFDF5',
+                  color: '#059669',
+                  border: '1px solid #A7F3D0',
+                  fontSize: 11.5,
+                  fontWeight: 800,
+                  padding: '2px 8px',
+                  borderRadius: 100,
+                }}
+              >
+                {t('payoutsTab.activeCurrency', 'Active:')} {settings.selectedCurrency} ({currSym})
+              </span>
+            </div>
+            <p style={{ margin: '3px 0 0', fontSize: 12, color: '#64748B' }}>
+              {t('payoutsTab.currencyChoiceDesc', 'Choisissez librement votre devise : vos produits, votre solde de gains et vos retraits sont convertis instantanément.')}
+            </p>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 12.5, fontWeight: 700, color: '#475569' }}>
+            {t('payoutsTab.selectCurrencyLabel', 'Devise Principale :')}
+          </span>
+          <select
+            value={settings.selectedCurrency}
+            onChange={(e) => handleCurrencyChange(e.target.value)}
+            style={{
+              padding: '8px 14px',
+              borderRadius: 10,
+              border: '2px solid #6366F1',
+              background: '#FFFFFF',
+              color: '#0F172A',
+              fontSize: 13,
+              fontWeight: 800,
+              cursor: 'pointer',
+              outline: 'none',
+              boxShadow: '0 2px 5px rgba(99,102,241,0.12)',
+            }}
+          >
+            {CURRENCIES.map((c) => (
+              <option key={c.code} value={c.code}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
       {/* Financial KPIs Cards Grid */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
         {/* Card 1: Available Balance */}
@@ -1519,7 +1677,7 @@ export default function PayoutsTab({ user, profile, products = [] }) {
                 return (
                   <div
                     key={method.id}
-                    onClick={() => setSettings({ ...settings, payoutMethod: method.id })}
+                    onClick={() => handleSelectPayoutMethod(method.id)}
                     style={{
                       border: `2px solid ${isSelected ? '#059669' : '#E2E8F0'}`,
                       background: isSelected ? '#ECFDF5' : '#FAFAFA',
@@ -1970,8 +2128,14 @@ export default function PayoutsTab({ user, profile, products = [] }) {
                         if (val) {
                           try {
                             localStorage.setItem('linksocio_manual_stripe_id', val)
+                            localStorage.setItem('linksocio_saved_stripe_account_id', val)
                             localStorage.setItem('linksocio_pending_stripe_id', val)
+                            localStorage.setItem('linksocio_stripe_connected', 'true')
+                            localStorage.setItem('linksocio_payout_method', 'stripe')
                           } catch (err) {}
+                          if (val.length >= 6) {
+                            handleConnectStripe(val)
+                          }
                         }
                       }}
                       style={{

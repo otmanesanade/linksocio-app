@@ -41,57 +41,73 @@ export const DIGITAL_CATEGORIES = [
 ]
 
 // 1-Click Starter Presets for Quick Creation
-const STARTER_PRESETS = [
-  {
-    name: 'The Ultimate Freelancer Guide (PDF)',
-    category: 'ebook',
-    price: '99 DH',
-    original_price: '199 DH',
-    description: 'A complete step-by-step PDF guide with 45+ pages covering client acquisition, pricing strategies, and contract templates.',
-    highlights: ['45+ Pages in High-Quality PDF', 'Ready-to-use Contract Templates', 'Lifetime Updates Included'],
-    delivery_type: 'whatsapp',
-    file_url: 'https://drive.google.com',
-    image_url: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=600&q=80',
-  },
-  {
-    name: '30+ Viral Social Media Canva Templates',
-    category: 'template',
-    price: '149 DH',
-    original_price: '299 DH',
-    description: 'Fully editable aesthetic Instagram & TikTok post/carousel templates designed to boost your engagement.',
-    highlights: ['30+ Fully Editable Canva Templates', 'Customizable Fonts & Colors', 'Commercial Use License'],
-    delivery_type: 'whatsapp',
-    file_url: 'https://canva.com',
-    image_url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=600&q=80',
-  },
-  {
-    name: 'All-in-One Life & Business OS (Notion)',
-    category: 'notion',
-    price: '199 DH',
-    original_price: '350 DH',
-    description: 'The ultimate Notion workspace to organize your habits, finances, projects, and daily tasks in one clean dashboard.',
-    highlights: ['Complete Life & Business Dashboard', 'Finance & Habit Trackers', '1-Click Notion Duplicate'],
-    delivery_type: 'whatsapp',
-    file_url: 'https://notion.so',
-    image_url: 'https://images.unsplash.com/photo-1517842645767-c639042777db?auto=format&fit=crop&w=600&q=80',
-  },
-  {
-    name: 'Pro Mobile & Desktop Lightroom Presets',
-    category: 'software',
-    price: '79 DH',
-    original_price: '150 DH',
-    description: '10 professional aesthetic color grading presets for mobile Lightroom & desktop with video install tutorial.',
-    highlights: ['10 DNG & XMP Presets', 'One-Click Photo Enhancement', 'Step-by-Step Video Tutorial'],
-    delivery_type: 'whatsapp',
-    file_url: 'https://drive.google.com',
-    image_url: 'https://images.unsplash.com/photo-1542038784456-1ea8e935640e?auto=format&fit=crop&w=600&q=80',
-  },
-]
+export function getStarterPresets(symbol = '$', code = 'USD') {
+  const isDh = code === 'MAD' || symbol === 'DH'
+  const isEur = code === 'EUR' || symbol === '€'
+  const isGbp = code === 'GBP' || symbol === '£'
+  const isCrypto = code === 'USDT' || symbol === 'USDT'
+
+  const formatP = (val) => {
+    if (symbol === '$' || symbol === '£') return `${symbol}${val}`
+    if (symbol === '€') return `${val} €`
+    if (isCrypto) return `${val} USDT`
+    return `${val} ${symbol}`
+  }
+
+  return [
+    {
+      name: 'The Ultimate Freelancer Guide (PDF)',
+      category: 'ebook',
+      price: isDh ? '99 DH' : formatP(19),
+      original_price: isDh ? '199 DH' : formatP(39),
+      description: 'A complete step-by-step PDF guide with 45+ pages covering client acquisition, pricing strategies, and contract templates.',
+      highlights: ['45+ Pages in High-Quality PDF', 'Ready-to-use Contract Templates', 'Lifetime Updates Included'],
+      delivery_type: 'whatsapp',
+      file_url: 'https://drive.google.com',
+      image_url: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=600&q=80',
+    },
+    {
+      name: '30+ Viral Social Media Canva Templates',
+      category: 'template',
+      price: isDh ? '149 DH' : formatP(29),
+      original_price: isDh ? '299 DH' : formatP(59),
+      description: 'Fully editable aesthetic Instagram & TikTok post/carousel templates designed to boost your engagement.',
+      highlights: ['30+ Fully Editable Canva Templates', 'Customizable Fonts & Colors', 'Commercial Use License'],
+      delivery_type: 'whatsapp',
+      file_url: 'https://canva.com',
+      image_url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=600&q=80',
+    },
+    {
+      name: 'All-in-One Life & Business OS (Notion)',
+      category: 'notion',
+      price: isDh ? '199 DH' : formatP(39),
+      original_price: isDh ? '350 DH' : formatP(79),
+      description: 'The ultimate Notion workspace to organize your habits, finances, projects, and daily tasks in one clean dashboard.',
+      highlights: ['Complete Life & Business Dashboard', 'Finance & Habit Trackers', '1-Click Notion Duplicate'],
+      delivery_type: 'whatsapp',
+      file_url: 'https://notion.so',
+      image_url: 'https://images.unsplash.com/photo-1517842645767-c639042777db?auto=format&fit=crop&w=600&q=80',
+    },
+    {
+      name: 'Pro Mobile & Desktop Lightroom Presets',
+      category: 'software',
+      price: isDh ? '79 DH' : formatP(15),
+      original_price: isDh ? '150 DH' : formatP(30),
+      description: '10 professional aesthetic color grading presets for mobile Lightroom & desktop with video install tutorial.',
+      highlights: ['10 DNG & XMP Presets', 'One-Click Photo Enhancement', 'Step-by-Step Video Tutorial'],
+      delivery_type: 'whatsapp',
+      file_url: 'https://drive.google.com',
+      image_url: 'https://images.unsplash.com/photo-1542038784456-1ea8e935640e?auto=format&fit=crop&w=600&q=80',
+    },
+  ]
+}
+
+export const STARTER_PRESETS = getStarterPresets('$', 'USD')
 
 export const SHOP_CURRENCIES = [
-  { code: 'MAD', symbol: 'DH', label: '🇲🇦 MAD (DH)' },
   { code: 'USD', symbol: '$', label: '🇺🇸 USD ($)' },
   { code: 'EUR', symbol: '€', label: '🇪🇺 EUR (€)' },
+  { code: 'MAD', symbol: 'DH', label: '🇲🇦 MAD (DH)' },
   { code: 'GBP', symbol: '£', label: '🇬🇧 GBP (£)' },
   { code: 'SAR', symbol: 'SAR', label: '🇸🇦 SAR (ريال)' },
   { code: 'AED', symbol: 'AED', label: '🇦🇪 AED (درهم)' },
@@ -102,9 +118,9 @@ export const SHOP_CURRENCIES = [
 export function detectCurrency(str) {
   if (!str || typeof str !== 'string') return null
   const s = str.trim().toUpperCase()
-  if (/\b(MAD|DH|DIRHAM)\b/i.test(s)) return SHOP_CURRENCIES[0]
-  if (s.includes('$') || /\bUSD\b/i.test(s)) return SHOP_CURRENCIES[1]
-  if (s.includes('€') || /\bEUR\b/i.test(s)) return SHOP_CURRENCIES[2]
+  if (s.includes('$') || /\bUSD\b/i.test(s)) return SHOP_CURRENCIES[0]
+  if (s.includes('€') || /\bEUR\b/i.test(s)) return SHOP_CURRENCIES[1]
+  if (/\b(MAD|DH|DIRHAM)\b/i.test(s)) return SHOP_CURRENCIES[2]
   if (s.includes('£') || /\bGBP\b/i.test(s)) return SHOP_CURRENCIES[3]
   if (/\bSAR\b/i.test(s) || s.includes('ريال')) return SHOP_CURRENCIES[4]
   if (/\bAED\b/i.test(s) || s.includes('درهم')) return SHOP_CURRENCIES[5]
@@ -152,16 +168,21 @@ export default function ShopTab({ user, profile, products = [], reloadProducts }
 
   // Currency synchronization with Wallet
   const [currencyCode, setCurrencyCode] = useState(() => {
-    if (Array.isArray(products) && products.length > 0) {
-      const pWithPrice = products.find((p) => p.price && p.price !== 'Free' && p.price !== 'Gratuit') || products[0]
-      const det = detectCurrency(pWithPrice?.currency || pWithPrice?.price)
-      if (det) return det.code
-    }
     if (typeof window !== 'undefined') {
       try {
+        const directCurr = localStorage.getItem('linksocio_creator_currency')
+        if (directCurr) {
+          const parsed = JSON.parse(directCurr)
+          if (parsed.code) return parsed.code
+        }
+        const walletCurr = localStorage.getItem('linksocio_wallet_currency')
+        if (walletCurr) {
+          const parsed = JSON.parse(walletCurr)
+          if (parsed.code) return parsed.code
+        }
         const u = profile?.username || user?.user_metadata?.username || ''
         const uid = profile?.id || user?.id || ''
-        const cached = localStorage.getItem(`linksocio_payout_settings_${u || uid || 'default'}`) || localStorage.getItem('linksocio_wallet_currency')
+        const cached = localStorage.getItem(`linksocio_payout_settings_${u || uid || 'default'}`)
         if (cached) {
           const parsed = JSON.parse(cached)
           if (parsed.selectedCurrency) return parsed.selectedCurrency
@@ -169,8 +190,16 @@ export default function ShopTab({ user, profile, products = [], reloadProducts }
         }
       } catch (e) {}
     }
-    return 'MAD'
+    if (Array.isArray(products) && products.length > 0) {
+      const pWithPrice = products.find((p) => p.price && p.price !== 'Free' && p.price !== 'Gratuit') || products[0]
+      const det = detectCurrency(pWithPrice?.currency || pWithPrice?.price)
+      if (det) return det.code
+    }
+    return 'USD'
   })
+
+  const activeCurrencyObj = SHOP_CURRENCIES.find((c) => c.code === currencyCode) || SHOP_CURRENCIES[0]
+  const currentPresets = getStarterPresets(activeCurrencyObj.symbol, currencyCode)
 
   // Synchronize product currency directly to Wallet settings & notify
   const syncCurrencyWithWallet = (code, symbol) => {
@@ -185,6 +214,7 @@ export default function ShopTab({ user, profile, products = [], reloadProducts }
         localStorage.setItem(cacheKey, JSON.stringify(updated))
         localStorage.setItem('linksocio_payout_settings_default', JSON.stringify(updated))
         localStorage.setItem('linksocio_wallet_currency', JSON.stringify({ code, symbol }))
+        localStorage.setItem('linksocio_creator_currency', JSON.stringify({ code, symbol }))
       }
       fetch('/api/payouts/settings', {
         method: 'POST',
@@ -203,9 +233,10 @@ export default function ShopTab({ user, profile, products = [], reloadProducts }
     } catch (e) {}
   }
 
-  // Update currency whenever products change if not currently editing
+  // Update currency whenever products change if not currently editing and no explicit creator choice made
   useEffect(() => {
-    if (!editingId && Array.isArray(products) && products.length > 0) {
+    const hasExplicit = typeof window !== 'undefined' && (localStorage.getItem('linksocio_creator_currency') || localStorage.getItem('linksocio_wallet_currency'))
+    if (!hasExplicit && !editingId && Array.isArray(products) && products.length > 0) {
       const pWithPrice = products.find((p) => p.price && p.price !== 'Free' && p.price !== 'Gratuit') || products[0]
       if (pWithPrice) {
         const det = detectCurrency(pWithPrice.currency || pWithPrice.price)
@@ -451,13 +482,6 @@ export default function ShopTab({ user, profile, products = [], reloadProducts }
     setUploadedFile(null)
     setFileSourceMode('link')
     setCreationMode('digital')
-
-    // Detect preset currency & sync with wallet
-    const det = detectCurrency(preset.price)
-    if (det) {
-      setCurrencyCode(det.code)
-      syncCurrencyWithWallet(det.code, det.symbol)
-    }
 
     setSuccessMsg(`Loaded preset: "${preset.name}"! You can customize it now.`)
     setTimeout(() => setSuccessMsg(''), 4000)
@@ -786,24 +810,69 @@ export default function ShopTab({ user, profile, products = [], reloadProducts }
             </p>
           </div>
 
-          {editingId && (
-            <button
-              type="button"
-              onClick={resetForm}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <div
               style={{
-                background: '#F1F5F9',
-                border: 'none',
-                borderRadius: 10,
-                padding: '6px 12px',
-                fontSize: 12,
-                fontWeight: 600,
-                color: '#475569',
-                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                background: '#F8FAFC',
+                border: '1.5px solid #E2E8F0',
+                padding: '5px 12px',
+                borderRadius: 12,
               }}
             >
-              ✕ {t('shopTab.cancelEditing', 'Cancel Editing')}
-            </button>
-          )}
+              <span style={{ fontSize: 13 }}>💱</span>
+              <span style={{ fontSize: 12, fontWeight: 700, color: '#334155' }}>
+                {t('shopTab.storeCurrency', 'Store Currency:')}
+              </span>
+              <select
+                value={currencyCode}
+                onChange={(e) => {
+                  const newCode = e.target.value
+                  setCurrencyCode(newCode)
+                  const currObj = SHOP_CURRENCIES.find((c) => c.code === newCode) || SHOP_CURRENCIES[0]
+                  syncCurrencyWithWallet(currObj.code, currObj.symbol)
+                }}
+                style={{
+                  padding: '4px 8px',
+                  borderRadius: 8,
+                  border: '1px solid #CBD5E1',
+                  background: 'white',
+                  color: '#0F172A',
+                  fontSize: 12,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  outline: 'none',
+                }}
+              >
+                {SHOP_CURRENCIES.map((c) => (
+                  <option key={c.code} value={c.code}>
+                    {c.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {editingId && (
+              <button
+                type="button"
+                onClick={resetForm}
+                style={{
+                  background: '#F1F5F9',
+                  border: 'none',
+                  borderRadius: 10,
+                  padding: '6px 12px',
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: '#475569',
+                  cursor: 'pointer',
+                }}
+              >
+                ✕ {t('shopTab.cancelEditing', 'Cancel Editing')}
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Mode Switcher */}
@@ -864,7 +933,7 @@ export default function ShopTab({ user, profile, products = [], reloadProducts }
                   <span style={{ fontSize: 11, color: '#94A3B8' }}>Instant 1-Click Setup</span>
                 </div>
                 <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4, WebkitOverflowScrolling: 'touch' }}>
-                  {STARTER_PRESETS.map((preset, i) => (
+                  {currentPresets.map((preset, i) => (
                     <button
                       key={i}
                       type="button"

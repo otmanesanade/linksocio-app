@@ -22,6 +22,7 @@ import { getTrialStatus, checkIsOwnerOrVip } from './utils/trialHelper'
 import TrialExpiredPaywall from './components/TrialExpiredPaywall'
 import { getStoredLinksMeta, fetchServerLinksMeta, getStoredSocials, fetchServerSocials } from './utils/socialPlatforms'
 import LanguageSwitcher from './components/LanguageSwitcher'
+import CurrencySwitcher from './components/CurrencySwitcher'
 import { useLanguage } from './context/LanguageContext'
 import PWAInstallButton from './components/PWAInstallButton'
 
@@ -794,8 +795,9 @@ export default function Dashboard({ user, initialTab }) {
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <PWAInstallButton variant="badge" />
+          <CurrencySwitcher variant="compact" user={user} profile={profile} />
           <LanguageSwitcher variant="compact" />
           <button
             onClick={() => setShowMobilePreviewModal(true)}
@@ -866,7 +868,8 @@ export default function Dashboard({ user, initialTab }) {
                 </span>
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <CurrencySwitcher variant="compact" user={user} profile={profile} />
                 <LanguageSwitcher variant="compact" />
                 <button
                   type="button"
@@ -1054,7 +1057,10 @@ export default function Dashboard({ user, initialTab }) {
                 <span style={{ color: '#14B8A6' }}>Socio</span>
               </span>
             </div>
-            <LanguageSwitcher variant="compact" />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <CurrencySwitcher variant="compact" user={user} profile={profile} />
+              <LanguageSwitcher variant="compact" />
+            </div>
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -1352,7 +1358,7 @@ export default function Dashboard({ user, initialTab }) {
             <BillingSettings user={user} profile={profile} onSaved={loadProfile} />
           )}
           {tab === 'settings' && (
-            <SettingsTab user={user} profile={profile} onSaved={loadProfile} initialSubTab="profile" />
+            <SettingsTab user={user} profile={profile} onSaved={loadProfile} initialSubTab="profile" onNavigateToTab={(t) => setTab(t)} />
           )}
           {tab === 'admin' && (
             <AdminMasterDashboard user={user} profile={profile} onNavigateToTab={(t) => setTab(t)} />

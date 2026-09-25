@@ -1772,10 +1772,10 @@ function apiPlugin() {
             const defaultSettings = {
               stripeAccountId: '',
               stripeConnected: false,
-              payoutMethod: 'local_morocco', // 'stripe' | 'paypal' | 'wise' | 'payoneer' | 'bank_iban' | 'crypto_usdt' | 'local_morocco'
-              selectedCurrency: 'MAD',
-              currencySymbol: 'DH',
-              accountHolder: 'Otman',
+              payoutMethod: 'stripe', // 'stripe' | 'paypal' | 'wise' | 'payoneer' | 'bank_iban' | 'crypto_usdt' | 'local_morocco'
+              selectedCurrency: 'USD',
+              currencySymbol: '$',
+              accountHolder: '',
               paypalEmail: '',
               payoneerEmail: '',
               bankName: 'CIH Bank (Maroc)',
@@ -1920,10 +1920,7 @@ function apiPlugin() {
 
           const setStore = readJson(PAYOUT_SETTINGS_PATH)
           const userSettings = (username && setStore[username]) || (userId && setStore[userId]) || setStore['default'] || setStore['otman'] || {}
-          let currentCurrency = userSettings.currencySymbol || 'DH'
-          if (userTransactions.length > 0 && userTransactions[0]?.currency) {
-            currentCurrency = userTransactions[0].currency
-          }
+          const currentCurrency = userSettings.currencySymbol || (userTransactions.length > 0 && userTransactions[0]?.currency) || '$'
 
           res.statusCode = 200
           res.setHeader('Content-Type', 'application/json')

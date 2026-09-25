@@ -195,10 +195,7 @@ export default async function handler(req, res) {
     const availableBalance = Math.max(0, Math.round((netSellerEarnings - totalWithdrawn) * 100) / 100)
 
     // Determine current currency from user settings or latest transaction
-    let currentCurrency = userSettings.currencySymbol || 'DH'
-    if (userTransactions.length > 0 && userTransactions[0]?.currency) {
-      currentCurrency = userTransactions[0].currency
-    }
+    const currentCurrency = userSettings.currencySymbol || (userTransactions.length > 0 && userTransactions[0]?.currency) || '$'
 
     sendJson(res, 200, {
       success: true,

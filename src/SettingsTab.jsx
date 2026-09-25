@@ -2,9 +2,10 @@ import { useState, useEffect } from 'react'
 import { supabase } from './supabaseClient'
 import AvatarUpload from './components/AvatarUpload'
 import { fetchServerProfileMeta, saveServerProfileMeta, getStoredSocials, saveStoredSocials } from './utils/socialPlatforms'
+import { AVAILABLE_CURRENCIES } from './components/CurrencySwitcher'
 import { useLanguage } from './context/LanguageContext'
 
-export default function SettingsTab({ user, profile, onSaved, initialSubTab = 'profile' }) {
+export default function SettingsTab({ user, profile, onSaved, initialSubTab = 'profile', onNavigateToTab = null }) {
   const { t, isRTL } = useLanguage()
   const [activeSubTab, setActiveSubTab] = useState(initialSubTab)
 
@@ -13,6 +14,84 @@ export default function SettingsTab({ user, profile, onSaved, initialSubTab = 'p
       setActiveSubTab(initialSubTab)
     }
   }, [initialSubTab])
+
+  // Currency & Preferences State
+  const [selectedCurrency, setSelectedCurrency] = useState(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const creatorCurr = localStorage.getItem('linksocio_creator_currency') || localStorage.getItem('linksocio_wallet_currency')
+        if (creatorCurr) {
+          const parsed = JSON.parse(creatorCurr)
+          if (parsed.code) return parsed.code
+        }
+        const u = profile?.username || user?.user_metadata?.username || ''
+        const cached = localStorage.getItem(`linksocio_payout_settings_${u}`) || localStorage.getItem('linksocio_payout_settings_default')
+        if (cached) {
+          const parsed = JSON.parse(cached)
+          if (parsed.selectedCurrency) return parsed.selectedCurrency
+        }
+      } catch (e) {}
+    }
+    return 'USD'
+  })
+  const [currencySuccessMsg, setCurrencySuccessMsg] = useState('')
+
+  useEffect(() => {
+    const handleSync = (e) => {
+      if (e.detail?.code && e.detail.code !== selectedCurrency) {
+        setSelectedCurrency(e.detail.code)
+      }
+    }
+    window.addEventListener('linksocio:currency_changed', handleSync)
+    return () => window.removeEventListener('linksocio:currency_changed', handleSync)
+  }, [selectedCurrency])
+
+  function handleCurrencySelect(currObj) {
+    setSelectedCurrency(currObj.code)
+    setCurrencySuccessMsg(`✓ Devise boutique mise à jour : ${currObj.name} (${currObj.symbol} ${currObj.code})`)
+    setTimeout(() => setCurrencySuccessMsg(''), 4000)
+
+    try {
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('linksocio_creator_currency', JSON.stringify({ code: currObj.code, symbol: currObj.symbol }))
+        localStorage.setItem('linksocio_wallet_currency', JSON.stringify({ code: currObj.code, symbol: currObj.symbol }))
+        const u = profile?.username || user?.user_metadata?.username || 'default'
+        const uid = profile?.id || user?.id || ''
+        const cacheKey = `linksocio_payout_settings_${u || uid || 'default'}`
+        const cached = localStorage.getItem(cacheKey) || localStorage.getItem('linksocio_payout_settings_default')
+        let parsed = {}
+        if (cached) {
+          try { parsed = JSON.parse(cached) } catch (e) {}
+        }
+        const updated = {
+          ...parsed,
+          selectedCurrency: currObj.code,
+          currencySymbol: currObj.symbol,
+        }
+        localStorage.setItem(cacheKey, JSON.stringify(updated))
+        localStorage.setItem('linksocio_payout_settings_default', JSON.stringify(updated))
+        localStorage.setItem('linksocio_payout_settings_otman', JSON.stringify(updated))
+        window.dispatchEvent(
+          new CustomEvent('linksocio:currency_changed', {
+            detail: { code: currObj.code, symbol: currObj.symbol },
+          })
+        )
+      }
+    } catch (e) {}
+
+    fetch('/api/payouts/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username: profile?.username || user?.user_metadata?.username || 'otman',
+        userId: profile?.id || user?.id || 'default',
+        settings: {
+          selectedCurrency: currObj.code,
+          currencySymbol: currObj.symbol,
+        },
+      }),
+    }).catch(() => {})
+  }
 
   // Profile & Basic Details
   const [displayName, setDisplayName] = useState(profile?.display_name || '')
@@ -275,6 +354,7 @@ export default function SettingsTab({ user, profile, onSaved, initialSubTab = 'p
       >
         {[
           { key: 'profile', label: `👤 ${t('settingsTab.profileTab', 'Profile & Identity')}` },
+          { key: 'preferences', label: `💱 ${t('settingsTab.preferencesTab', 'Store & Currency')}` },
           { key: 'security', label: `🔒 ${t('settingsTab.securityTab', 'Security & Password')}` },
         ].map((tab) => {
           const isActive = activeSubTab === tab.key
@@ -509,6 +589,149 @@ export default function SettingsTab({ user, profile, onSaved, initialSubTab = 'p
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      {/* SUB-TAB 2: Store & Currency Preferences */}
+      {activeSubTab === 'preferences' && (
+        <div style={{ background: 'white', border: '1px solid #E7EDEC', borderRadius: 20, padding: 24 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ width: 38, height: 38, borderRadius: 10, background: '#F0FDF4', color: '#16A34A', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>
+                💱
+              </div>
+              <div>
+                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#0F172A' }}>
+                  {t('settingsTab.currencyTitle', 'Store & Wallet Currency')}
+                </h3>
+                <p style={{ margin: 0, fontSize: 12.5, color: '#64748B' }}>
+                  {t('settingsTab.currencyDesc', 'Choose the official currency for your digital products, store prices, earnings, and payouts.')}
+                </p>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#F8FAFC', border: '1px solid #E2E8F0', padding: '6px 12px', borderRadius: 100 }}>
+              <span style={{ fontSize: 12, color: '#64748B' }}>{t('settingsTab.activeCurLabel', 'Active:')}</span>
+              <span style={{ fontSize: 13, fontWeight: 800, color: '#0F172A' }}>
+                {AVAILABLE_CURRENCIES.find((c) => c.code === selectedCurrency)?.flag}{' '}
+                {AVAILABLE_CURRENCIES.find((c) => c.code === selectedCurrency)?.symbol}{' '}
+                {selectedCurrency}
+              </span>
+            </div>
+          </div>
+
+          {currencySuccessMsg && (
+            <div
+              style={{
+                background: '#ECFDF5',
+                border: '1px solid #A7F3D0',
+                color: '#065F46',
+                borderRadius: 12,
+                padding: '10px 14px',
+                fontSize: 13,
+                fontWeight: 600,
+                marginBottom: 16,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+              }}
+            >
+              <span>✅</span>
+              <span>{currencySuccessMsg}</span>
+            </div>
+          )}
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))', gap: 10, marginBottom: 24 }}>
+            {AVAILABLE_CURRENCIES.map((c) => {
+              const isSelected = c.code === selectedCurrency
+              return (
+                <button
+                  key={c.code}
+                  type="button"
+                  onClick={() => handleCurrencySelect(c)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '12px 14px',
+                    borderRadius: 14,
+                    border: isSelected ? '2px solid #14B8A6' : '1px solid #E2E8F0',
+                    background: isSelected ? '#F0FDFA' : '#FFFFFF',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                    textAlign: isRTL ? 'right' : 'left',
+                    boxShadow: isSelected ? '0 2px 8px rgba(20, 184, 166, 0.15)' : 'none',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span style={{ fontSize: 20 }}>{c.flag}</span>
+                    <div>
+                      <div style={{ fontSize: 13.5, fontWeight: 700, color: isSelected ? '#0D9488' : '#0F172A' }}>
+                        {c.name}
+                      </div>
+                      <div style={{ fontSize: 12, color: '#64748B', fontWeight: 600 }}>
+                        {c.symbol} · {c.code}
+                      </div>
+                    </div>
+                  </div>
+                  {isSelected && (
+                    <div style={{ width: 22, height: 22, borderRadius: '50%', background: '#14B8A6', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 800 }}>
+                      ✓
+                    </div>
+                  )}
+                </button>
+              )
+            })}
+          </div>
+
+          {/* Quick Info & Payouts Link */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14 }}>
+            <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 16, padding: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                <span style={{ fontSize: 16 }}>💳</span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: '#0F172A' }}>
+                  {t('settingsTab.payoutsSyncTitle', 'Payouts & Stripe Connect')}
+                </span>
+              </div>
+              <p style={{ margin: '0 0 12px', fontSize: 12, color: '#64748B', lineHeight: 1.5 }}>
+                {t('settingsTab.payoutsSyncDesc', 'Your store earnings in this currency can be transferred automatically via Stripe Connect (130+ countries) or direct bank transfer.')}
+              </p>
+              {onNavigateToTab && (
+                <button
+                  type="button"
+                  onClick={() => onNavigateToTab('payouts')}
+                  style={{
+                    background: '#0F172A',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: 8,
+                    padding: '7px 14px',
+                    fontSize: 12,
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6,
+                  }}
+                >
+                  <span>💸 {t('settingsTab.goToPayouts', 'Open Payouts & Stripe')}</span>
+                  <span>→</span>
+                </button>
+              )}
+            </div>
+
+            <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 16, padding: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                <span style={{ fontSize: 16 }}>🌍</span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: '#0F172A' }}>
+                  {t('settingsTab.multiLangTitle', 'Global Audience & Languages')}
+                </span>
+              </div>
+              <p style={{ margin: 0, fontSize: 12, color: '#64748B', lineHeight: 1.5 }}>
+                {t('settingsTab.multiLangDesc', 'Your public LinkSocio page automatically adapts to your visitors’ language (English, French, Spanish, or Arabic). You can also switch languages using the globe button in the top navigation bar.')}
+              </p>
+            </div>
+          </div>
         </div>
       )}
 
