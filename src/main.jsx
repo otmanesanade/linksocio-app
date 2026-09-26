@@ -4,16 +4,20 @@ import App from './App.jsx'
 import { LanguageProvider } from './context/LanguageContext'
 import ErrorBoundary from './components/ErrorBoundary'
 
-// Safe Service Worker Registration
+// Clean up any stale service workers in development mode to prevent script caching issues
 try {
-  if (typeof window !== 'undefined' && 'serviceWorker' in navigator && import.meta.env.PROD) {
-    import('virtual:pwa-register')
-      .then(({ registerSW }) => {
-        registerSW({ immediate: true })
+  if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+    if (!import.meta.env.PROD) {
+      navigator.serviceWorker.getRegistrations().then((registrations) => {
+        for (const reg of registrations) {
+          reg.unregister()
+        }
+      }).catch(() => {})
+    } else {
+      navigator.serviceWorker.register('/sw.js').catch((err) => {
+        console.warn('PWA registration skipped:', err)
       })
-      .catch((err) => {
-        console.warn('PWA register skipped:', err)
-      })
+    }
   }
 } catch (e) {
   console.warn('SW error:', e)

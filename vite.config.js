@@ -256,6 +256,22 @@ function apiPlugin() {
   }
 
   const apiMiddleware = async (req, res, next) => {
+    // Intercept Service Worker script requests in dev environment so they never return HTML
+    const reqPath = (req.url || '').split('?')[0].toLowerCase()
+    if (
+      reqPath === '/sw.js' ||
+      reqPath === '/dev-sw.js' ||
+      reqPath === '/registersw.js' ||
+      reqPath.startsWith('/workbox-') ||
+      reqPath.includes('pwa-entry-point-loaded')
+    ) {
+      res.statusCode = 200
+      res.setHeader('Content-Type', 'application/javascript')
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate')
+      res.end('// Service worker disabled in dev environment\nself.addEventListener("install", () => self.skipWaiting());\nself.addEventListener("activate", (e) => e.waitUntil(self.clients.claim()));\n')
+      return
+    }
+
     // Dynamic SEO Sitemap.xml Generator with automatic creator indexing
     if (req.url && (req.url === '/sitemap.xml' || req.url.startsWith('/sitemap.xml?'))) {
       try {
@@ -3122,8 +3138,7 @@ export default defineConfig({
         ],
       },
       devOptions: {
-        enabled: true,
-        type: 'module',
+        enabled: false,
       },
     }),
   ],
