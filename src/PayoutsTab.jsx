@@ -339,6 +339,11 @@ export default function PayoutsTab({ user, profile, products = [] }) {
 
   async function loadData() {
     try {
+      const localChoice =
+        typeof window !== 'undefined'
+          ? (localStorage.getItem('linksocio_creator_currency') || localStorage.getItem('linksocio_wallet_currency'))
+          : null
+
       const q = `?username=${encodeURIComponent(username)}&userId=${encodeURIComponent(userId)}`
       const [statsRes, setRes, stripeRes] = await Promise.all([
         fetch(`/api/payouts/stats${q}`),
@@ -355,7 +360,6 @@ export default function PayoutsTab({ user, profile, products = [] }) {
         const json = await statsRes.json()
         if (json.stats) {
           setStats(json.stats)
-          const localChoice = typeof window !== 'undefined' && (localStorage.getItem('linksocio_creator_currency') || localStorage.getItem('linksocio_wallet_currency'))
           if (!localChoice && json.stats.currency) {
             const cObj = CURRENCIES.find((c) => c.symbol === json.stats.currency || c.code === json.stats.currency)
             if (cObj) {
