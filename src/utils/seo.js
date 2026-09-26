@@ -31,6 +31,18 @@ function setHreflangTags(baseUrl) {
   const cleanBase = (baseUrl || 'https://linksocio.com').replace(/\/+$/, '')
   const languages = [
     { code: 'ar', path: `${cleanBase}?lang=ar` },
+    { code: 'ar-SA', path: `${cleanBase}?lang=ar` },
+    { code: 'ar-AE', path: `${cleanBase}?lang=ar` },
+    { code: 'ar-MA', path: `${cleanBase}?lang=ar` },
+    { code: 'ar-EG', path: `${cleanBase}?lang=ar` },
+    { code: 'ar-KW', path: `${cleanBase}?lang=ar` },
+    { code: 'ar-QA', path: `${cleanBase}?lang=ar` },
+    { code: 'ar-BH', path: `${cleanBase}?lang=ar` },
+    { code: 'ar-OM', path: `${cleanBase}?lang=ar` },
+    { code: 'ar-JO', path: `${cleanBase}?lang=ar` },
+    { code: 'ar-DZ', path: `${cleanBase}?lang=ar` },
+    { code: 'ar-TN', path: `${cleanBase}?lang=ar` },
+    { code: 'ar-IQ', path: `${cleanBase}?lang=ar` },
     { code: 'fr', path: `${cleanBase}?lang=fr` },
     { code: 'en', path: `${cleanBase}?lang=en` },
     { code: 'es', path: `${cleanBase}?lang=es` },
@@ -246,16 +258,20 @@ export function generateLandingJSONLD(language = 'fr') {
     ],
     ar: [
       {
-        q: "ما هي منصة LinkSocio؟",
-        a: "منصة LinkSocio هي منصة شاملة لصناع المحتوى والمهنيين تتيح إنشاء صفحة رابط بايو احترافية، بيع المنتجات الرقمية (كتب، دورات، ملفات)، حجز المواعيد والاستشارات، واستقبال طلبات الزبائن مباشرة عبر واتساب."
+        q: "ما هي منصة LinkSocio لصناع المحتوى في العالم العربي؟",
+        a: "منصة LinkSocio هي منصة متكاملة لصناع المحتوى والمهنيين والمستقلين في السعودية، الإمارات، المغرب، مصر وباقي الدول العربية، تتيح إنشاء رابط بايو احترافي، متجر رقمي لبيع الكتب والدورات، ونظام حجز مواعيد واستشارات مع تنبيهات واتساب الفورية."
       },
       {
-        q: "كيف يتم استلام أرباح المبيعات؟",
-        a: "يحصل صانع المحتوى على 91% من أرباح كل منتج، وتأخذ المنصة عمولة 9% فقط. يمكن سحب الأرباح مباشرة عبر الحسابات البنكية المغربية (CIH، التجاري، إلخ) أو PayPal."
+        q: "كيف يمكن بيع المنتجات الرقمية واستلام الأرباح في الدول العربية؟",
+        a: "يمكنك رفع ملفاتك الرقمية وتحديد السعر بالريال السعودي (SAR)، الدرهم الإماراتي (AED)، الدرهم المغربي (MAD) أو الدولار (USD). يستلم صانع المحتوى 91% من صافي الأرباح عبر Stripe Connect (في 130+ دولة)، التحويل البنكي الدولي IBAN/SWIFT، الحسابات البنكية بالمغرب، PayPal، أو العملات الرقمية USDT."
       },
       {
-        q: "هل يمكن ربط الدفع الإلكتروني وحجز المواعيد بسهولة؟",
-        a: "نعم، تدعم المنصة تقويم حجز ذكي، إشعارات فورية عبر واتساب وتيليجرام والإيميل، والدفع الإلكتروني الآمن."
+        q: "ما هي العملات المدعومة في متجر ومحفظة LinkSocio؟",
+        a: "تدعم المنصة جميع العملات العربية والعالمية الرئيسية: الريال السعودي (SAR)، الدرهم الإماراتي (AED)، الدرهم المغربي (MAD / DH)، الدولار الأمريكي ($ USD)، اليورو (€ EUR)، الجنيه الإسترليني (£ GBP)، والدولار الرقمي المشفر (USDT)."
+      },
+      {
+        q: "هل توفر المنصة نظام حجز مواعيد وتنبيهات واتساب المباشرة؟",
+        a: "نعم، تدعم المنصة تقويم حجز استشارات ومواعيد ذكي يتيح للعميل اختيار الوقت المناسب، مع إرسال إشعارات فورية مباشرة إلى واتساب، تيليجرام والإيميل."
       }
     ],
     en: [
@@ -299,15 +315,30 @@ export function generateLandingJSONLD(language = 'fr') {
         offers: {
           '@type': 'Offer',
           price: '0',
-          priceCurrency: 'EUR',
+          priceCurrency: 'USD',
         },
+        areaServed: [
+          'Saudi Arabia',
+          'United Arab Emirates',
+          'Morocco',
+          'Egypt',
+          'Kuwait',
+          'Qatar',
+          'Bahrain',
+          'Oman',
+          'Jordan',
+          'Algeria',
+          'Tunisia',
+          'Iraq',
+        ],
         featureList: [
-          'Customizable Bio Link',
-          'Digital Products Storefront',
+          'Customizable Bio Link & Storefront',
+          'Digital Products Storefront (PDFs, templates, courses)',
           'Appointments & Bookings Calendar',
           'Direct WhatsApp Contact & Lead Capture',
           'Real-time WhatsApp, Email & Telegram Notifications',
-          'Multi-currency (€ EUR and DH MAD) Support',
+          'Multi-currency Support (USD $, EUR €, SAR ريال, AED درهم, MAD DH, USDT)',
+          'Global Payouts via Stripe Connect, IBAN Wire, PayPal, and Local Banks',
         ],
       },
       {

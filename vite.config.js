@@ -317,6 +317,13 @@ function apiPlugin() {
         xml += `  <url>\n`
         xml += `    <loc>${baseUrl}/</loc>\n`
         xml += `    <xhtml:link rel="alternate" hreflang="ar" href="${baseUrl}/?lang=ar"/>\n`
+        xml += `    <xhtml:link rel="alternate" hreflang="ar-sa" href="${baseUrl}/?lang=ar"/>\n`
+        xml += `    <xhtml:link rel="alternate" hreflang="ar-ae" href="${baseUrl}/?lang=ar"/>\n`
+        xml += `    <xhtml:link rel="alternate" hreflang="ar-ma" href="${baseUrl}/?lang=ar"/>\n`
+        xml += `    <xhtml:link rel="alternate" hreflang="ar-eg" href="${baseUrl}/?lang=ar"/>\n`
+        xml += `    <xhtml:link rel="alternate" hreflang="ar-kw" href="${baseUrl}/?lang=ar"/>\n`
+        xml += `    <xhtml:link rel="alternate" hreflang="ar-qa" href="${baseUrl}/?lang=ar"/>\n`
+        xml += `    <xhtml:link rel="alternate" hreflang="ar-dz" href="${baseUrl}/?lang=ar"/>\n`
         xml += `    <xhtml:link rel="alternate" hreflang="fr" href="${baseUrl}/?lang=fr"/>\n`
         xml += `    <xhtml:link rel="alternate" hreflang="en" href="${baseUrl}/?lang=en"/>\n`
         xml += `    <xhtml:link rel="alternate" hreflang="es" href="${baseUrl}/?lang=es"/>\n`
