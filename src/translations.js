@@ -89,6 +89,11 @@ const BASE_TRANSLATIONS = {
       startFree: 'Start 14-Days Free',
       startFreeShort: 'Start Free',
 
+      topBar: {
+        badge: 'SUPPORT 24/7',
+        title: 'Official Inquiries & Creator Assistance',
+      },
+
       simulatorDemo: {
         chatWhatsapp: 'Chat on WhatsApp',
         allTab: '✨ All',
@@ -132,6 +137,7 @@ const BASE_TRANSLATIONS = {
         badgePayoutSub: '+€26.39 Net Earned',
         badgeCheckout: 'GLOBAL CHECKOUT',
         badgeCheckoutSub: 'Card, Apple Pay, PayPal',
+        contactSupportLabel: 'Official Contact:',
       },
 
       simulator: {
@@ -216,6 +222,24 @@ const BASE_TRANSLATIONS = {
         a4: 'When you configure your WhatsApp link or phone number, LinkSocio creates a direct wa.me link. Visitors tap it from your page and immediately start a conversation without needing to manually save your number.',
         q5: 'Can I manage restaurant menus and table bookings?',
         a5: 'Yes! The built-in Restaurant & Menu tab allows you to showcase categorized dishes, add prices and photos, and let visitors reserve tables or send inquiries directly.',
+        qContact: 'How can I contact the LinkSocio team or get support?',
+        aContact: 'You can contact our team anytime by email: write to support@linksocio.com for 24/7 technical and creator support, or info@linksocio.com for general inquiries, partnerships, and business questions. We typically reply in less than 24 hours.',
+      },
+
+      contactSection: {
+        badge: 'OFFICIAL EMAIL CONTACT & CREATOR SUPPORT',
+        title: 'We are here to support your growth',
+        subtitle: 'Have questions about your bio link, selling digital products, or partnerships? Reach our dedicated team directly.',
+        infoTag: 'GENERAL & BUSINESS',
+        infoTitle: 'General Inquiries & Partnerships',
+        infoDesc: 'For business collaborations, brand partnerships, media & press inquiries, or general questions about LinkSocio.',
+        sendEmail: 'Send Email to info@linksocio.com',
+        supportTag: '24/7 PRIORITY SUPPORT',
+        supportTitle: 'Creator Support & Technical Assistance',
+        supportDesc: 'Assistance with account setup, digital product listings, Stripe Connect payouts, WhatsApp integration, or custom domains.',
+        contactSupport: 'Contact support@linksocio.com',
+        guaranteeTitle: 'Fast Human Support Guaranteed',
+        guaranteeDesc: 'We typically respond to both info@linksocio.com and support@linksocio.com within a few hours.',
       },
 
       ctaSection: {
@@ -223,12 +247,21 @@ const BASE_TRANSLATIONS = {
         title: 'Ready to claim your corner of the internet?',
         subtitle: 'Join creators, brands, and businesses who connect and monetize with LinkSocio.',
         btn: 'Claim Link →',
+        emailPrompt: 'Need help before getting started?',
       },
 
       footer: {
         rights: 'All rights reserved.',
         privacy: 'Privacy Policy',
         terms: 'Terms of Service',
+        mission: 'The all-in-one creator storefront: link in bio, digital products store, appointment bookings, and direct WhatsApp lead capture.',
+        status: 'All Systems Operational',
+        platformCol: 'Platform',
+        contactCol: 'Official Emails',
+        supportLabel: 'Technical & Creator Help',
+        infoLabel: 'General & Partnerships',
+        replyTime: 'Average reply time: < 24h',
+        accountCol: 'Account & Language',
       },
     },
     dashboard: {
@@ -678,6 +711,11 @@ const BASE_TRANSLATIONS = {
       startFree: 'Essai 14 jours gratuit',
       startFreeShort: 'Démarrer',
 
+      topBar: {
+        badge: 'SUPPORT 24/7',
+        title: 'Assistance officielle et accompagnement des créateurs',
+      },
+
       simulatorDemo: {
         chatWhatsapp: 'Discuter sur WhatsApp',
         allTab: '✨ Tout',
@@ -805,6 +843,24 @@ const BASE_TRANSLATIONS = {
         a4: 'Dès que vous configurez votre numéro WhatsApp, un bouton direct wa.me est généré pour permettre aux visiteurs de vous contacter immédiatement.',
         q5: 'Puis-je gérer le menu de mon restaurant ?',
         a5: 'Oui ! Vous pouvez organiser vos plats par catégories, ajouter prix et photos, et permettre aux clients de consulter le menu via QR code.',
+        qContact: 'Comment contacter l’équipe LinkSocio ou obtenir de l’aide ?',
+        aContact: 'Vous pouvez joindre notre équipe par email à tout moment : écrivez à support@linksocio.com pour l’assistance technique et créateurs 24/7, ou à info@linksocio.com pour les partenariats et questions générales. Nous répondons en moyenne sous 24h.',
+      },
+
+      contactSection: {
+        badge: 'EMAILS OFFICIELS & ASSISTANCE CRÉATEURS',
+        title: 'Nous sommes à vos côtés pour développer votre projet',
+        subtitle: 'Une question sur votre lien bio, la vente de produits digitaux ou un partenariat ? Écrivez-nous directement.',
+        infoTag: 'GÉNÉRAL & PARTENARIATS',
+        infoTitle: 'Questions Générales & Partenariats',
+        infoDesc: 'Pour les collaborations commerciales, partenariats de marque, presse ou questions générales sur LinkSocio.',
+        sendEmail: 'Envoyer un email à info@linksocio.com',
+        supportTag: 'SUPPORT PRIORITAIRE 24/7',
+        supportTitle: 'Assistance Créateur & Support Technique',
+        supportDesc: 'Aide à la configuration du compte, publication de fichiers, versements Stripe, intégration WhatsApp et domaines.',
+        contactSupport: 'Contacter support@linksocio.com',
+        guaranteeTitle: 'Support humain et réactif garanti',
+        guaranteeDesc: 'Nous traitons les messages envoyés à info@linksocio.com et support@linksocio.com sous quelques heures.',
       },
 
       ctaSection: {
@@ -812,12 +868,21 @@ const BASE_TRANSLATIONS = {
         title: 'Prêt à lancer votre espace en ligne ?',
         subtitle: 'Rejoignez les créateurs et entreprises qui développent leurs ventes avec LinkSocio.',
         btn: 'Réserver mon lien →',
+        emailPrompt: 'Besoin d’aide avant de vous lancer ?',
       },
 
       footer: {
         rights: 'Tous droits réservés.',
         privacy: 'Politique de confidentialité',
         terms: "Conditions d'utilisation",
+        mission: 'La vitrine tout-en-un pour créateurs : lien bio, boutique de produits digitaux, réservations et leads WhatsApp directs.',
+        status: 'Tous les systèmes opérationnels',
+        platformCol: 'Plateforme',
+        contactCol: 'Emails Officiels',
+        supportLabel: 'Aide Technique & Créateurs',
+        infoLabel: 'Général & Partenariats',
+        replyTime: 'Délai moyen de réponse : < 24h',
+        accountCol: 'Compte & Langue',
       },
     },
     dashboard: {
@@ -1267,6 +1332,11 @@ const BASE_TRANSLATIONS = {
       startFree: 'Empezar 14 Días Gratis',
       startFreeShort: 'Empezar',
 
+      topBar: {
+        badge: 'SOPORTE 24/7',
+        title: 'Atención oficial y soporte directo para creadores',
+      },
+
       simulatorDemo: {
         chatWhatsapp: 'Chatear por WhatsApp',
         allTab: '✨ Todo',
@@ -1394,6 +1464,24 @@ const BASE_TRANSLATIONS = {
         a4: 'Al configurar tu número de WhatsApp, se crea un botón directo wa.me para que tus visitantes inicien una conversación al instante con un solo toque.',
         q5: '¿Puedo gestionar menús de restaurantes?',
         a5: '¡Sí! Puedes organizar platos por categorías, agregar fotos y precios, y permitir que los clientes reserven o consulten el menú por código QR.',
+        qContact: '¿Cómo puedo contactar al equipo de LinkSocio o recibir asistencia?',
+        aContact: 'Puedes escribirnos por correo en cualquier momento: contacta a support@linksocio.com para soporte técnico 24/7 y asistencia a creadores, o a info@linksocio.com para alianzas comerciales y consultas generales. Respondemos en menos de 24 horas.',
+      },
+
+      contactSection: {
+        badge: 'CORREOS OFICIALES Y ATENCIÓN A CREADORES',
+        title: 'Estamos aquí para ayudarte a crecer y monetizar',
+        subtitle: '¿Tienes dudas sobre tu enlace bio, venta de productos o alianzas? Comunícate directamente con nuestro equipo.',
+        infoTag: 'GENERAL Y ALIANZAS',
+        infoTitle: 'Consultas Generales y Alianzas Comerciales',
+        infoDesc: 'Para colaboraciones comerciales, patrocinios de marca, prensa o preguntas generales sobre LinkSocio.',
+        sendEmail: 'Enviar correo a info@linksocio.com',
+        supportTag: 'SOPORTE PRIORITARIO 24/7',
+        supportTitle: 'Soporte a Creadores y Asistencia Técnica',
+        supportDesc: 'Ayuda con configuración de cuenta, publicación de archivos digitales, cobros Stripe, WhatsApp y dominios.',
+        contactSupport: 'Contactar a support@linksocio.com',
+        guaranteeTitle: 'Respuesta humana rápida garantizada',
+        guaranteeDesc: 'Atendemos consultas enviadas a info@linksocio.com y support@linksocio.com en pocas horas.',
       },
 
       ctaSection: {
@@ -1401,12 +1489,21 @@ const BASE_TRANSLATIONS = {
         title: '¿Listo para crear tu espacio en internet?',
         subtitle: 'Únete a creadores y negocios que conectan y monetizan con LinkSocio.',
         btn: 'Reclamar Enlace →',
+        emailPrompt: '¿Necesitas ayuda antes de empezar?',
       },
 
       footer: {
         rights: 'Todos los derechos reservados.',
         privacy: 'Política de Privacidad',
         terms: 'Términos de Servicio',
+        mission: 'La plataforma todo-en-uno para creadores: enlace bio, tienda de productos digitales, citas y contactos directos por WhatsApp.',
+        status: 'Todos los sistemas operativos',
+        platformCol: 'Plataforma',
+        contactCol: 'Correos Oficiales',
+        supportLabel: 'Soporte Técnico y Creadores',
+        infoLabel: 'General y Alianzas',
+        replyTime: 'Tiempo medio de respuesta: < 24h',
+        accountCol: 'Cuenta e Idioma',
       },
     },
     dashboard: {
@@ -1856,6 +1953,11 @@ const BASE_TRANSLATIONS = {
       startFree: 'ابدأ 14 يوماً مجاناً',
       startFreeShort: 'ابدأ مجاناً',
 
+      topBar: {
+        badge: 'دعم 24/7',
+        title: 'قنوات التواصل الرسمية ودعم صناع المحتوى',
+      },
+
       simulatorDemo: {
         chatWhatsapp: 'تواصل عبر واتساب',
         allTab: '✨ الكل',
@@ -1899,6 +2001,7 @@ const BASE_TRANSLATIONS = {
         badgePayoutSub: '+26.39 € أرباح صافية',
         badgeCheckout: 'دفع عالمي آمن',
         badgeCheckoutSub: 'بطاقة بنكية، Apple Pay، PayPal',
+        contactSupportLabel: 'التواصل والدعم الرسمي:',
       },
 
       simulator: {
@@ -1983,6 +2086,24 @@ const BASE_TRANSLATIONS = {
         a4: 'بمجرد كتابة رقم هاتفك، ينشئ النظام رابطاً ذكياً wa.me يتيح لزوار صفحتك بدء محادثة معك مباشرة بنقرة واحدة دون الحاجة لحفظ رقمك يدوياً.',
         q5: 'هل يمكنني إضافة قائمة طعام لمطعمي واستقبال الحجوزات؟',
         a5: 'نعم بكل تأكيد! يمكنك تنظيم الوجبات، إضافة الصور والأسعار، واستخراج رمز QR لطباعته على الطاولات ليستعرض الزبائن القائمة مباشرة.',
+        qContact: 'كيف يمكنني التواصل مع فريق LinkSocio والحصول على المساعدة؟',
+        aContact: 'يمكنك التواصل معنا عبر البريد الإلكتروني في أي وقت: راسل support@linksocio.com للدعم الفني والتقني على مدار الساعة، أو info@linksocio.com للاستفسارات العامة والشراكات. نجيب عادة في أقل من 24 ساعة.',
+      },
+
+      contactSection: {
+        badge: 'قنوات البريد الإلكتروني الرسمية والدعم الفني',
+        title: 'نحن هنا لدعم نموك ومساعدتك على النجاح',
+        subtitle: 'هل لديك استفسارات حول رابط البايو، بيع منتجاتك الرقمية أو الشراكات؟ تواصل مباشرة مع فريقنا.',
+        infoTag: 'عام وشراكات الأعمال',
+        infoTitle: 'الاستفسارات العامة وشراكات الأعمال',
+        infoDesc: 'للتعاون التجاري، شراكات العلامات التجارية، الاستفسارات الإعلامية أو الأسئلة العامة حول LinkSocio.',
+        sendEmail: 'إرسال بريد إلى info@linksocio.com',
+        supportTag: 'دعم فني أولوية 24/7',
+        supportTitle: 'دعم صناع المحتوى والمساعدة التقنية',
+        supportDesc: 'مساعدة في إعداد الحساب، نشر المنتجات الرقمية، ربط الدفع وسحب الأرباح، وتكامل واتساب.',
+        contactSupport: 'مراسلة support@linksocio.com',
+        guaranteeTitle: 'استجابة سريعة من فريق الدعم',
+        guaranteeDesc: 'نرد عادةً على رسائل info@linksocio.com و support@linksocio.com في غضون ساعات قليلة.',
       },
 
       ctaSection: {
@@ -1990,12 +2111,21 @@ const BASE_TRANSLATIONS = {
         title: 'هل أنت جاهز لحجز اسمك وبدء مبيعاتك اليوم؟',
         subtitle: 'انضم إلى مئات صناع المحتوى ورواد الأعمال الذين يحققون أرباحهم عبر LinkSocio.',
         btn: 'احجز رابطك الآن ←',
+        emailPrompt: 'هل لديك استفسار قبل البدء؟',
       },
 
       footer: {
         rights: 'جميع الحقوق محفوظة.',
         privacy: 'سياسة الخصوصية',
         terms: 'شروط الخدمة',
+        mission: 'المنصة المتكاملة لصناع المحتوى: رابط البايو، متجر المنتجات الرقمية، تقويم المواعيد، وجمع طلبات واتساب المباشرة.',
+        status: 'جميع الأنظمة تعمل بكفاءة',
+        platformCol: 'المنصة والمميزات',
+        contactCol: 'عناوين البريد الرسمية',
+        supportLabel: 'الدعم الفني وصناع المحتوى',
+        infoLabel: 'الاستفسارات العامة والشراكات',
+        replyTime: 'متوسط وقت الرد: أقل من 24 ساعة',
+        accountCol: 'الحساب واللغة',
       },
     },
     dashboard: {
