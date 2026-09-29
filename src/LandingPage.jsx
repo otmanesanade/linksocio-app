@@ -375,122 +375,6 @@ export default function LandingPage({ goToLogin, goToSignUp, goTo }) {
         overflowX: 'hidden',
       }}
     >
-      {/* 0. TOP ANNOUNCEMENT & OFFICIAL EMAIL CONTACT BAR */}
-      <div
-        className="landing-top-bar"
-        style={{
-          background: '#0B1120',
-          color: '#CBD5E1',
-          fontSize: 12,
-          borderBottom: '1px solid rgba(255,255,255,0.08)',
-          padding: '8px 16px',
-          position: 'relative',
-          zIndex: 101,
-        }}
-      >
-        <div
-          style={{
-            maxWidth: 1200,
-            margin: '0 auto',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
-            gap: 8,
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-            <span
-              style={{
-                background: 'rgba(20, 184, 166, 0.2)',
-                color: '#2DD4BF',
-                border: '1px solid rgba(20, 184, 166, 0.4)',
-                fontWeight: 800,
-                fontSize: 10.5,
-                padding: '2px 8px',
-                borderRadius: 100,
-                letterSpacing: '0.04em',
-              }}
-            >
-              {t('landing.topBar.badge', 'SUPPORT 24/7')}
-            </span>
-            <span className="top-bar-title" style={{ color: '#94A3B8', fontSize: 12, fontWeight: 500 }}>
-              {t('landing.topBar.title', 'Official Inquiries & Creator Assistance')}
-            </span>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', fontSize: 12 }}>
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ fontSize: 13 }}>🛟</span>
-              <a
-                href="mailto:support@linksocio.com"
-                style={{
-                  color: '#2DD4BF',
-                  textDecoration: 'none',
-                  fontWeight: 700,
-                  fontSize: 12,
-                  transition: 'opacity 0.15s ease',
-                }}
-              >
-                support@linksocio.com
-              </a>
-              <button
-                type="button"
-                onClick={() => copyEmail('support@linksocio.com')}
-                title="Copy support email"
-                style={{
-                  background: copiedEmail === 'support@linksocio.com' ? '#14B8A6' : 'rgba(255,255,255,0.1)',
-                  color: copiedEmail === 'support@linksocio.com' ? '#FFFFFF' : '#94A3B8',
-                  border: 'none',
-                  borderRadius: 4,
-                  padding: '1px 5px',
-                  fontSize: 10,
-                  cursor: 'pointer',
-                  fontWeight: 700,
-                }}
-              >
-                {copiedEmail === 'support@linksocio.com' ? '✓' : '⧉'}
-              </button>
-            </div>
-
-            <span style={{ color: '#334155' }}>|</span>
-
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ fontSize: 13 }}>✉️</span>
-              <a
-                href="mailto:info@linksocio.com"
-                style={{
-                  color: '#F8FAFC',
-                  textDecoration: 'none',
-                  fontWeight: 600,
-                  fontSize: 12,
-                  transition: 'opacity 0.15s ease',
-                }}
-              >
-                info@linksocio.com
-              </a>
-              <button
-                type="button"
-                onClick={() => copyEmail('info@linksocio.com')}
-                title="Copy info email"
-                style={{
-                  background: copiedEmail === 'info@linksocio.com' ? '#14B8A6' : 'rgba(255,255,255,0.1)',
-                  color: copiedEmail === 'info@linksocio.com' ? '#FFFFFF' : '#94A3B8',
-                  border: 'none',
-                  borderRadius: 4,
-                  padding: '1px 5px',
-                  fontSize: 10,
-                  cursor: 'pointer',
-                  fontWeight: 700,
-                }}
-              >
-                {copiedEmail === 'info@linksocio.com' ? '✓' : '⧉'}
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
       {/* 1. TOP STICKY NAVBAR */}
       <header
         style={{
@@ -785,65 +669,6 @@ export default function LandingPage({ goToLogin, goToSignUp, goTo }) {
               <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <span style={{ color: '#14B8A6' }}>✓</span> {t('landing.hero.benefit4', 'Restaurant Digital Menu')}
               </span>
-            </div>
-
-            {/* Official Support & Contact Emails Banner in Hero */}
-            <div
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 10,
-                background: 'white',
-                border: '1px solid #E2E8F0',
-                borderRadius: 14,
-                padding: '8px 14px',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.03)',
-                flexWrap: 'wrap',
-                marginTop: 2,
-                width: 'fit-content',
-              }}
-            >
-              <span style={{ fontSize: 12, fontWeight: 700, color: '#64748B' }}>
-                {t('landing.hero.contactSupportLabel', 'Official Contact:')}
-              </span>
-              <a
-                href="mailto:support@linksocio.com"
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 5,
-                  color: '#0F766E',
-                  background: '#F0FDFA',
-                  border: '1px solid #CCFBF1',
-                  padding: '3px 10px',
-                  borderRadius: 100,
-                  fontSize: 12,
-                  fontWeight: 700,
-                  textDecoration: 'none',
-                  transition: 'background 0.15s ease',
-                }}
-              >
-                <span>🛟</span> support@linksocio.com
-              </a>
-              <a
-                href="mailto:info@linksocio.com"
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 5,
-                  color: '#334155',
-                  background: '#F8FAFC',
-                  border: '1px solid #E2E8F0',
-                  padding: '3px 10px',
-                  borderRadius: 100,
-                  fontSize: 12,
-                  fontWeight: 700,
-                  textDecoration: 'none',
-                  transition: 'background 0.15s ease',
-                }}
-              >
-                <span>✉️</span> info@linksocio.com
-              </a>
             </div>
 
             {/* Trust & Social Proof stats */}
@@ -2081,400 +1906,6 @@ export default function LandingPage({ goToLogin, goToSignUp, goTo }) {
         </div>
       </section>
 
-      {/* 6.5 OFFICIAL CONTACT & 24/7 SUPPORT SECTION */}
-      <section
-        id="contact"
-        style={{
-          padding: '80px 20px',
-          maxWidth: 1120,
-          margin: '0 auto',
-          position: 'relative',
-        }}
-      >
-        <div style={{ textAlign: 'center', maxWidth: 680, margin: '0 auto 48px' }}>
-          <div
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 8,
-              background: '#F0FDFA',
-              border: '1px solid #99F6E4',
-              borderRadius: 100,
-              padding: '6px 16px',
-              fontSize: 12.5,
-              fontWeight: 800,
-              color: '#0F766E',
-              marginBottom: 14,
-            }}
-          >
-            <span>✉️</span>
-            <span>{t('landing.contactSection.badge', 'OFFICIAL EMAIL CONTACT & CREATOR SUPPORT')}</span>
-          </div>
-          <h2
-            style={{
-              fontSize: 'clamp(28px, 3.6vw, 42px)',
-              fontWeight: 800,
-              color: '#0F172A',
-              letterSpacing: '-0.02em',
-              margin: '0 0 14px',
-            }}
-          >
-            {t('landing.contactSection.title', 'We are here to support your growth')}
-          </h2>
-          <p style={{ fontSize: 16, color: '#64748B', lineHeight: 1.6, margin: 0 }}>
-            {t(
-              'landing.contactSection.subtitle',
-              'Have questions about your bio link, selling digital products, or partnerships? Reach our dedicated team directly.'
-            )}
-          </p>
-        </div>
-
-        {/* Contact Cards Grid */}
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-            gap: 24,
-            marginBottom: 32,
-          }}
-        >
-          {/* Card 1: info@linksocio.com */}
-          <div
-            style={{
-              background: 'white',
-              border: '1px solid #E2E8F0',
-              borderRadius: 24,
-              padding: '36px 30px',
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'space-between',
-              boxShadow: '0 4px 20px rgba(0,0,0,0.03)',
-              position: 'relative',
-              overflow: 'hidden',
-              transition: 'transform 0.2s ease, box-shadow 0.2s ease',
-            }}
-          >
-            <div
-              style={{
-                position: 'absolute',
-                top: 0,
-                right: 0,
-                width: 140,
-                height: 140,
-                background: 'radial-gradient(circle, rgba(20, 184, 166, 0.08) 0%, transparent 70%)',
-                pointerEvents: 'none',
-              }}
-            />
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-                <div
-                  style={{
-                    width: 52,
-                    height: 52,
-                    borderRadius: 16,
-                    background: '#F0FDFA',
-                    border: '1px solid #CCFBF1',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: 24,
-                  }}
-                >
-                  🌐
-                </div>
-                <span
-                  style={{
-                    background: '#F1F5F9',
-                    color: '#475569',
-                    fontSize: 11.5,
-                    fontWeight: 700,
-                    padding: '4px 12px',
-                    borderRadius: 100,
-                    letterSpacing: 0.5,
-                  }}
-                >
-                  {t('landing.contactSection.infoTag', 'GENERAL & BUSINESS')}
-                </span>
-              </div>
-
-              <h3 style={{ fontSize: 20, fontWeight: 800, color: '#0F172A', margin: '0 0 8px' }}>
-                {t('landing.contactSection.infoTitle', 'General Inquiries & Partnerships')}
-              </h3>
-              <p style={{ fontSize: 14, color: '#64748B', lineHeight: 1.55, margin: '0 0 20px' }}>
-                {t(
-                  'landing.contactSection.infoDesc',
-                  'For business collaborations, brand partnerships, media & press inquiries, or general questions about LinkSocio.'
-                )}
-              </p>
-
-              {/* Email Badge */}
-              <div
-                style={{
-                  background: '#F8FAFC',
-                  border: '1.5px dashed #CBD5E1',
-                  borderRadius: 14,
-                  padding: '12px 16px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  marginBottom: 20,
-                  gap: 10,
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, overflow: 'hidden' }}>
-                  <span style={{ fontSize: 18, flexShrink: 0 }}>📧</span>
-                  <a
-                    href="mailto:info@linksocio.com"
-                    style={{
-                      fontSize: 16,
-                      fontWeight: 800,
-                      color: '#0F172A',
-                      textDecoration: 'none',
-                      letterSpacing: '-0.01em',
-                      whiteSpace: 'nowrap',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                    }}
-                  >
-                    info@linksocio.com
-                  </a>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => copyEmail('info@linksocio.com')}
-                  title="Copy email address"
-                  style={{
-                    flexShrink: 0,
-                    background: copiedEmail === 'info@linksocio.com' ? '#14B8A6' : '#FFFFFF',
-                    color: copiedEmail === 'info@linksocio.com' ? '#FFFFFF' : '#475569',
-                    border: '1px solid #E2E8F0',
-                    borderRadius: 8,
-                    padding: '6px 12px',
-                    fontSize: 12,
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease',
-                  }}
-                >
-                  {copiedEmail === 'info@linksocio.com' ? '✓ ' + t('common.copied', 'Copied!') : t('common.copy', 'Copy')}
-                </button>
-              </div>
-            </div>
-
-            <a
-              href="mailto:info@linksocio.com"
-              className="btn-scale"
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 8,
-                background: '#0F172A',
-                color: 'white',
-                padding: '13px 20px',
-                borderRadius: 14,
-                fontSize: 14,
-                fontWeight: 700,
-                textDecoration: 'none',
-                boxShadow: '0 4px 12px rgba(15,23,42,0.12)',
-              }}
-            >
-              <span>✉️ {t('landing.contactSection.sendEmail', 'Send Email to info@linksocio.com')}</span>
-              <span>→</span>
-            </a>
-          </div>
-
-          {/* Card 2: support@linksocio.com */}
-          <div
-            style={{
-              background: 'white',
-              border: '2px solid #14B8A6',
-              borderRadius: 24,
-              padding: '36px 30px',
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'space-between',
-              boxShadow: '0 8px 30px rgba(20,184,166,0.12)',
-              position: 'relative',
-              overflow: 'hidden',
-              transition: 'transform 0.2s ease, box-shadow 0.2s ease',
-            }}
-          >
-            <div
-              style={{
-                position: 'absolute',
-                top: 0,
-                right: 0,
-                width: 140,
-                height: 140,
-                background: 'radial-gradient(circle, rgba(20, 184, 166, 0.18) 0%, transparent 70%)',
-                pointerEvents: 'none',
-              }}
-            />
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-                <div
-                  style={{
-                    width: 52,
-                    height: 52,
-                    borderRadius: 16,
-                    background: '#F0FDFA',
-                    border: '1px solid #99F6E4',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: 24,
-                  }}
-                >
-                  🛟
-                </div>
-                <span
-                  style={{
-                    background: '#CCFBF1',
-                    color: '#0F766E',
-                    fontSize: 11.5,
-                    fontWeight: 800,
-                    padding: '4px 12px',
-                    borderRadius: 100,
-                    letterSpacing: 0.5,
-                  }}
-                >
-                  {t('landing.contactSection.supportTag', '24/7 PRIORITY SUPPORT')}
-                </span>
-              </div>
-
-              <h3 style={{ fontSize: 20, fontWeight: 800, color: '#0F172A', margin: '0 0 8px' }}>
-                {t('landing.contactSection.supportTitle', 'Creator Support & Technical Assistance')}
-              </h3>
-              <p style={{ fontSize: 14, color: '#64748B', lineHeight: 1.55, margin: '0 0 20px' }}>
-                {t(
-                  'landing.contactSection.supportDesc',
-                  'Assistance with account setup, digital product listings, Stripe Connect payouts, WhatsApp integration, or custom domains.'
-                )}
-              </p>
-
-              {/* Email Badge */}
-              <div
-                style={{
-                  background: '#F0FDFA',
-                  border: '1.5px dashed #14B8A6',
-                  borderRadius: 14,
-                  padding: '12px 16px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  marginBottom: 20,
-                  gap: 10,
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, overflow: 'hidden' }}>
-                  <span style={{ fontSize: 18, flexShrink: 0 }}>⚡</span>
-                  <a
-                    href="mailto:support@linksocio.com"
-                    style={{
-                      fontSize: 16,
-                      fontWeight: 800,
-                      color: '#0D9488',
-                      textDecoration: 'none',
-                      letterSpacing: '-0.01em',
-                      whiteSpace: 'nowrap',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                    }}
-                  >
-                    support@linksocio.com
-                  </a>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => copyEmail('support@linksocio.com')}
-                  title="Copy email address"
-                  style={{
-                    flexShrink: 0,
-                    background: copiedEmail === 'support@linksocio.com' ? '#0F172A' : '#FFFFFF',
-                    color: copiedEmail === 'support@linksocio.com' ? '#FFFFFF' : '#0F766E',
-                    border: '1px solid #99F6E4',
-                    borderRadius: 8,
-                    padding: '6px 12px',
-                    fontSize: 12,
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease',
-                  }}
-                >
-                  {copiedEmail === 'support@linksocio.com' ? '✓ ' + t('common.copied', 'Copied!') : t('common.copy', 'Copy')}
-                </button>
-              </div>
-            </div>
-
-            <a
-              href="mailto:support@linksocio.com"
-              className="btn-scale"
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 8,
-                background: 'linear-gradient(135deg, #14B8A6 0%, #0D9488 100%)',
-                color: 'white',
-                padding: '13px 20px',
-                borderRadius: 14,
-                fontSize: 14,
-                fontWeight: 700,
-                textDecoration: 'none',
-                boxShadow: '0 4px 14px rgba(20,184,166,0.3)',
-              }}
-            >
-              <span>🛟 {t('landing.contactSection.contactSupport', 'Contact support@linksocio.com')}</span>
-              <span>→</span>
-            </a>
-          </div>
-        </div>
-
-        {/* Response Guarantee Bar */}
-        <div
-          style={{
-            background: '#FFFFFF',
-            border: '1px solid #E2E8F0',
-            borderRadius: 18,
-            padding: '18px 24px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
-            gap: 16,
-            boxShadow: '0 2px 8px rgba(0,0,0,0.02)',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <span style={{ fontSize: 22 }}>⚡</span>
-            <div>
-              <span style={{ fontSize: 14, fontWeight: 700, color: '#0F172A', display: 'block' }}>
-                {t('landing.contactSection.guaranteeTitle', 'Fast Human Support Guaranteed')}
-              </span>
-              <span style={{ fontSize: 13, color: '#64748B' }}>
-                {t('landing.contactSection.guaranteeDesc', 'We typically respond to both info@linksocio.com and support@linksocio.com within a few hours.')}
-              </span>
-            </div>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
-            <a
-              href="mailto:support@linksocio.com"
-              style={{ fontSize: 13.5, fontWeight: 700, color: '#14B8A6', textDecoration: 'none' }}
-            >
-              support@linksocio.com ↗
-            </a>
-            <span style={{ color: '#CBD5E1' }}>|</span>
-            <a
-              href="mailto:info@linksocio.com"
-              style={{ fontSize: 13.5, fontWeight: 700, color: '#0F172A', textDecoration: 'none' }}
-            >
-              info@linksocio.com ↗
-            </a>
-          </div>
-        </div>
-      </section>
-
       {/* 7. BOTTOM HIGH-CONVERSION CTA */}
       <section style={{ background: '#0F172A', color: 'white', padding: '80px 20px', textAlign: 'center', position: 'relative', overflow: 'hidden' }}>
         <div
@@ -2554,54 +1985,11 @@ export default function LandingPage({ goToLogin, goToSignUp, goTo }) {
               {t('landing.ctaSection.btn', 'Get Started →')}
             </button>
           </form>
-
-          {/* Pre-signup Contact & Assistance */}
-          <div
-            style={{
-              marginTop: 22,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 16,
-              flexWrap: 'wrap',
-              fontSize: 13,
-              color: '#94A3B8',
-            }}
-          >
-            <span>{t('landing.ctaSection.emailPrompt', 'Need help before getting started?')}</span>
-            <a
-              href="mailto:support@linksocio.com"
-              style={{
-                color: '#2DD4BF',
-                textDecoration: 'none',
-                fontWeight: 700,
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 5,
-              }}
-            >
-              <span>🛟</span> support@linksocio.com
-            </a>
-            <span style={{ color: '#475569' }}>·</span>
-            <a
-              href="mailto:info@linksocio.com"
-              style={{
-                color: '#FFFFFF',
-                textDecoration: 'none',
-                fontWeight: 600,
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 5,
-              }}
-            >
-              <span>✉️</span> info@linksocio.com
-            </a>
-          </div>
         </div>
       </section>
 
       {/* 8. FOOTER */}
-      <footer style={{ background: '#090D16', color: '#94A3B8', padding: '60px 20px 36px', fontSize: 13.5, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+      <footer id="contact" style={{ background: '#090D16', color: '#94A3B8', padding: '60px 20px 36px', fontSize: 13.5, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
         <div style={{ maxWidth: 1140, margin: '0 auto' }}>
           {/* Top Footer Grid */}
           <div
@@ -2657,39 +2045,77 @@ export default function LandingPage({ goToLogin, goToSignUp, goTo }) {
                   <div style={{ fontSize: 11, color: '#64748B', fontWeight: 600, textTransform: 'uppercase', marginBottom: 2 }}>
                     {t('landing.footer.supportLabel', 'Technical & Creator Help')}
                   </div>
-                  <a
-                    href="mailto:support@linksocio.com"
-                    style={{
-                      color: '#2DD4BF',
-                      textDecoration: 'none',
-                      fontWeight: 700,
-                      fontSize: 14,
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: 6,
-                    }}
-                  >
-                    <span>🛟</span> support@linksocio.com
-                  </a>
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    <a
+                      href="mailto:support@linksocio.com"
+                      style={{
+                        color: '#2DD4BF',
+                        textDecoration: 'none',
+                        fontWeight: 700,
+                        fontSize: 14,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 6,
+                      }}
+                    >
+                      <span>🛟</span> support@linksocio.com
+                    </a>
+                    <button
+                      type="button"
+                      onClick={() => copyEmail('support@linksocio.com')}
+                      title="Copy email"
+                      style={{
+                        background: copiedEmail === 'support@linksocio.com' ? '#14B8A6' : 'rgba(255,255,255,0.08)',
+                        color: copiedEmail === 'support@linksocio.com' ? '#FFFFFF' : '#94A3B8',
+                        border: '1px solid rgba(255,255,255,0.12)',
+                        borderRadius: 6,
+                        padding: '2px 7px',
+                        fontSize: 11,
+                        cursor: 'pointer',
+                        fontWeight: 600,
+                      }}
+                    >
+                      {copiedEmail === 'support@linksocio.com' ? '✓ ' + t('common.copied', 'Copied!') : t('common.copy', 'Copy')}
+                    </button>
+                  </div>
                 </li>
                 <li>
                   <div style={{ fontSize: 11, color: '#64748B', fontWeight: 600, textTransform: 'uppercase', marginBottom: 2 }}>
                     {t('landing.footer.infoLabel', 'General & Partnerships')}
                   </div>
-                  <a
-                    href="mailto:info@linksocio.com"
-                    style={{
-                      color: '#FFFFFF',
-                      textDecoration: 'none',
-                      fontWeight: 700,
-                      fontSize: 14,
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: 6,
-                    }}
-                  >
-                    <span>✉️</span> info@linksocio.com
-                  </a>
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    <a
+                      href="mailto:info@linksocio.com"
+                      style={{
+                        color: '#FFFFFF',
+                        textDecoration: 'none',
+                        fontWeight: 700,
+                        fontSize: 14,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 6,
+                      }}
+                    >
+                      <span>✉️</span> info@linksocio.com
+                    </a>
+                    <button
+                      type="button"
+                      onClick={() => copyEmail('info@linksocio.com')}
+                      title="Copy email"
+                      style={{
+                        background: copiedEmail === 'info@linksocio.com' ? '#14B8A6' : 'rgba(255,255,255,0.08)',
+                        color: copiedEmail === 'info@linksocio.com' ? '#FFFFFF' : '#94A3B8',
+                        border: '1px solid rgba(255,255,255,0.12)',
+                        borderRadius: 6,
+                        padding: '2px 7px',
+                        fontSize: 11,
+                        cursor: 'pointer',
+                        fontWeight: 600,
+                      }}
+                    >
+                      {copiedEmail === 'info@linksocio.com' ? '✓ ' + t('common.copied', 'Copied!') : t('common.copy', 'Copy')}
+                    </button>
+                  </div>
                 </li>
                 <li style={{ fontSize: 12, color: '#64748B', marginTop: 4 }}>
                   ⚡ {t('landing.footer.replyTime', 'Average reply time: < 24h')}
@@ -2796,12 +2222,6 @@ export default function LandingPage({ goToLogin, goToSignUp, goTo }) {
         .cta-label-full { display: inline !important; }
 
         @media (max-width: 680px) {
-          .landing-top-bar {
-            padding: 6px 12px !important;
-          }
-          .landing-top-bar .top-bar-title {
-            display: none !important;
-          }
           .landing-header-inner {
             padding: 10px 14px !important;
           }
