@@ -1,7 +1,8 @@
-// Server endpoint to get and save booking / calendar consultation settings
+// Server endpoint to get and save booking / calendar consultation settings with RBAC
 import fs from 'fs'
 import path from 'path'
 import os from 'os'
+import { applyCors, getAuthenticatedUser } from './_supabase.js'
 
 const PRIMARY_PATH = path.join(process.cwd(), '.booking_settings.json')
 const TMP_PATH = path.join(os.tmpdir(), '.linksocio_booking_settings.json')
@@ -41,25 +42,45 @@ function writeStore(store) {
   } catch (e) {}
 }
 
-export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*')
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
-
-  if (req.method === 'OPTIONS') {
-    res.statusCode = 200
-    res.end()
-    return
+async function parseBody(req) {
+  if (req.body) {
+    if (typeof req.body === 'string') {
+      try {
+        return JSON.parse(req.body)
+      } catch (e) {
+        return {}
+      }
+    }
+    return req.body
   }
+  return new Promise((resolve) => {
+    let bodyStr = ''
+    req.on('data', (chunk) => {
+      bodyStr += chunk
+    })
+    req.on('end', () => {
+      try {
+        resolve(JSON.parse(bodyStr || '{}'))
+      } catch (e) {
+        resolve({})
+      }
+    })
+  })
+}
+
+export default async function handler(req, res) {
+  if (applyCors(req, res)) return
 
   const store = readStore()
+  const authUser = await getAuthenticatedUser(req)
 
   if (req.method === 'GET') {
     const urlObj = new URL(req.url, `http://${req.headers?.host || 'localhost'}`)
     const username = (urlObj.searchParams.get('username') || '').toLowerCase().trim().replace(/^@/, '')
     const userId = (urlObj.searchParams.get('userId') || '').trim()
 
-    const userSettings = (username && store[username]) || (userId && store[userId]) || null
+    const targetKey = (authUser && authUser.id) || userId || username || null
+    const userSettings = targetKey ? (store[targetKey] || (username && store[username]) || null) : null
 
     res.statusCode = 200
     res.setHeader('Content-Type', 'application/json')
@@ -68,31 +89,24 @@ export default async function handler(req, res) {
   }
 
   if (req.method === 'POST') {
-    let body = ''
-    req.on('data', (chunk) => {
-      body += chunk
-    })
-    req.on('end', () => {
-      try {
-        const payload = JSON.parse(body || '{}')
-        const username = (payload.username || '').toLowerCase().trim().replace(/^@/, '')
-        const userId = (payload.userId || '').trim()
-        const settings = payload.settings || {}
+    // Only authenticated creator can modify their settings (Audit Section 2)
+    if (!authUser) {
+      res.statusCode = 401
+      res.setHeader('Content-Type', 'application/json')
+      res.end(JSON.stringify({ error: 'Authentication required' }))
+      return
+    }
 
-        if (username) store[username] = settings
-        if (userId) store[userId] = settings
+    const payload = await parseBody(req)
+    const settings = payload.settings || {}
 
-        writeStore(store)
+    store[authUser.id] = settings
+    if (authUser.email) store[authUser.email] = settings
+    writeStore(store)
 
-        res.statusCode = 200
-        res.setHeader('Content-Type', 'application/json')
-        res.end(JSON.stringify({ success: true, settings }))
-      } catch (err) {
-        res.statusCode = 400
-        res.setHeader('Content-Type', 'application/json')
-        res.end(JSON.stringify({ error: 'Invalid JSON body' }))
-      }
-    })
+    res.statusCode = 200
+    res.setHeader('Content-Type', 'application/json')
+    res.end(JSON.stringify({ success: true, settings }))
     return
   }
 

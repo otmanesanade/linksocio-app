@@ -1856,10 +1856,6 @@ export default function LandingPage({ goToLogin, goToSignUp, goTo }) {
               q: t('landing.faqSection.q5', 'Can I manage restaurant menus and table bookings?'),
               a: t('landing.faqSection.a5', 'Yes! The built-in Restaurant & Menu tab allows you to showcase categorized dishes, add prices and photos, and let visitors reserve tables or send inquiries directly.'),
             },
-            {
-              q: t('landing.faqSection.qContact', 'How can I contact the LinkSocio team or get support?'),
-              a: t('landing.faqSection.aContact', 'You can contact our team anytime by email: write to support@linksocio.com for 24/7 technical and creator support, or info@linksocio.com for general inquiries, partnerships, and business questions. We typically reply in less than 24 hours.'),
-            },
           ].map((item, idx) => {
             const isOpen = faqOpen.includes(idx)
             return (

@@ -1,5 +1,17 @@
 {
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "X-Frame-Options", "value": "SAMEORIGIN" },
+        { "key": "X-XSS-Protection", "value": "1; mode=block" },
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" }
+      ]
+    }
+  ],
   "rewrites": [
+    { "source": "/api/webhook", "destination": "/api/webhook" },
     { "source": "/api/stripe/(.*)", "destination": "/api/stripe?subroute=$1" },
     { "source": "/api/stripe", "destination": "/api/stripe" },
     { "source": "/api/payouts/(.*)", "destination": "/api/payouts?subroute=$1" },

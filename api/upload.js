@@ -1,6 +1,7 @@
-// Serverless API endpoint to upload files from desktop (PDF, ZIP, Audio, etc.)
+// Serverless API endpoint to upload files with authentication and storage integration
 import fs from 'fs'
 import path from 'path'
+import { applyCors, getAuthenticatedUser } from './_supabase.js'
 
 export const config = {
   api: {
@@ -10,18 +11,27 @@ export const config = {
   },
 }
 
-export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*')
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+const ALLOWED_EXTENSIONS = new Set([
+  '.pdf', '.zip', '.epub', '.mobi', '.docx', '.xlsx',
+  '.mp3', '.wav', '.mp4', '.png', '.jpg', '.jpeg', '.webp'
+])
 
-  if (req.method === 'OPTIONS') {
-    res.status(200).end()
+export default async function handler(req, res) {
+  if (applyCors(req, res)) return
+
+  if (req.method !== 'POST') {
+    res.statusCode = 405
+    res.setHeader('Content-Type', 'application/json')
+    res.end(JSON.stringify({ error: 'Method not allowed' }))
     return
   }
 
-  if (req.method !== 'POST') {
-    res.status(405).json({ error: 'Method not allowed' })
+  // Require authenticated creator session (Audit Section 2)
+  const authUser = await getAuthenticatedUser(req)
+  if (!authUser) {
+    res.statusCode = 401
+    res.setHeader('Content-Type', 'application/json')
+    res.end(JSON.stringify({ error: 'Authentication required to upload files' }))
     return
   }
 
@@ -30,7 +40,9 @@ export default async function handler(req, res) {
     const { filename, base64, type } = body
 
     if (!base64 || typeof base64 !== 'string') {
-      res.status(400).json({ error: 'No valid base64 file data provided' })
+      res.statusCode = 400
+      res.setHeader('Content-Type', 'application/json')
+      res.end(JSON.stringify({ error: 'No valid base64 file data provided' }))
       return
     }
 
@@ -42,6 +54,13 @@ export default async function handler(req, res) {
     }
 
     const ext = (path.extname(rawName) || '.bin').toLowerCase()
+    if (!ALLOWED_EXTENSIONS.has(ext)) {
+      res.statusCode = 400
+      res.setHeader('Content-Type', 'application/json')
+      res.end(JSON.stringify({ error: `File type '${ext}' is not permitted.` }))
+      return
+    }
+
     let cleanBase = path.basename(rawName, ext).replace(/[^a-zA-Z0-9_\-]/g, '_').replace(/_+/g, '_').slice(0, 60)
     if (!cleanBase || cleanBase === '_') cleanBase = 'product'
     const uniqueName = `${Date.now()}_${cleanBase}${ext}`
@@ -82,22 +101,25 @@ export default async function handler(req, res) {
       }
       finalUrl = `/uploads/${uniqueName}`
     } catch (fsErr) {
-      // Read-only filesystem (e.g. Vercel / AWS Lambda /var/task)
-      // Seamlessly fall back to self-contained direct Data URI so upload NEVER fails with EROFS
-      console.warn('Read-only filesystem detected on serverless host, falling back to direct Data URI:', fsErr.message)
       finalUrl = fullDataUrl
     }
 
-    return res.status(200).json({
-      success: true,
-      url: finalUrl,
-      filename: rawName,
-      size: buffer.length,
-      type: mime,
-      storage: finalUrl.startsWith('data:') ? 'direct_data' : 'server_disk',
-    })
+    res.statusCode = 200
+    res.setHeader('Content-Type', 'application/json')
+    res.end(
+      JSON.stringify({
+        success: true,
+        url: finalUrl,
+        filename: rawName,
+        size: buffer.length,
+        type: mime,
+        storage: finalUrl.startsWith('data:') ? 'direct_data' : 'server_disk',
+      })
+    )
   } catch (err) {
     console.error('Upload handler error:', err)
-    return res.status(500).json({ error: 'Upload failed: ' + err.message })
+    res.statusCode = 500
+    res.setHeader('Content-Type', 'application/json')
+    res.end(JSON.stringify({ error: 'Upload failed' }))
   }
 }

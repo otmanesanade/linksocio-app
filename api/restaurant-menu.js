@@ -1,7 +1,8 @@
-// Server endpoint to get and save restaurant / cafe menu and settings
+// Server endpoint to get and save restaurant / cafe menu and settings with RBAC
 import fs from 'fs'
 import path from 'path'
 import os from 'os'
+import { applyCors, getAuthenticatedUser } from './_supabase.js'
 
 const PRIMARY_PATH = path.join(process.cwd(), '.restaurant_menu_store.json')
 const TMP_PATH = path.join(os.tmpdir(), '.linksocio_restaurant_menu_store.json')
@@ -41,29 +42,49 @@ function writeStore(store) {
   } catch (e) {}
 }
 
-export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*')
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
-
-  if (req.method === 'OPTIONS') {
-    res.statusCode = 200
-    res.end()
-    return
+async function parseBody(req) {
+  if (req.body) {
+    if (typeof req.body === 'string') {
+      try {
+        return JSON.parse(req.body)
+      } catch (e) {
+        return {}
+      }
+    }
+    return req.body
   }
+  return new Promise((resolve) => {
+    let bodyStr = ''
+    req.on('data', (chunk) => {
+      bodyStr += chunk
+    })
+    req.on('end', () => {
+      try {
+        resolve(JSON.parse(bodyStr || '{}'))
+      } catch (e) {
+        resolve({})
+      }
+    })
+  })
+}
+
+export default async function handler(req, res) {
+  if (applyCors(req, res)) return
 
   const store = readStore()
+  const authUser = await getAuthenticatedUser(req)
 
   if (req.method === 'GET') {
     const urlObj = new URL(req.url, `http://${req.headers?.host || 'localhost'}`)
     const username = (urlObj.searchParams.get('username') || '').toLowerCase().trim().replace(/^@/, '')
     const userId = (urlObj.searchParams.get('userId') || '').trim()
 
-    let menuData = (username && store[username]) || (userId && store[userId]) || null
+    const targetKey = (authUser && authUser.id) || userId || username || null
+    let menuData = targetKey ? (store[targetKey] || (username && store[username]) || null) : null
 
-    if (!menuData && Object.keys(store).length > 0) {
+    if (!menuData && Object.keys(store).length > 0 && username) {
       for (const [k, v] of Object.entries(store)) {
-        if (username && k.toLowerCase().replace(/^@/, '') === username) {
+        if (k.toLowerCase().replace(/^@/, '') === username) {
           menuData = v
           break
         }
@@ -77,38 +98,23 @@ export default async function handler(req, res) {
   }
 
   if (req.method === 'POST') {
-    let body = ''
-    req.on('data', (chunk) => {
-      body += chunk
-    })
-    req.on('end', () => {
-      try {
-        const payload = JSON.parse(body || '{}')
-        const username = (payload.username || '').toLowerCase().trim().replace(/^@/, '')
-        const userId = (payload.userId || '').trim()
-        const menu = payload.menu || {}
+    if (!authUser) {
+      res.statusCode = 401
+      res.setHeader('Content-Type', 'application/json')
+      res.end(JSON.stringify({ error: 'Authentication required to update restaurant menu' }))
+      return
+    }
 
-        if (!username && !userId) {
-          res.statusCode = 400
-          res.setHeader('Content-Type', 'application/json')
-          res.end(JSON.stringify({ error: 'Missing username or userId' }))
-          return
-        }
+    const payload = await parseBody(req)
+    const menu = payload.menu || {}
 
-        if (username) store[username] = menu
-        if (userId) store[userId] = menu
+    store[authUser.id] = menu
+    if (authUser.email) store[authUser.email] = menu
+    writeStore(store)
 
-        writeStore(store)
-
-        res.statusCode = 200
-        res.setHeader('Content-Type', 'application/json')
-        res.end(JSON.stringify({ success: true, menu }))
-      } catch (err) {
-        res.statusCode = 400
-        res.setHeader('Content-Type', 'application/json')
-        res.end(JSON.stringify({ error: 'Invalid JSON body' }))
-      }
-    })
+    res.statusCode = 200
+    res.setHeader('Content-Type', 'application/json')
+    res.end(JSON.stringify({ success: true, menu }))
     return
   }
 

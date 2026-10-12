@@ -1,7 +1,8 @@
-// Server endpoint to record, retrieve and update inquiry leads across devices
+// Server endpoint to record, retrieve and update inquiry leads with authentication & Supabase integration
 import fs from 'fs'
 import path from 'path'
 import os from 'os'
+import { supabaseServer, applyCors, getAuthenticatedUser } from './_supabase.js'
 
 const PRIMARY_PATH = path.join(process.cwd(), '.leads_store.json')
 const TMP_PATH = path.join(os.tmpdir(), '.linksocio_leads_store.json')
@@ -43,212 +44,136 @@ function writeLeadsStore(store) {
   } catch (e) {}
 }
 
-export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*')
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS')
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
-
-  if (req.method === 'OPTIONS') {
-    res.statusCode = 200
-    res.end()
-    return
-  }
-
-  if (req.method === 'GET') {
-    const store = readLeadsStore()
-    const urlObj = new URL(req.url, `http://${req.headers?.host || 'localhost'}`)
-    const username = (urlObj.searchParams.get('username') || '').toLowerCase().trim().replace(/^@/, '')
-    const userId = (urlObj.searchParams.get('userId') || '').trim()
-
-    let collected = []
-    const seenIds = new Set()
-
-    function addList(list) {
-      if (Array.isArray(list)) {
-        for (const item of list) {
-          if (item && item.id && !seenIds.has(item.id)) {
-            seenIds.add(item.id)
-            collected.push(item)
-          }
-        }
+async function parseBody(req) {
+  if (req.body) {
+    if (typeof req.body === 'string') {
+      try {
+        return JSON.parse(req.body)
+      } catch (e) {
+        return {}
       }
     }
-
-    if (username) {
-      addList(store[username])
-      addList(store[`@${username}`])
-    }
-    if (userId) {
-      addList(store[userId])
-    }
-
-    if (collected.length === 0 && Object.keys(store).length > 0) {
-      for (const [k, v] of Object.entries(store)) {
-        if (username && k.toLowerCase().includes(username)) {
-          addList(v)
-        }
-      }
-    }
-
-    collected.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
-
-    res.statusCode = 200
-    res.setHeader('Content-Type', 'application/json')
-    res.end(JSON.stringify({ leads: collected }))
-    return
+    return req.body
   }
-
-  if (req.method === 'POST') {
-    let body = ''
+  return new Promise((resolve) => {
+    let bodyStr = ''
     req.on('data', (chunk) => {
-      body += chunk
+      bodyStr += chunk
     })
     req.on('end', () => {
       try {
-        const payload = JSON.parse(body || '{}')
-        const username = (payload.username || '').toLowerCase().trim().replace(/^@/, '')
-        const userId = (payload.userId || '').trim()
-        const singleLead = payload.lead
-        const batchLeads = payload.leads
-
-        if (!username && !userId) {
-          res.statusCode = 400
-          res.setHeader('Content-Type', 'application/json')
-          res.end(JSON.stringify({ error: 'Missing username or userId' }))
-          return
-        }
-
-        const store = readLeadsStore()
-        const primaryKey = username || userId
-        const existingList = [...(store[primaryKey] || [])]
-
-        if (userId && store[userId]) {
-          for (const item of store[userId]) {
-            if (item && item.id && !existingList.some((x) => x.id === item.id)) {
-              existingList.push(item)
-            }
-          }
-        }
-
-        const itemsToProcess = []
-        if (singleLead) itemsToProcess.push(singleLead)
-        if (Array.isArray(batchLeads)) {
-          for (const l of batchLeads) {
-            if (l) itemsToProcess.push(l)
-          }
-        }
-
-        for (const lead of itemsToProcess) {
-          const newLead = {
-            id: lead.id || 'lead_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
-            createdAt: lead.createdAt || new Date().toISOString(),
-            status: lead.status || 'new',
-            ...lead,
-          }
-          const idx = existingList.findIndex((l) => l.id === newLead.id)
-          if (idx >= 0) {
-            existingList[idx] = { ...existingList[idx], ...newLead }
-          } else {
-            existingList.unshift(newLead)
-          }
-        }
-
-        existingList.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
-
-        if (username) store[username] = existingList
-        if (userId) store[userId] = existingList
-
-        writeLeadsStore(store)
-
-        res.statusCode = 200
-        res.setHeader('Content-Type', 'application/json')
-        res.end(JSON.stringify({ success: true, leads: existingList }))
-      } catch (err) {
-        res.statusCode = 400
-        res.setHeader('Content-Type', 'application/json')
-        res.end(JSON.stringify({ error: 'Invalid JSON' }))
+        resolve(JSON.parse(bodyStr || '{}'))
+      } catch (e) {
+        resolve({})
       }
     })
-    return
-  }
+  })
+}
 
-  if (req.method === 'PUT' || req.method === 'PATCH') {
-    let body = ''
-    req.on('data', (chunk) => {
-      body += chunk
-    })
-    req.on('end', () => {
-      try {
-        const payload = JSON.parse(body || '{}')
-        const leadId = payload.leadId
-        const newStatus = payload.status
-
-        if (!leadId) {
-          res.statusCode = 400
-          res.setHeader('Content-Type', 'application/json')
-          res.end(JSON.stringify({ error: 'Missing leadId' }))
-          return
-        }
-
-        const store = readLeadsStore()
-        for (const [k, list] of Object.entries(store)) {
-          if (Array.isArray(list)) {
-            store[k] = list.map((l) => (l.id === leadId ? { ...l, status: newStatus || l.status } : l))
-          }
-        }
-
-        writeLeadsStore(store)
-
-        res.statusCode = 200
-        res.setHeader('Content-Type', 'application/json')
-        res.end(JSON.stringify({ success: true }))
-      } catch (err) {
-        res.statusCode = 400
-        res.setHeader('Content-Type', 'application/json')
-        res.end(JSON.stringify({ error: 'Invalid JSON' }))
-      }
-    })
-    return
-  }
-
-  if (req.method === 'DELETE') {
-    let body = ''
-    req.on('data', (chunk) => {
-      body += chunk
-    })
-    req.on('end', () => {
-      try {
-        const payload = JSON.parse(body || '{}')
-        const leadId = payload.leadId
-        if (!leadId) {
-          res.statusCode = 400
-          res.setHeader('Content-Type', 'application/json')
-          res.end(JSON.stringify({ error: 'Missing leadId' }))
-          return
-        }
-
-        const store = readLeadsStore()
-        for (const [k, list] of Object.entries(store)) {
-          if (Array.isArray(list)) {
-            store[k] = list.filter((l) => l.id !== leadId)
-          }
-        }
-
-        writeLeadsStore(store)
-
-        res.statusCode = 200
-        res.setHeader('Content-Type', 'application/json')
-        res.end(JSON.stringify({ success: true }))
-      } catch (err) {
-        res.statusCode = 400
-        res.setHeader('Content-Type', 'application/json')
-        res.end(JSON.stringify({ error: 'Invalid JSON' }))
-      }
-    })
-    return
-  }
-
-  res.statusCode = 405
+function sendJson(res, statusCode, data) {
+  res.statusCode = statusCode
   res.setHeader('Content-Type', 'application/json')
-  res.end(JSON.stringify({ error: 'Method not allowed' }))
+  res.end(JSON.stringify(data))
+}
+
+export default async function handler(req, res) {
+  if (applyCors(req, res)) return
+
+  const authUser = await getAuthenticatedUser(req)
+
+  // 1. GET: RETRIEVE CREATOR'S LEADS (Audit Section 2: Protected Private Route)
+  if (req.method === 'GET') {
+    if (!authUser) {
+      return sendJson(res, 401, { error: 'Authentication required to view leads' })
+    }
+
+    const currentUserId = authUser.id
+
+    // Fetch from Supabase PostgreSQL leads table (Audit Section 3)
+    try {
+      const { data: dbLeads, error } = await supabaseServer
+        .from('leads')
+        .select('*')
+        .eq('user_id', currentUserId)
+        .order('created_at', { ascending: false })
+
+      if (!error && dbLeads && dbLeads.length > 0) {
+        return sendJson(res, 200, { leads: dbLeads })
+      }
+    } catch (e) {}
+
+    // Fallback store scoped strictly to current user ID
+    const store = readLeadsStore()
+    const userLeads = store[currentUserId] || store[authUser.email] || []
+    return sendJson(res, 200, { leads: Array.isArray(userLeads) ? userLeads : [] })
+  }
+
+  // 2. POST: SUBMIT INQUIRY LEAD (Public form on creator profile)
+  if (req.method === 'POST') {
+    const payload = await parseBody(req)
+    const singleLead = payload.lead
+    const batchLeads = payload.leads
+    const targetUserId = payload.userId || (authUser ? authUser.id : null)
+
+    if (!singleLead && !Array.isArray(batchLeads)) {
+      return sendJson(res, 400, { error: 'Missing lead payload' })
+    }
+
+    if (targetUserId && singleLead) {
+      try {
+        await supabaseServer.from('leads').insert({
+          user_id: targetUserId,
+          lead_name: singleLead.name || 'Lead',
+          lead_email: singleLead.email || '',
+          lead_phone: singleLead.phone || '',
+          service_type: singleLead.service || singleLead.service_type || 'General',
+          message: singleLead.message || '',
+          status: 'new',
+        })
+      } catch (dbErr) {
+        console.warn('Supabase lead insert note:', dbErr.message)
+      }
+    }
+
+    const store = readLeadsStore()
+    const key = targetUserId || (authUser ? authUser.id : 'default')
+    const list = Array.isArray(store[key]) ? store[key] : []
+
+    if (singleLead) {
+      list.unshift(singleLead)
+    } else if (Array.isArray(batchLeads)) {
+      list.unshift(...batchLeads)
+    }
+
+    store[key] = list
+    writeLeadsStore(store)
+
+    return sendJson(res, 200, { success: true, count: list.length })
+  }
+
+  // 3. PATCH / PUT: UPDATE LEAD STATUS
+  if (req.method === 'PATCH' || req.method === 'PUT') {
+    if (!authUser) {
+      return sendJson(res, 401, { error: 'Authentication required' })
+    }
+
+    const payload = await parseBody(req)
+    const { leadId, status } = payload
+
+    if (!leadId || !status) {
+      return sendJson(res, 400, { error: 'Missing leadId or status' })
+    }
+
+    try {
+      await supabaseServer
+        .from('leads')
+        .update({ status })
+        .eq('id', leadId)
+        .eq('user_id', authUser.id)
+    } catch (e) {}
+
+    return sendJson(res, 200, { success: true, leadId, status })
+  }
+
+  sendJson(res, 405, { error: 'Method not allowed' })
 }

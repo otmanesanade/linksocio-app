@@ -1,4 +1,5 @@
 import Stripe from 'stripe'
+import { supabaseServer, applyCors, getAuthenticatedUser, getVerifiedProduct } from './_supabase.js'
 
 let stripeInstance = null
 function getStripe() {
@@ -42,16 +43,17 @@ function sendJson(res, statusCode, data) {
   res.end(JSON.stringify(data))
 }
 
-export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*')
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+// Supported Stripe Connect countries
+const SUPPORTED_CONNECT_COUNTRIES = new Set([
+  'AT', 'AU', 'BE', 'BG', 'CA', 'CH', 'CY', 'CZ', 'DE', 'DK', 'EE', 'ES',
+  'FI', 'FR', 'GB', 'GI', 'GR', 'HR', 'HU', 'IE', 'IT', 'LI', 'LT', 'LU',
+  'LV', 'MT', 'MX', 'NL', 'NO', 'NZ', 'PL', 'PT', 'RO', 'SE', 'SG', 'SI',
+  'SK', 'US',
+])
 
-  if (req.method === 'OPTIONS') {
-    res.statusCode = 200
-    res.end()
-    return
-  }
+export default async function handler(req, res) {
+  // 1. Strict CORS validation (Audit Section 6)
+  if (applyCors(req, res)) return
 
   const urlObj = new URL(req.url, `http://${req.headers?.host || 'localhost'}`)
   const subroute = (
@@ -68,113 +70,98 @@ export default async function handler(req, res) {
   if (subroute === 'status' || subroute.endsWith('/status')) {
     const isConfigured = secretKey.length > 0 && !isPublishableInsteadOfSecret
     const mode = secretKey.startsWith('sk_live_') ? 'live' : 'test'
-    sendJson(res, 200, {
+    return sendJson(res, 200, {
       configured: isConfigured,
       mode: mode,
       hasPublishableKey: publishableKey.length > 0,
       publishableKeyMasked: publishableKey ? `${publishableKey.slice(0, 8)}...${publishableKey.slice(-4)}` : null,
       isPublishableInsteadOfSecret,
     })
-    return
   }
 
-  // 2. CONNECT / TEST-CONNECT
+  // 2. CONNECT / TEST-CONNECT (Audit Section 5: Disabled in production to prevent false positives)
   if (subroute.includes('test-connect')) {
-    const payload = await parseBody(req)
-    const username = ((payload && payload.username) || 'creator').replace(/[^a-zA-Z0-9]/g, '')
-    const simId = `acct_live_${username || 'creator'}_${Date.now().toString(36)}`
-    sendJson(res, 200, {
-      success: true,
-      configured: true,
-      accountId: simId,
-      message: 'Instant connected account successfully linked!',
+    const isProduction = process.env.NODE_ENV === 'production' || process.env.VERCEL_ENV === 'production'
+    if (isProduction) {
+      return sendJson(res, 403, {
+        success: false,
+        configured: false,
+        error: 'Test simulated connections are disabled in production. A verified Stripe Connect account is required.',
+      })
+    }
+    return sendJson(res, 200, {
+      success: false,
+      configured: false,
+      isSandboxSimulationOnly: true,
+      message: 'Sandbox simulation only. Not a verified live connection.',
     })
-    return
   }
 
-  // 3. CONNECT / ONBOARD
+  // 3. CONNECT / ONBOARD (Audit Section 5: No automatic US fallback, check supported countries)
   if (subroute.includes('onboard')) {
     if (req.method !== 'POST') {
-      sendJson(res, 405, { error: 'Method not allowed' })
-      return
+      return sendJson(res, 405, { error: 'Method not allowed' })
     }
 
     const payload = await parseBody(req)
-    const { username, userId, email, country = 'US', returnUrl, refreshUrl } = payload || {}
+    const { username, userId, email, country, returnUrl, refreshUrl } = payload || {}
 
     if (!secretKey) {
-      sendJson(res, 200, {
+      return sendJson(res, 400, {
         configured: false,
-        error: 'STRIPE_SECRET_KEY is missing in Vercel environment variables. Please add your Stripe Secret Key (sk_test_... or sk_live_...) in Vercel Project Settings > Environment Variables.',
+        error: 'STRIPE_SECRET_KEY is missing in environment variables.',
       })
-      return
     }
 
     if (isPublishableInsteadOfSecret) {
-      sendJson(res, 200, {
+      return sendJson(res, 400, {
         configured: false,
-        error: 'STRIPE_SECRET_KEY is set to a publishable key (pk_...). A secret key starting with sk_test_ or sk_live_ is required for Stripe Connect.',
+        error: 'STRIPE_SECRET_KEY is set to a publishable key. A secret key is required.',
       })
-      return
     }
 
     const stripe = getStripe()
     if (!stripe) {
-      sendJson(res, 200, {
+      return sendJson(res, 500, {
         configured: false,
         error: 'Unable to initialize Stripe client.',
       })
-      return
     }
 
-    // Stripe Connect does not directly support creating local accounts in Morocco (MA).
-    // If the creator is in Morocco, instruct them to link their existing international Stripe Account ID (acct_...)
-    // or use Morocco Local Bank (CIH / Attijariwafa) while the platform processes global Stripe card payments.
-    const isMorocco = country === 'Morocco' || country === 'MA'
+    const countryCode = (country || 'FR').toUpperCase().trim()
+    const isMorocco = countryCode === 'MA' || countryCode === 'MOROCCO'
+
+    // Specific guidance for Morocco (Stripe Connect direct express creation unsupported)
     if (isMorocco) {
-      sendJson(res, 200, {
+      return sendJson(res, 400, {
         configured: false,
         isMoroccoNotice: true,
-        error: "Stripe Connect ne prend pas en charge la création directe de comptes bancaires au Maroc (MA). Si vous disposez d'un compte Stripe international (US LLC, UK LTD, Stripe Atlas ou Europe), vous pouvez saisir directement votre ID 'acct_...' ci-dessous. Sinon, sélectionnez 'CIH / Virement bancaire marocain' : vos acheteurs payeront par carte via Stripe et vous recevrez 91% directement sur votre compte bancaire marocain !",
+        error: "Stripe Connect does not support direct bank payouts in Morocco (MA). You can link an existing international Stripe Account ID (e.g. US LLC or Europe) or use local CIH / Moroccan bank transfer with 91% payouts.",
       })
-      return
+    }
+
+    // Reject unsupported countries without faking US country
+    if (!SUPPORTED_CONNECT_COUNTRIES.has(countryCode)) {
+      return sendJson(res, 400, {
+        configured: false,
+        error: `Country code '${countryCode}' is not currently supported for direct Stripe Connect express accounts. Please select a supported country or use bank transfer.`,
+      })
     }
 
     try {
-      const countryCode = country && country.length === 2 ? country.toUpperCase() : 'US'
-      let account = null
-
-      try {
-        account = await stripe.accounts.create({
-          type: 'express',
-          country: countryCode,
-          email: email && email.includes('@') ? email.trim() : undefined,
-          capabilities: {
-            transfers: { requested: true },
-          },
-          business_profile: {
-            url: `https://www.linksocio.com/u/${username || 'creator'}`,
-            name: username || 'LinkSocio Creator',
-          },
-          metadata: { username: username || '', userId: userId || '' },
-        })
-      } catch (expErr) {
-        try {
-          account = await stripe.accounts.create({
-            type: 'standard',
-            country: countryCode,
-            email: email && email.includes('@') ? email.trim() : undefined,
-            metadata: { username: username || '', userId: userId || '' },
-          })
-        } catch (stdErr) {
-          account = await stripe.accounts.create({
-            type: 'express',
-            country: 'US',
-            email: email && email.includes('@') ? email.trim() : undefined,
-            metadata: { username: username || '', userId: userId || '' },
-          })
-        }
-      }
+      const account = await stripe.accounts.create({
+        type: 'express',
+        country: countryCode,
+        email: email && email.includes('@') ? email.trim() : undefined,
+        capabilities: {
+          transfers: { requested: true },
+        },
+        business_profile: {
+          url: `https://www.linksocio.com/u/${username || 'creator'}`,
+          name: username || 'LinkSocio Creator',
+        },
+        metadata: { username: username || '', userId: userId || '' },
+      })
 
       const hostOrigin =
         req.headers['origin'] ||
@@ -193,84 +180,92 @@ export default async function handler(req, res) {
         type: 'account_onboarding',
       })
 
-      sendJson(res, 200, {
+      return sendJson(res, 200, {
         configured: true,
         accountId: account.id,
         url: accountLink.url,
+        status: 'pending_verification',
       })
-      return
     } catch (err) {
       console.error('Stripe Connect onboarding error:', err)
-      sendJson(res, 200, {
+      return sendJson(res, 400, {
         configured: false,
-        error: err.message || 'Stripe Connect error. Please check your Stripe Connect activation.',
+        error: err.message || 'Stripe Connect error.',
       })
-      return
     }
   }
 
-  // 4. VERIFY-SESSION
+  // 4. VERIFY-SESSION (Audit Section 4: Do not trust browser redirect alone)
   if (subroute.includes('verify-session')) {
-    let sessionId = req.query?.session_id || urlObj.searchParams.get('session_id')
+    const sessionId = req.query?.session_id || urlObj.searchParams.get('session_id')
     if (!sessionId) {
-      sendJson(res, 400, { error: 'Missing session_id' })
-      return
+      return sendJson(res, 400, { error: 'Missing session_id' })
     }
     const stripe = getStripe()
     if (!stripe) {
-      sendJson(res, 200, { configured: false, verified: false })
-      return
+      return sendJson(res, 500, { configured: false, verified: false, error: 'Stripe unavailable' })
     }
     try {
       const session = await stripe.checkout.sessions.retrieve(sessionId)
       const isPaid = session.payment_status === 'paid' || session.status === 'complete'
-      sendJson(res, 200, {
+      return sendJson(res, 200, {
         configured: true,
         verified: isPaid,
+        status: session.status,
+        paymentStatus: session.payment_status,
         planId: session.metadata?.planId,
         billingCycle: session.metadata?.billingCycle,
         customerEmail: session.customer_details?.email,
       })
-      return
     } catch (err) {
-      sendJson(res, 200, { configured: true, verified: false, error: err.message })
-      return
+      return sendJson(res, 400, { configured: true, verified: false, error: err.message })
     }
   }
 
-  // 5. CREATE-PRODUCT-CHECKOUT
+  // 5. CREATE-PRODUCT-CHECKOUT (Audit Section 4: Server-calculated price, fee, and order integrity)
   if (subroute.includes('create-product-checkout')) {
     if (req.method !== 'POST') {
-      sendJson(res, 405, { error: 'Method not allowed' })
-      return
+      return sendJson(res, 405, { error: 'Method not allowed' })
     }
     const stripe = getStripe()
     if (!stripe) {
-      sendJson(res, 200, {
+      return sendJson(res, 500, {
         configured: false,
-        error: isPublishableInsteadOfSecret
-          ? 'STRIPE_SECRET_KEY is a publishable key. Please provide sk_live_... or sk_test_...'
-          : 'Stripe Secret Key is missing.',
+        error: 'Stripe Secret Key is missing or invalid.',
       })
-      return
     }
     try {
       const payload = await parseBody(req)
       const { username, userId, product, buyerEmail, buyerName, stripeAccountId, successUrl, cancelUrl } = payload || {}
-      const rawPrice = String(product?.price || '0').replace(/[^\d.]/g, '')
-      const unitAmount = Math.max(100, Math.round((parseFloat(rawPrice) || 5) * 100))
 
-      let currency = 'usd'
-      const rawCurr = `${product?.currency || ''} ${product?.price || ''}`.toUpperCase()
+      if (!product || !product.name) {
+        return sendJson(res, 400, { error: 'Missing product information' })
+      }
+
+      // Security check: Check DB for verified price (Audit Section 4)
+      let verifiedPrice = null
+      if (product.id) {
+        const dbProduct = await getVerifiedProduct(product.id)
+        if (dbProduct) {
+          verifiedPrice = parseFloat(dbProduct.price)
+        }
+      }
+
+      // Fallback to sanitizing client price if product is dynamically created
+      const rawPrice = verifiedPrice !== null ? verifiedPrice : parseFloat(String(product.price || '0').replace(/[^\d.]/g, ''))
+      const unitAmount = Math.max(100, Math.round((rawPrice || 5) * 100))
+
+      let currency = 'eur'
+      const rawCurr = `${product.currency || ''} ${product.price || ''}`.toUpperCase()
       if (/\b(MAD|DH|DIRHAM)\b/i.test(rawCurr)) currency = 'mad'
       else if (rawCurr.includes('€') || /\bEUR\b/i.test(rawCurr)) currency = 'eur'
       else if (rawCurr.includes('£') || /\bGBP\b/i.test(rawCurr)) currency = 'gbp'
-      else if (/\bSAR\b/i.test(rawCurr)) currency = 'sar'
-      else if (/\bAED\b/i.test(rawCurr)) currency = 'aed'
-      else if (/\bCAD\b/i.test(rawCurr)) currency = 'cad'
       else if (rawCurr.includes('$') || /\bUSD\b/i.test(rawCurr)) currency = 'usd'
 
+      // Server strictly enforces 9% platform fee (Audit Section 4)
       const platformFeeAmount = Math.round(unitAmount * 0.09)
+      const creatorAmount = unitAmount - platformFeeAmount
+
       const hostOrigin =
         req.headers['origin'] ||
         (req.headers['x-forwarded-proto']
@@ -286,10 +281,9 @@ export default async function handler(req, res) {
             price_data: {
               currency,
               product_data: {
-                name: product?.name || 'Digital Product',
+                name: product.name,
                 description: `Sold by @${username || 'creator'} on LinkSocio (Instant Delivery)`,
-                images: product?.image_url ? [product.image_url] : undefined,
-                tax_code: 'txcd_10000000',
+                images: product.image_url ? [product.image_url] : undefined,
               },
               unit_amount: unitAmount,
             },
@@ -298,15 +292,17 @@ export default async function handler(req, res) {
         ],
         metadata: {
           type: 'digital_product',
-          productId: product?.id || '',
-          productName: product?.name || '',
+          productId: product.id || '',
+          productName: product.name || '',
           sellerUsername: username || '',
           sellerUserId: userId || '',
           buyerName: buyerName || '',
-          platformFeeRate: '9%',
+          unitAmount: String(unitAmount),
           platformFeeAmount: String(platformFeeAmount),
+          creatorAmount: String(creatorAmount),
+          platformFeeRate: '9%',
         },
-        success_url: successUrl || `${hostOrigin}/u/${username}?order_success=true&prod_id=${product?.id}`,
+        success_url: successUrl || `${hostOrigin}/u/${username}?order_success=true&prod_id=${product.id}`,
         cancel_url: cancelUrl || `${hostOrigin}/u/${username}`,
       }
 
@@ -317,71 +313,54 @@ export default async function handler(req, res) {
         }
       }
 
-      let session = null
-      try {
-        session = await stripe.checkout.sessions.create(sessionPayload)
-      } catch (firstErr) {
-        console.warn('Initial session creation notice:', firstErr.message)
-        // If Connect destination account is restricted or cross-border incompatible, create on platform
-        if (sessionPayload.payment_intent_data) {
-          delete sessionPayload.payment_intent_data
-          try {
-            session = await stripe.checkout.sessions.create(sessionPayload)
-          } catch (retryErr) {
-            // If Managed Payments still has an issue, try without managed_payments
-            if (retryErr.message && (retryErr.message.includes('managed_payments') || retryErr.message.includes('tax_code'))) {
-              try {
-                sessionPayload.managed_payments = { enabled: false }
-                session = await stripe.checkout.sessions.create(sessionPayload)
-              } catch (e3) {
-                throw retryErr
-              }
-            } else {
-              throw retryErr
-            }
-          }
-        } else {
-          if (firstErr.message && (firstErr.message.includes('managed_payments') || firstErr.message.includes('tax_code'))) {
-            try {
-              sessionPayload.managed_payments = { enabled: false }
-              session = await stripe.checkout.sessions.create(sessionPayload)
-            } catch (e3) {
-              throw firstErr
-            }
-          } else {
-            throw firstErr
-          }
+      const session = await stripe.checkout.sessions.create(sessionPayload)
+
+      // Record pending order in Supabase PostgreSQL (Audit Section 3 & 4)
+      if (userId) {
+        try {
+          await supabaseServer.from('orders').insert({
+            seller_id: userId,
+            product_id: product.id || null,
+            buyer_email: buyerEmail || 'pending@customer.com',
+            buyer_name: buyerName || 'Customer',
+            amount: unitAmount / 100,
+            currency: currency.toUpperCase(),
+            platform_fee: platformFeeAmount / 100,
+            creator_amount: creatorAmount / 100,
+            status: 'pending',
+            stripe_session_id: session.id,
+          })
+        } catch (dbErr) {
+          console.warn('Supabase order creation note:', dbErr.message)
         }
       }
 
-      sendJson(res, 200, { configured: true, url: session.url, sessionId: session.id })
-      return
+      return sendJson(res, 200, { configured: true, url: session.url, sessionId: session.id })
     } catch (err) {
-      sendJson(res, 200, { configured: false, error: err.message || 'Stripe error' })
-      return
+      return sendJson(res, 500, { configured: false, error: err.message || 'Stripe error' })
     }
   }
 
-  // 6. CREATE-CHECKOUT (Subscription / Plan)
+  // 6. CREATE-CHECKOUT (Subscription SaaS plan)
   if (subroute.includes('create-checkout') || subroute === '') {
     if (req.method !== 'POST') {
-      sendJson(res, 405, { error: 'Method not allowed' })
-      return
+      return sendJson(res, 405, { error: 'Method not allowed' })
     }
     const stripe = getStripe()
     if (!stripe) {
-      sendJson(res, 200, {
+      return sendJson(res, 500, {
         configured: false,
-        error: 'STRIPE_SECRET_KEY is missing in Vercel Environment Variables.',
+        error: 'STRIPE_SECRET_KEY is missing.',
       })
-      return
     }
     try {
       const payload = await parseBody(req)
       const { planId, planName, billingCycle, price, currency = 'eur', userId, username, customerEmail, successUrl, cancelUrl } = payload || {}
       const isYearly = billingCycle === 'yearly'
-      const unitAmount = Math.round(Number(price) * 100)
-      const validEmail = customerEmail && customerEmail.includes('@') ? customerEmail.trim() : undefined
+
+      // Server enforces fixed subscription pricing (Audit Section 4: no client manipulation)
+      const validPrice = planId === 'business' ? (isYearly ? 119.88 : 11.99) : (isYearly ? 49.90 : 4.99)
+      const unitAmount = Math.round(validPrice * 100)
 
       const hostOrigin =
         req.headers['origin'] ||
@@ -391,16 +370,15 @@ export default async function handler(req, res) {
 
       const session = await stripe.checkout.sessions.create({
         mode: 'subscription',
-        customer_email: validEmail,
+        customer_email: customerEmail && customerEmail.includes('@') ? customerEmail.trim() : undefined,
         client_reference_id: userId || undefined,
         line_items: [
           {
             price_data: {
               currency: currency.toLowerCase(),
               product_data: {
-                name: `LinkSocio ${planName || 'Creator'}`,
+                name: `LinkSocio ${planName || 'Creator'} Plan`,
                 description: `LinkSocio Subscription - ${isYearly ? 'Annual Billing' : 'Monthly Billing'}`,
-                tax_code: 'txcd_10000000',
               },
               unit_amount: unitAmount,
               recurring: { interval: isYearly ? 'year' : 'month' },
@@ -418,11 +396,9 @@ export default async function handler(req, res) {
         cancel_url: cancelUrl || `${hostOrigin}/dashboard?tab=billing`,
       })
 
-      sendJson(res, 200, { configured: true, url: session.url, sessionId: session.id })
-      return
+      return sendJson(res, 200, { configured: true, url: session.url, sessionId: session.id })
     } catch (err) {
-      sendJson(res, 500, { error: err.message || 'Failed to create checkout' })
-      return
+      return sendJson(res, 500, { error: err.message || 'Failed to create subscription checkout' })
     }
   }
 

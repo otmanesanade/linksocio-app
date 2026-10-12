@@ -2,6 +2,7 @@
 import fs from 'fs'
 import path from 'path'
 import os from 'os'
+import { applyCors } from './_supabase.js'
 
 const MIME_TYPES = {
   '.pdf': 'application/pdf',
@@ -19,21 +20,19 @@ const MIME_TYPES = {
 }
 
 export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*')
-  res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS')
-  res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition, Content-Length, Content-Type')
+  if (applyCors(req, res)) return
 
-  if (req.method === 'OPTIONS') {
-    res.status(200).end()
-    return
-  }
+  res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition, Content-Length, Content-Type')
 
   const urlObj = new URL(req.url, `http://${req.headers?.host || 'localhost'}`)
   const queryFile = urlObj.searchParams.get('file') || urlObj.searchParams.get('url') || ''
   const customDownloadName = urlObj.searchParams.get('name') || ''
 
   if (!queryFile) {
-    return res.status(400).json({ error: 'Missing file parameter' })
+    res.statusCode = 400
+    res.setHeader('Content-Type', 'application/json')
+    res.end(JSON.stringify({ error: 'Missing file parameter' }))
+    return
   }
 
   // If queryFile is a Data URI, decode and stream it directly
@@ -51,15 +50,24 @@ export default async function handler(req, res) {
       res.setHeader('Content-Type', mime)
       res.setHeader('Content-Length', buffer.length)
       res.setHeader('Content-Disposition', `attachment; filename="${dlName.replace(/["\r\n]/g, '_')}"; filename*=UTF-8''${encodedName}`)
-      return res.status(200).end(buffer)
+      res.statusCode = 200
+      res.end(buffer)
+      return
     } catch (e) {
-      return res.status(500).json({ error: 'Failed to decode data URI: ' + e.message })
+      res.statusCode = 500
+      res.setHeader('Content-Type', 'application/json')
+      res.end(JSON.stringify({ error: 'Failed to decode data URI' }))
+      return
     }
   }
 
+  // Prevent path traversal
   const fileName = path.basename(decodeURIComponent(queryFile))
-  if (!fileName || fileName === '.' || fileName === '/') {
-    return res.status(400).json({ error: 'Invalid file name' })
+  if (!fileName || fileName === '.' || fileName === '/' || fileName.includes('..')) {
+    res.statusCode = 400
+    res.setHeader('Content-Type', 'application/json')
+    res.end(JSON.stringify({ error: 'Invalid file name' }))
+    return
   }
 
   const possibleDirs = [
@@ -93,17 +101,26 @@ export default async function handler(req, res) {
         'Content-Disposition',
         `attachment; filename="${cleanDownloadName.replace(/["\r\n]/g, '_')}"; filename*=UTF-8''${encodedName}`
       )
+      res.statusCode = 200
       const stream = fs.createReadStream(targetPath)
       return stream.pipe(res)
     } catch (e) {
-      return res.status(500).json({ error: 'Stream error: ' + e.message })
+      res.statusCode = 500
+      res.setHeader('Content-Type', 'application/json')
+      res.end(JSON.stringify({ error: 'Stream error' }))
+      return
     }
   }
 
-  // If not found locally, redirect to file URL if external
+  // If not found locally, redirect safely if external URL
   if (queryFile.startsWith('http://') || queryFile.startsWith('https://')) {
-    return res.redirect(queryFile)
+    res.statusCode = 302
+    res.setHeader('Location', queryFile)
+    res.end()
+    return
   }
 
-  return res.status(404).json({ error: 'File not found on server' })
+  res.statusCode = 404
+  res.setHeader('Content-Type', 'application/json')
+  res.end(JSON.stringify({ error: 'File not found on server' }))
 }
