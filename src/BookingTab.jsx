@@ -8,6 +8,7 @@ import {
 } from './notificationService'
 import confetti from 'canvas-confetti'
 import { useLanguage } from './context/LanguageContext'
+import { authFetch } from './utils/apiClient'
 
 export const CURRENCIES = [
   { code: 'USD', symbol: '$', label: 'USD ($)' },
@@ -95,11 +96,8 @@ export function getBookingSettings(profile) {
 }
 
 export async function fetchServerBookingSettings(username, userId) {
-  if (!username && !userId) return null
   try {
-    const cleanUser = (username || '').toLowerCase().trim().replace(/^@+/, '')
-    const query = cleanUser ? `username=${encodeURIComponent(cleanUser)}` : `userId=${encodeURIComponent(userId)}`
-    const res = await fetch(`/api/booking-settings?${query}`)
+    const res = await authFetch('/api/booking-settings')
     if (res.ok) {
       const data = await res.json()
       if (data && data.settings) {
@@ -120,16 +118,12 @@ export async function saveBookingSettingsLocally(profile, settings) {
     if (cleanUser) localStorage.setItem(`linksocio_booking_${cleanUser}`, dataStr)
   } catch (e) {}
 
-  // Sync with server API
+  // Sync with server API via authenticated session
   try {
-    await fetch('/api/booking-settings', {
+    await authFetch('/api/booking-settings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        username: cleanUser,
-        userId: userId,
-        settings,
-      }),
+      body: JSON.stringify({ settings }),
     })
   } catch (e) {}
 }
@@ -288,9 +282,8 @@ export default function BookingTab({ profile, onUpdated }) {
     }
 
     try {
-      // 1. Fetch latest state from server first (server holds authoritative deletions/status updates)
-      const query = `username=${encodeURIComponent(cleanUsername)}&userId=${encodeURIComponent(userId)}`
-      const res = await fetch(`/api/bookings?${query}`)
+      // 1. Fetch latest state from server securely via authenticated session
+      const res = await authFetch('/api/bookings')
       if (res.ok) {
         const contentType = res.headers.get('content-type') || ''
         if (contentType.includes('application/json')) {

@@ -1,46 +1,5 @@
-// Server endpoint to get and save restaurant / cafe menu and settings with RBAC
-import fs from 'fs'
-import path from 'path'
-import os from 'os'
-import { applyCors, getAuthenticatedUser } from './_supabase.js'
-
-const PRIMARY_PATH = path.join(process.cwd(), '.restaurant_menu_store.json')
-const TMP_PATH = path.join(os.tmpdir(), '.linksocio_restaurant_menu_store.json')
-
-if (!global.__linksocio_restaurant_menu_cache) {
-  global.__linksocio_restaurant_menu_cache = {}
-}
-
-function readStore() {
-  let store = global.__linksocio_restaurant_menu_cache || {}
-  try {
-    if (fs.existsSync(PRIMARY_PATH)) {
-      const data = fs.readFileSync(PRIMARY_PATH, 'utf-8')
-      const parsed = JSON.parse(data || '{}')
-      store = { ...store, ...parsed }
-    }
-  } catch (e) {}
-  try {
-    if (fs.existsSync(TMP_PATH)) {
-      const data = fs.readFileSync(TMP_PATH, 'utf-8')
-      const parsed = JSON.parse(data || '{}')
-      store = { ...store, ...parsed }
-    }
-  } catch (e) {}
-  global.__linksocio_restaurant_menu_cache = store
-  return store
-}
-
-function writeStore(store) {
-  global.__linksocio_restaurant_menu_cache = store
-  const data = JSON.stringify(store, null, 2)
-  try {
-    fs.writeFileSync(PRIMARY_PATH, data, 'utf-8')
-  } catch (e) {}
-  try {
-    fs.writeFileSync(TMP_PATH, data, 'utf-8')
-  } catch (e) {}
-}
+// Server endpoint to manage restaurant & cafe menus with authentication and Supabase persistence
+import { applyCors, getAuthenticatedUser, getSupabaseServerClient } from './_supabase.js'
 
 async function parseBody(req) {
   if (req.body) {
@@ -68,57 +27,110 @@ async function parseBody(req) {
   })
 }
 
+function sendJson(res, statusCode, data) {
+  res.statusCode = statusCode
+  res.setHeader('Content-Type', 'application/json')
+  res.end(JSON.stringify(data))
+}
+
 export default async function handler(req, res) {
   if (applyCors(req, res)) return
 
-  const store = readStore()
-  const authUser = await getAuthenticatedUser(req)
-
+  // 1. GET: Fetch restaurant menu for public or creator view
   if (req.method === 'GET') {
+    const { client: supabase, error: clientErr } = getSupabaseServerClient()
+    if (clientErr || !supabase) {
+      console.error('Database connection error in restaurant-menu:', clientErr)
+      return sendJson(res, 500, {
+        error: 'Database connection unavailable. Operation failed securely.',
+      })
+    }
+
     const urlObj = new URL(req.url, `http://${req.headers?.host || 'localhost'}`)
     const username = (urlObj.searchParams.get('username') || '').toLowerCase().trim().replace(/^@/, '')
-    const userId = (urlObj.searchParams.get('userId') || '').trim()
+    const requestedUserId = (urlObj.searchParams.get('userId') || '').trim()
 
-    const targetKey = (authUser && authUser.id) || userId || username || null
-    let menuData = targetKey ? (store[targetKey] || (username && store[username]) || null) : null
+    const authUser = await getAuthenticatedUser(req)
+    let targetUserId = authUser ? authUser.id : requestedUserId
 
-    if (!menuData && Object.keys(store).length > 0 && username) {
-      for (const [k, v] of Object.entries(store)) {
-        if (k.toLowerCase().replace(/^@/, '') === username) {
-          menuData = v
-          break
+    try {
+      if (!targetUserId && username) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('username', username)
+          .maybeSingle()
+
+        if (profile) {
+          targetUserId = profile.id
         }
       }
-    }
 
-    res.statusCode = 200
-    res.setHeader('Content-Type', 'application/json')
-    res.end(JSON.stringify({ menu: menuData }))
-    return
+      if (!targetUserId) {
+        return sendJson(res, 200, { menu: null })
+      }
+
+      const { data, error } = await supabase
+        .from('restaurant_menus')
+        .select('menu')
+        .eq('user_id', targetUserId)
+        .maybeSingle()
+
+      if (error) {
+        console.error('Error fetching restaurant_menus:', error.message)
+        return sendJson(res, 500, { error: 'Database error fetching restaurant menu' })
+      }
+
+      return sendJson(res, 200, { menu: data?.menu || null })
+    } catch (err) {
+      console.error('Unexpected error in GET restaurant-menu:', err)
+      return sendJson(res, 500, { error: 'Internal server error' })
+    }
   }
 
+  // 2. POST: Upsert restaurant menu (Strictly restricted to authenticated creator)
   if (req.method === 'POST') {
+    const authUser = await getAuthenticatedUser(req)
     if (!authUser) {
-      res.statusCode = 401
-      res.setHeader('Content-Type', 'application/json')
-      res.end(JSON.stringify({ error: 'Authentication required to update restaurant menu' }))
-      return
+      return sendJson(res, 401, { error: 'Authentication required to update restaurant menu' })
     }
 
-    const payload = await parseBody(req)
-    const menu = payload.menu || {}
+    const { client: supabase, error: clientErr } = getSupabaseServerClient()
+    if (clientErr || !supabase) {
+      console.error('Database connection error in restaurant-menu:', clientErr)
+      return sendJson(res, 500, {
+        error: 'Database connection unavailable. Operation failed securely.',
+      })
+    }
 
-    store[authUser.id] = menu
-    if (authUser.email) store[authUser.email] = menu
-    writeStore(store)
+    try {
+      const payload = await parseBody(req)
+      const menu = payload.menu || {}
 
-    res.statusCode = 200
-    res.setHeader('Content-Type', 'application/json')
-    res.end(JSON.stringify({ success: true, menu }))
-    return
+      const { data, error } = await supabase
+        .from('restaurant_menus')
+        .upsert(
+          {
+            user_id: authUser.id,
+            menu,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'user_id' }
+        )
+        .select()
+        .single()
+
+      if (error) {
+        console.error('Error saving restaurant_menus:', error.message)
+        return sendJson(res, 500, { error: 'Database error saving restaurant menu' })
+      }
+
+      return sendJson(res, 200, { success: true, menu: data?.menu || menu })
+    } catch (err) {
+      console.error('Unexpected error in POST restaurant-menu:', err)
+      return sendJson(res, 500, { error: 'Internal server error' })
+    }
   }
 
-  res.statusCode = 405
-  res.setHeader('Content-Type', 'application/json')
-  res.end(JSON.stringify({ error: 'Method not allowed' }))
+  return sendJson(res, 405, { error: 'Method not allowed' })
 }

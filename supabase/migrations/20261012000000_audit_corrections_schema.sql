@@ -6,6 +6,7 @@
 --   - P0: JSON Store Migration to Postgres with Relational Constraints
 --   - P0: Order, Price, Platform Fee (9%) & Payout Integrity
 --   - P0: Stripe Connect Multi-State & Idempotent Webhook Events
+--   - P0: Column-level protection for roles, balances, and plans
 -- =========================================================================
 
 -- Enable UUID extension
@@ -30,7 +31,6 @@ create table if not exists public.profiles (
   updated_at timestamptz default now() not null
 );
 
--- Index for public username lookups
 create index if not exists idx_profiles_username on public.profiles (lower(username));
 
 -- -------------------------------------------------------------------------
@@ -158,7 +158,7 @@ create table if not exists public.webhook_events (
   event_id text unique not null,
   event_type text not null,
   payload jsonb not null,
-  status text not null default 'processed' check (status in ('pending', 'processed', 'failed', 'ignored')),
+  status text not null default 'processed' check (status in ('pending', 'processing', 'processed', 'failed', 'ignored')),
   processed_at timestamptz default now() not null,
   created_at timestamptz default now() not null
 );
@@ -200,11 +200,103 @@ create table if not exists public.leads (
 
 create index if not exists idx_leads_user on public.leads (user_id);
 
+-- -------------------------------------------------------------------------
+-- 11. BOOKING SETTINGS TABLE (Creator calendar & availability preferences)
+-- -------------------------------------------------------------------------
+create table if not exists public.booking_settings (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null unique references public.profiles(id) on delete cascade,
+  settings jsonb not null default '{}'::jsonb,
+  created_at timestamptz default now() not null,
+  updated_at timestamptz default now() not null
+);
+
+create index if not exists idx_booking_settings_user on public.booking_settings (user_id);
+
+-- -------------------------------------------------------------------------
+-- 12. INQUIRY SETTINGS TABLE (WhatsApp lead capture configurations)
+-- -------------------------------------------------------------------------
+create table if not exists public.inquiry_settings (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null unique references public.profiles(id) on delete cascade,
+  settings jsonb not null default '{}'::jsonb,
+  created_at timestamptz default now() not null,
+  updated_at timestamptz default now() not null
+);
+
+create index if not exists idx_inquiry_settings_user on public.inquiry_settings (user_id);
+
+-- -------------------------------------------------------------------------
+-- 13. RESTAURANT MENUS TABLE (Cafe & dining catalog)
+-- -------------------------------------------------------------------------
+create table if not exists public.restaurant_menus (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null unique references public.profiles(id) on delete cascade,
+  menu jsonb not null default '{}'::jsonb,
+  created_at timestamptz default now() not null,
+  updated_at timestamptz default now() not null
+);
+
+create index if not exists idx_restaurant_menus_user on public.restaurant_menus (user_id);
+
+-- =========================================================================
+-- DATABASE FUNCTIONS & SECURITY TRIGGERS (Audit Point 8)
+-- =========================================================================
+
+-- Trigger to protect sensitive columns on profiles (role, wallet_balance, plan)
+create or replace function public.protect_profile_fields()
+returns trigger as $$
+begin
+  -- If invoked by regular user (not service_role), forbid modifying role, balance, or plan
+  if (coalesce(current_setting('request.jwt.claim.role', true), '') != 'service_role') then
+    if new.wallet_balance is distinct from old.wallet_balance then
+      raise exception 'SECURITY_VIOLATION: wallet_balance cannot be modified directly by client';
+    end if;
+    if new.role is distinct from old.role then
+      raise exception 'SECURITY_VIOLATION: role cannot be elevated by client';
+    end if;
+    if new.plan is distinct from old.plan then
+      raise exception 'SECURITY_VIOLATION: plan cannot be modified by client';
+    end if;
+  end if;
+  new.updated_at = now();
+  return new;
+end;
+$$ language plpgsql security definer;
+
+drop trigger if exists trg_protect_profile_fields on public.profiles;
+create trigger trg_protect_profile_fields
+  before update on public.profiles
+  for each row execute function public.protect_profile_fields();
+
+-- Atomic Wallet Balance Increment Function (Audit Point 5)
+create or replace function public.increment_wallet_balance(p_user_id uuid, p_amount numeric)
+returns numeric as $$
+declare
+  v_new_balance numeric;
+begin
+  if p_amount <= 0 then
+    raise exception 'Increment amount must be positive';
+  end if;
+
+  update public.profiles
+  set wallet_balance = coalesce(wallet_balance, 0) + p_amount,
+      updated_at = now()
+  where id = p_user_id
+  returning wallet_balance into v_new_balance;
+
+  return v_new_balance;
+end;
+$$ language plpgsql security definer;
+
+-- Revoke execute from anon and authenticated; only service_role can call increment_wallet_balance
+revoke execute on function public.increment_wallet_balance(uuid, numeric) from public, anon, authenticated;
+grant execute on function public.increment_wallet_balance(uuid, numeric) to service_role;
+
 -- =========================================================================
 -- ROW LEVEL SECURITY (RLS) POLICIES
 -- =========================================================================
 
--- Enable RLS on all tables
 alter table public.profiles enable row level security;
 alter table public.products enable row level security;
 alter table public.orders enable row level security;
@@ -215,13 +307,16 @@ alter table public.subscriptions enable row level security;
 alter table public.webhook_events enable row level security;
 alter table public.bookings enable row level security;
 alter table public.leads enable row level security;
+alter table public.booking_settings enable row level security;
+alter table public.inquiry_settings enable row level security;
+alter table public.restaurant_menus enable row level security;
 
 -- PROFILES
 create policy "Public profiles are viewable by everyone"
   on public.profiles for select
   using (true);
 
-create policy "Users can update own profile (excluding wallet_balance)"
+create policy "Users can update own profile bio/theme/avatar"
   on public.profiles for update
   using (auth.uid() = id);
 
@@ -247,8 +342,7 @@ create policy "Sellers can view their orders"
   on public.orders for select
   using (auth.uid() = seller_id);
 
--- Clients cannot insert/modify orders directly via client SDK; orders are created & confirmed by server
--- (service_role bypasses RLS for server-side verified checkout and webhooks)
+-- Clients cannot insert/modify orders directly via client SDK; only service_role creates/confirms orders
 
 -- PAYMENTS
 create policy "Users can view payments for their orders"
@@ -260,7 +354,7 @@ create policy "Creators can view own payout settings"
   on public.payout_settings for select
   using (auth.uid() = user_id);
 
-create policy "Creators can insert/update own payout settings"
+create policy "Creators can manage own payout settings"
   on public.payout_settings for all
   using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
@@ -292,7 +386,29 @@ create policy "Anyone can submit inquiry lead"
   on public.leads for insert
   with check (true);
 
--- WEBHOOK EVENTS: Only service_role can read/write
+-- BOOKING SETTINGS
+create policy "Creators can manage own booking settings"
+  on public.booking_settings for all
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+-- INQUIRY SETTINGS
+create policy "Creators can manage own inquiry settings"
+  on public.inquiry_settings for all
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+-- RESTAURANT MENUS
+create policy "Restaurant menus viewable by everyone"
+  on public.restaurant_menus for select
+  using (true);
+
+create policy "Creators can manage own restaurant menu"
+  on public.restaurant_menus for all
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+-- WEBHOOK EVENTS: Only service_role
 create policy "Service role exclusive access to webhook events"
   on public.webhook_events for all
   using (auth.role() = 'service_role');

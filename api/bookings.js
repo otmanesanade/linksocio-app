@@ -1,48 +1,5 @@
-// Server endpoint to record, retrieve and update booking appointments with RBAC & Supabase integration
-import fs from 'fs'
-import path from 'path'
-import os from 'os'
-import { supabaseServer, applyCors, getAuthenticatedUser } from './_supabase.js'
-
-const PRIMARY_PATH = path.join(process.cwd(), '.bookings_store.json')
-const TMP_PATH = path.join(os.tmpdir(), '.linksocio_bookings_store.json')
-
-if (!global.__linksocio_bookings_cache) {
-  global.__linksocio_bookings_cache = {}
-}
-
-function readBookingsStore() {
-  let store = global.__linksocio_bookings_cache || {}
-  try {
-    if (fs.existsSync(PRIMARY_PATH)) {
-      const data = fs.readFileSync(PRIMARY_PATH, 'utf-8')
-      const parsed = JSON.parse(data || '{}')
-      store = { ...store, ...parsed }
-    }
-  } catch (e) {}
-
-  try {
-    if (fs.existsSync(TMP_PATH)) {
-      const data = fs.readFileSync(TMP_PATH, 'utf-8')
-      const parsed = JSON.parse(data || '{}')
-      store = { ...store, ...parsed }
-    }
-  } catch (e) {}
-
-  global.__linksocio_bookings_cache = store
-  return store
-}
-
-function writeBookingsStore(store) {
-  global.__linksocio_bookings_cache = store
-  const data = JSON.stringify(store, null, 2)
-  try {
-    fs.writeFileSync(PRIMARY_PATH, data, 'utf-8')
-  } catch (e) {}
-  try {
-    fs.writeFileSync(TMP_PATH, data, 'utf-8')
-  } catch (e) {}
-}
+// Server endpoint to record, retrieve and update booking appointments with RBAC and Supabase persistence
+import { applyCors, getAuthenticatedUser, getSupabaseServerClient } from './_supabase.js'
 
 async function parseBody(req) {
   if (req.body) {
@@ -79,106 +36,140 @@ function sendJson(res, statusCode, data) {
 export default async function handler(req, res) {
   if (applyCors(req, res)) return
 
-  const authUser = await getAuthenticatedUser(req)
+  const { client: supabase, error: clientErr } = getSupabaseServerClient()
+  if (clientErr || !supabase) {
+    console.error('Database connection error in bookings:', clientErr)
+    return sendJson(res, 500, {
+      error: 'Database connection unavailable. Operation failed securely.',
+    })
+  }
 
-  // 1. GET: FETCH CREATOR'S BOOKINGS (Audit Section 2: Protected Private Route)
+  // 1. GET: Fetch creator's private bookings (Audit Point 2 & 4: Protected route with Supabase only)
   if (req.method === 'GET') {
+    const authUser = await getAuthenticatedUser(req)
     if (!authUser) {
-      return sendJson(res, 401, { error: 'Authentication required to view private bookings.' })
+      return sendJson(res, 401, {
+        error: 'Authentication required. Private booking data cannot be accessed without a valid session.',
+      })
     }
 
-    const currentUserId = authUser.id
-
-    // Fetch from Supabase PostgreSQL bookings table (Audit Section 3)
     try {
-      const { data: dbBookings, error } = await supabaseServer
+      const { data: bookings, error } = await supabase
         .from('bookings')
         .select('*')
-        .eq('user_id', currentUserId)
+        .eq('user_id', authUser.id)
         .order('created_at', { ascending: false })
 
-      if (!error && dbBookings && dbBookings.length > 0) {
-        return sendJson(res, 200, { bookings: dbBookings })
+      if (error) {
+        console.error('Database query error in bookings GET:', error.message)
+        return sendJson(res, 500, { error: 'Database error fetching bookings' })
       }
-    } catch (e) {}
 
-    // Fallback store scoped strictly to current authenticated user
-    const store = readBookingsStore()
-    const userBookings = store[currentUserId] || store[authUser.email] || []
-    return sendJson(res, 200, { bookings: Array.isArray(userBookings) ? userBookings : [] })
+      return sendJson(res, 200, { bookings: bookings || [] })
+    } catch (err) {
+      console.error('Unexpected error in GET bookings:', err)
+      return sendJson(res, 500, { error: 'Internal server error' })
+    }
   }
 
-  // 2. POST: CREATE OR SYNC BOOKING
+  // 2. POST: Create booking (Public client booking a slot on creator's page)
   if (req.method === 'POST') {
-    const payload = await parseBody(req)
-    const singleBooking = payload.booking
-    const batchBookings = payload.bookings
-    const targetUserId = payload.userId || (authUser ? authUser.id : null)
+    try {
+      const payload = await parseBody(req)
+      const booking = payload.booking || payload
+      const targetUserId = payload.userId || booking.userId
 
-    if (!singleBooking && !Array.isArray(batchBookings)) {
-      return sendJson(res, 400, { error: 'Missing booking payload' })
-    }
-
-    // Insert to Supabase if target user identified
-    if (targetUserId) {
-      try {
-        if (singleBooking) {
-          await supabaseServer.from('bookings').insert({
-            user_id: targetUserId,
-            client_name: singleBooking.name || singleBooking.client_name || 'Guest',
-            client_email: singleBooking.email || singleBooking.client_email || '',
-            client_phone: singleBooking.phone || singleBooking.client_phone || '',
-            booking_date: singleBooking.date || new Date().toISOString().split('T')[0],
-            booking_time: singleBooking.time || singleBooking.timeSlot || '10:00',
-            status: singleBooking.status || 'pending',
-            notes: singleBooking.notes || singleBooking.service || '',
-          })
-        }
-      } catch (dbErr) {
-        console.warn('Supabase booking insert note:', dbErr.message)
+      if (!targetUserId) {
+        return sendJson(res, 400, { error: 'Missing target creator userId' })
       }
+
+      const clientName = (booking.name || booking.client_name || '').trim()
+      const clientEmail = (booking.email || booking.client_email || '').trim()
+      const clientPhone = (booking.phone || booking.client_phone || '').trim()
+      const bookingDate = booking.date || booking.booking_date || new Date().toISOString().split('T')[0]
+      const bookingTime = booking.time || booking.timeSlot || booking.booking_time || '10:00'
+      const notes = booking.notes || booking.service || ''
+
+      if (!clientName || !clientEmail) {
+        return sendJson(res, 400, { error: 'Client name and email are required' })
+      }
+
+      // Verify target creator exists in profiles
+      const { data: creatorProfile, error: profErr } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('id', targetUserId)
+        .maybeSingle()
+
+      if (profErr || !creatorProfile) {
+        return sendJson(res, 400, { error: 'Target creator profile not found' })
+      }
+
+      const { data: newBooking, error: insertErr } = await supabase
+        .from('bookings')
+        .insert({
+          user_id: targetUserId,
+          client_name: clientName,
+          client_email: clientEmail,
+          client_phone: clientPhone,
+          booking_date: bookingDate,
+          booking_time: bookingTime,
+          status: 'pending',
+          notes,
+        })
+        .select()
+        .single()
+
+      if (insertErr) {
+        console.error('Database insert error in bookings POST:', insertErr.message)
+        return sendJson(res, 500, { error: 'Database error creating booking' })
+      }
+
+      return sendJson(res, 200, { success: true, booking: newBooking })
+    } catch (err) {
+      console.error('Unexpected error in POST bookings:', err)
+      return sendJson(res, 500, { error: 'Internal server error' })
     }
-
-    // Save to local cache
-    const store = readBookingsStore()
-    const key = targetUserId || (authUser ? authUser.id : 'default')
-    const list = Array.isArray(store[key]) ? store[key] : []
-
-    if (singleBooking) {
-      list.unshift(singleBooking)
-    } else if (Array.isArray(batchBookings)) {
-      list.unshift(...batchBookings)
-    }
-
-    store[key] = list
-    writeBookingsStore(store)
-
-    return sendJson(res, 200, { success: true, count: list.length })
   }
 
-  // 3. PATCH / PUT: UPDATE BOOKING STATUS (Requires auth)
+  // 3. PATCH: Update booking status (Restricted to authenticated creator)
   if (req.method === 'PATCH' || req.method === 'PUT') {
+    const authUser = await getAuthenticatedUser(req)
     if (!authUser) {
       return sendJson(res, 401, { error: 'Authentication required' })
     }
 
-    const payload = await parseBody(req)
-    const { bookingId, status } = payload
-
-    if (!bookingId || !status) {
-      return sendJson(res, 400, { error: 'Missing bookingId or status' })
-    }
-
     try {
-      await supabaseServer
+      const payload = await parseBody(req)
+      const { bookingId, status } = payload
+
+      if (!bookingId || !status) {
+        return sendJson(res, 400, { error: 'Missing bookingId or status' })
+      }
+
+      const { data: updated, error } = await supabase
         .from('bookings')
         .update({ status })
         .eq('id', bookingId)
         .eq('user_id', authUser.id)
-    } catch (e) {}
+        .select()
+        .maybeSingle()
 
-    return sendJson(res, 200, { success: true, bookingId, status })
+      if (error) {
+        console.error('Database update error in bookings PATCH:', error.message)
+        return sendJson(res, 500, { error: 'Database error updating booking' })
+      }
+
+      if (!updated) {
+        return sendJson(res, 404, { error: 'Booking not found or not owned by caller' })
+      }
+
+      return sendJson(res, 200, { success: true, booking: updated })
+    } catch (err) {
+      console.error('Unexpected error in PATCH bookings:', err)
+      return sendJson(res, 500, { error: 'Internal server error' })
+    }
   }
 
-  sendJson(res, 405, { error: 'Method not allowed' })
+  return sendJson(res, 405, { error: 'Method not allowed' })
 }

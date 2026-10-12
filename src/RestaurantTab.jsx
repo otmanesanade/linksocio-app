@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useLanguage } from './context/LanguageContext'
+import { authFetch } from './utils/apiClient'
 
 export async function fetchServerRestaurantMenu(username, userId) {
   try {
@@ -271,12 +272,10 @@ export default function RestaurantTab({ profile, onUpdated }) {
     } catch (e) {}
 
     try {
-      await fetch('/api/restaurant-menu', {
+      await authFetch('/api/restaurant-menu', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          username,
-          userId,
           menu: payload,
         }),
       })

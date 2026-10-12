@@ -1,46 +1,5 @@
-// Server endpoint to get and save booking / calendar consultation settings with RBAC
-import fs from 'fs'
-import path from 'path'
-import os from 'os'
-import { applyCors, getAuthenticatedUser } from './_supabase.js'
-
-const PRIMARY_PATH = path.join(process.cwd(), '.booking_settings.json')
-const TMP_PATH = path.join(os.tmpdir(), '.linksocio_booking_settings.json')
-
-if (!global.__linksocio_booking_settings_cache) {
-  global.__linksocio_booking_settings_cache = {}
-}
-
-function readStore() {
-  let store = global.__linksocio_booking_settings_cache || {}
-  try {
-    if (fs.existsSync(PRIMARY_PATH)) {
-      const data = fs.readFileSync(PRIMARY_PATH, 'utf-8')
-      const parsed = JSON.parse(data || '{}')
-      store = { ...store, ...parsed }
-    }
-  } catch (e) {}
-  try {
-    if (fs.existsSync(TMP_PATH)) {
-      const data = fs.readFileSync(TMP_PATH, 'utf-8')
-      const parsed = JSON.parse(data || '{}')
-      store = { ...store, ...parsed }
-    }
-  } catch (e) {}
-  global.__linksocio_booking_settings_cache = store
-  return store
-}
-
-function writeStore(store) {
-  global.__linksocio_booking_settings_cache = store
-  const data = JSON.stringify(store, null, 2)
-  try {
-    fs.writeFileSync(PRIMARY_PATH, data, 'utf-8')
-  } catch (e) {}
-  try {
-    fs.writeFileSync(TMP_PATH, data, 'utf-8')
-  } catch (e) {}
-}
+// Server endpoint to manage creator booking settings with server-side authentication and Supabase persistence
+import { applyCors, getAuthenticatedUser, getSupabaseServerClient } from './_supabase.js'
 
 async function parseBody(req) {
   if (req.body) {
@@ -68,49 +27,93 @@ async function parseBody(req) {
   })
 }
 
+function sendJson(res, statusCode, data) {
+  res.statusCode = statusCode
+  res.setHeader('Content-Type', 'application/json')
+  res.end(JSON.stringify(data))
+}
+
 export default async function handler(req, res) {
+  // Audit Point 6: Strict CORS verification
   if (applyCors(req, res)) return
 
-  const store = readStore()
+  // Audit Point 3: Authenticate all private operations including GET
   const authUser = await getAuthenticatedUser(req)
+  if (!authUser) {
+    return sendJson(res, 401, {
+      error: 'Authentication required. Private booking settings can only be accessed with a verified session.',
+    })
+  }
 
+  // Audit Point 4: Supabase Database persistence (No JSON fallback)
+  const { client: supabase, error: clientErr } = getSupabaseServerClient()
+  if (clientErr || !supabase) {
+    console.error('Database connection error in booking-settings:', clientErr)
+    return sendJson(res, 500, {
+      error: 'Database connection unavailable. Operation failed securely.',
+    })
+  }
+
+  // Audit Point 3: Use exclusively authUser.id - ignore any client-sent userId/username
+  const currentUserId = authUser.id
+
+  // 1. GET: Fetch creator's own booking settings
   if (req.method === 'GET') {
-    const urlObj = new URL(req.url, `http://${req.headers?.host || 'localhost'}`)
-    const username = (urlObj.searchParams.get('username') || '').toLowerCase().trim().replace(/^@/, '')
-    const userId = (urlObj.searchParams.get('userId') || '').trim()
+    try {
+      const { data, error } = await supabase
+        .from('booking_settings')
+        .select('settings')
+        .eq('user_id', currentUserId)
+        .maybeSingle()
 
-    const targetKey = (authUser && authUser.id) || userId || username || null
-    const userSettings = targetKey ? (store[targetKey] || (username && store[username]) || null) : null
+      if (error) {
+        console.error('Failed to query booking_settings from Supabase:', error.message)
+        return sendJson(res, 500, { error: 'Database error fetching booking settings.' })
+      }
 
-    res.statusCode = 200
-    res.setHeader('Content-Type', 'application/json')
-    res.end(JSON.stringify({ settings: userSettings }))
-    return
-  }
-
-  if (req.method === 'POST') {
-    // Only authenticated creator can modify their settings (Audit Section 2)
-    if (!authUser) {
-      res.statusCode = 401
-      res.setHeader('Content-Type', 'application/json')
-      res.end(JSON.stringify({ error: 'Authentication required' }))
-      return
+      return sendJson(res, 200, {
+        success: true,
+        settings: data?.settings || null,
+      })
+    } catch (err) {
+      console.error('Unexpected error in GET booking-settings:', err)
+      return sendJson(res, 500, { error: 'Internal server error' })
     }
-
-    const payload = await parseBody(req)
-    const settings = payload.settings || {}
-
-    store[authUser.id] = settings
-    if (authUser.email) store[authUser.email] = settings
-    writeStore(store)
-
-    res.statusCode = 200
-    res.setHeader('Content-Type', 'application/json')
-    res.end(JSON.stringify({ success: true, settings }))
-    return
   }
 
-  res.statusCode = 405
-  res.setHeader('Content-Type', 'application/json')
-  res.end(JSON.stringify({ error: 'Method not allowed' }))
+  // 2. POST: Upsert creator's own booking settings
+  if (req.method === 'POST') {
+    try {
+      const payload = await parseBody(req)
+      const settings = payload.settings || {}
+
+      const { data, error } = await supabase
+        .from('booking_settings')
+        .upsert(
+          {
+            user_id: currentUserId,
+            settings,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'user_id' }
+        )
+        .select()
+        .single()
+
+      if (error) {
+        console.error('Failed to save booking_settings to Supabase:', error.message)
+        return sendJson(res, 500, { error: 'Database error saving booking settings.' })
+      }
+
+      return sendJson(res, 200, {
+        success: true,
+        settings: data?.settings || settings,
+      })
+    } catch (err) {
+      console.error('Unexpected error in POST booking-settings:', err)
+      return sendJson(res, 500, { error: 'Internal server error' })
+    }
+  }
+
+  return sendJson(res, 405, { error: 'Method not allowed' })
 }

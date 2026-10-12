@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import confetti from 'canvas-confetti'
 import { useLanguage } from './context/LanguageContext'
 import AdminMasterDashboard from './components/AdminMasterDashboard'
+import { authFetch } from './utils/apiClient'
 
 // Global payout options for all countries
 export const MOROCCAN_BANKS = [
@@ -238,7 +239,7 @@ export default function PayoutsTab({ user, profile, products = [] }) {
       localStorage.setItem('linksocio_payout_settings_default', JSON.stringify(updated))
       localStorage.setItem('linksocio_payout_settings_otman', JSON.stringify(updated))
     } catch (e) {}
-    fetch('/api/payouts/settings', {
+    authFetch('/api/payouts/settings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -272,7 +273,7 @@ export default function PayoutsTab({ user, profile, products = [] }) {
         })
       )
     } catch (e) {}
-    fetch('/api/payouts/settings', {
+    authFetch('/api/payouts/settings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -346,8 +347,8 @@ export default function PayoutsTab({ user, profile, products = [] }) {
 
       const q = `?username=${encodeURIComponent(username)}&userId=${encodeURIComponent(userId)}`
       const [statsRes, setRes, stripeRes] = await Promise.all([
-        fetch(`/api/payouts/stats${q}`),
-        fetch(`/api/payouts/settings${q}`),
+        authFetch('/api/payouts/stats'),
+        authFetch('/api/payouts/settings'),
         fetch('/api/stripe/status'),
       ])
 
@@ -469,7 +470,7 @@ export default function PayoutsTab({ user, profile, products = [] }) {
 
               // If backend was missing the Stripe ID, write it to the server immediately so it is permanently saved!
               if (!backend.stripeAccountId || backend.stripeAccountId !== finalStripeId) {
-                fetch('/api/payouts/settings', {
+                authFetch('/api/payouts/settings', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({
@@ -502,7 +503,7 @@ export default function PayoutsTab({ user, profile, products = [] }) {
 
   async function handleConfirmOrder(txId) {
     try {
-      const res = await fetch('/api/payouts/confirm-order', {
+      const res = await authFetch('/api/payouts/confirm-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ transactionId: txId }),
@@ -527,7 +528,7 @@ export default function PayoutsTab({ user, profile, products = [] }) {
         localStorage.setItem(`linksocio_payout_settings_${username || userId || 'default'}`, JSON.stringify(settings))
         localStorage.setItem('linksocio_payout_settings_default', JSON.stringify(settings))
       } catch (e) {}
-      const res = await fetch('/api/payouts/settings', {
+      const res = await authFetch('/api/payouts/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -577,7 +578,7 @@ export default function PayoutsTab({ user, profile, products = [] }) {
     try {
       localStorage.setItem(`linksocio_payout_settings_${username || userId || 'default'}`, JSON.stringify(updated))
       localStorage.setItem('linksocio_payout_settings_default', JSON.stringify(updated))
-      await fetch('/api/payouts/settings', {
+      await authFetch('/api/payouts/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, userId, settings: updated }),
@@ -624,7 +625,7 @@ export default function PayoutsTab({ user, profile, products = [] }) {
     try {
       localStorage.setItem(`linksocio_payout_settings_${username || userId || 'default'}`, JSON.stringify(updated))
       localStorage.setItem('linksocio_payout_settings_default', JSON.stringify(updated))
-      await fetch('/api/payouts/settings', {
+      await authFetch('/api/payouts/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, userId, settings: updated }),
@@ -656,7 +657,7 @@ export default function PayoutsTab({ user, profile, products = [] }) {
       localStorage.setItem(`linksocio_payout_settings_${username || userId || 'default'}`, JSON.stringify(updated))
       localStorage.setItem('linksocio_payout_settings_default', JSON.stringify(updated))
     } catch (e) {}
-    fetch('/api/payouts/settings', {
+    authFetch('/api/payouts/settings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, userId, settings: updated }),
@@ -685,7 +686,7 @@ export default function PayoutsTab({ user, profile, products = [] }) {
       localStorage.removeItem('linksocio_pending_stripe_id')
       localStorage.removeItem('linksocio_stripe_connected')
     } catch (e) {}
-    fetch('/api/payouts/settings', {
+    authFetch('/api/payouts/settings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username: username || 'otman', userId: userId || 'default', settings: updated }),
@@ -736,7 +737,7 @@ export default function PayoutsTab({ user, profile, products = [] }) {
         localStorage.setItem('linksocio_payout_settings_otman', JSON.stringify(updated))
       } catch (e) {}
       try {
-        await fetch('/api/payouts/settings', {
+        await authFetch('/api/payouts/settings', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ username: username || 'otman', userId: userId || 'default', settings: updated }),
@@ -776,7 +777,7 @@ export default function PayoutsTab({ user, profile, products = [] }) {
           localStorage.setItem('linksocio_payout_settings_default', JSON.stringify(updated))
           localStorage.setItem('linksocio_payout_settings_otman', JSON.stringify(updated))
         } catch (e) {}
-        fetch('/api/payouts/settings', {
+        authFetch('/api/payouts/settings', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ username: username || 'otman', userId: userId || 'default', settings: updated }),
@@ -810,7 +811,7 @@ export default function PayoutsTab({ user, profile, products = [] }) {
         localStorage.setItem('linksocio_payout_settings_default', JSON.stringify(updated))
         localStorage.setItem('linksocio_payout_settings_otman', JSON.stringify(updated))
       } catch (e) {}
-      await fetch('/api/payouts/settings', {
+      await authFetch('/api/payouts/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username: username || 'otman', userId: userId || 'default', settings: updated }),
@@ -890,7 +891,7 @@ export default function PayoutsTab({ user, profile, products = [] }) {
     }
 
     try {
-      const res = await fetch('/api/payouts/request', {
+      const res = await authFetch('/api/payouts/request', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -939,7 +940,7 @@ export default function PayoutsTab({ user, profile, products = [] }) {
     const formattedPrice = ['$', '£'].includes(currSym) ? `${currSym}${samplePrice}` : `${samplePrice} ${currSym}`
 
     try {
-      const res = await fetch('/api/payouts/order', {
+      const res = await authFetch('/api/payouts/order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -983,7 +984,7 @@ export default function PayoutsTab({ user, profile, products = [] }) {
   async function handleApprovePayout(payoutId) {
     if (!confirm(t('payoutsTab.confirmApprovePayout', 'Mark this payout transfer request as settled and transferred?'))) return
     try {
-      const res = await fetch('/api/payouts/admin/approve', {
+      const res = await authFetch('/api/payouts/admin/approve', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ payoutId }),

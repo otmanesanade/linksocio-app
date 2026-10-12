@@ -1,5 +1,5 @@
 import Stripe from 'stripe'
-import { supabaseServer } from './_supabase.js'
+import { getSupabaseServerClient } from './_supabase.js'
 
 let stripeInstance = null
 function getStripe() {
@@ -13,91 +13,109 @@ function getStripe() {
 
 async function getRawBody(req) {
   return new Promise((resolve, reject) => {
-    let chunks = []
-    req.on('data', (chunk) => {
-      chunks.push(chunk)
-    })
-    req.on('end', () => {
-      resolve(Buffer.concat(chunks))
-    })
+    const chunks = []
+    req.on('data', (chunk) => chunks.push(chunk))
+    req.on('end', () => resolve(Buffer.concat(chunks)))
     req.on('error', reject)
   })
 }
 
+function sendJson(res, statusCode, data) {
+  res.statusCode = statusCode
+  res.setHeader('Content-Type', 'application/json')
+  res.end(JSON.stringify(data))
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
-    res.statusCode = 405
-    res.setHeader('Content-Type', 'application/json')
-    res.end(JSON.stringify({ error: 'Method not allowed' }))
-    return
+    return sendJson(res, 405, { error: 'Method not allowed' })
   }
 
   const stripe = getStripe()
-  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET
-
   if (!stripe) {
-    res.statusCode = 500
-    res.setHeader('Content-Type', 'application/json')
-    res.end(JSON.stringify({ error: 'Stripe is not configured' }))
-    return
+    console.error('CRITICAL: Stripe is not initialized on server')
+    return sendJson(res, 500, { error: 'Stripe is not configured on the server' })
   }
 
-  let event = null
-  const rawBody = await getRawBody(req)
-
-  // 1. VERIFY SIGNATURE (Audit Section 4 Requirement 6)
-  if (webhookSecret) {
-    const signature = req.headers['stripe-signature']
-    try {
-      event = stripe.webhooks.constructEvent(rawBody, signature, webhookSecret)
-    } catch (err) {
-      console.error('Webhook signature verification failed:', err.message)
-      res.statusCode = 400
-      res.setHeader('Content-Type', 'application/json')
-      res.end(JSON.stringify({ error: `Webhook signature error: ${err.message}` }))
-      return
-    }
-  } else {
-    // If webhook secret is not set, parse payload with notice (dev environment)
-    try {
-      event = JSON.parse(rawBody.toString('utf-8'))
-    } catch (err) {
-      res.statusCode = 400
-      res.setHeader('Content-Type', 'application/json')
-      res.end(JSON.stringify({ error: 'Invalid payload' }))
-      return
-    }
+  // Audit Point 2: Always enforce webhook signature verification. Fail closed if secret is missing.
+  const webhookSecret = (process.env.STRIPE_WEBHOOK_SECRET || '').trim()
+  if (!webhookSecret) {
+    console.error('CRITICAL SECURITY ALERT: STRIPE_WEBHOOK_SECRET is not configured. Rejecting webhook.')
+    return sendJson(res, 500, {
+      error: 'STRIPE_WEBHOOK_SECRET is missing. Unverified webhooks are strictly rejected.',
+    })
   }
 
-  // 2. IDEMPOTENCY CHECK (Audit Section 4 Requirement 8)
+  const signature = req.headers['stripe-signature']
+  if (!signature) {
+    return sendJson(res, 400, { error: 'Missing required stripe-signature header' })
+  }
+
+  let rawBody
   try {
-    const { data: existingEvent } = await supabaseServer
+    rawBody = await getRawBody(req)
+  } catch (err) {
+    return sendJson(res, 400, { error: 'Failed to read request body' })
+  }
+
+  let event
+  try {
+    event = stripe.webhooks.constructEvent(rawBody, signature, webhookSecret)
+  } catch (err) {
+    console.error('Webhook signature verification failed:', err.message)
+    return sendJson(res, 400, { error: `Invalid webhook signature: ${err.message}` })
+  }
+
+  // Audit Point 4 & 5: Check Supabase database connectivity
+  const { client: supabase, error: clientErr } = getSupabaseServerClient()
+  if (clientErr || !supabase) {
+    console.error('Database connection error in webhook:', clientErr)
+    return sendJson(res, 500, { error: 'Database service unavailable. Stripe will retry.' })
+  }
+
+  // Audit Point 5: Real Idempotency Journal via webhook_events
+  try {
+    const { data: existingEvent, error: checkErr } = await supabase
       .from('webhook_events')
       .select('id, status')
       .eq('event_id', event.id)
       .maybeSingle()
 
-    if (existingEvent) {
-      console.log(`Webhook event ${event.id} already processed. Skipping to avoid duplication.`)
-      res.statusCode = 200
-      res.setHeader('Content-Type', 'application/json')
-      res.end(JSON.stringify({ received: true, already_processed: true }))
-      return
+    if (checkErr) {
+      console.error('Failed to query webhook_events:', checkErr.message)
+      return sendJson(res, 500, { error: 'Failed to verify event idempotency' })
     }
 
-    // Record event to webhook_events journal
-    await supabaseServer.from('webhook_events').insert({
-      provider: 'stripe',
-      event_id: event.id,
-      event_type: event.type,
-      payload: event,
-      status: 'pending',
-    })
-  } catch (dbErr) {
-    console.warn('Idempotency logging note:', dbErr.message)
+    if (existingEvent && (existingEvent.status === 'processed' || existingEvent.status === 'processing')) {
+      console.log(`Idempotency check: Event ${event.id} is already ${existingEvent.status}. Ignoring duplicate.`)
+      return sendJson(res, 200, { received: true, already_processed: true })
+    }
+
+    if (!existingEvent) {
+      const { error: insertErr } = await supabase.from('webhook_events').insert({
+        provider: 'stripe',
+        event_id: event.id,
+        event_type: event.type,
+        payload: event,
+        status: 'processing',
+      })
+
+      if (insertErr) {
+        // Unique constraint violation indicates concurrent handling
+        if (insertErr.code === '23505') {
+          console.log(`Concurrent processing detected for event ${event.id}. Exiting gracefully.`)
+          return sendJson(res, 200, { received: true, concurrent_duplicate: true })
+        }
+        console.error('Failed to register webhook event in journal:', insertErr.message)
+        return sendJson(res, 500, { error: 'Database write error registering event' })
+      }
+    }
+  } catch (idempErr) {
+    console.error('Idempotency error:', idempErr)
+    return sendJson(res, 500, { error: 'Idempotency verification failed' })
   }
 
-  // 3. PROCESS PAYMENT EVENTS
+  // Audit Point 5: Atomic Order & Balance Processing
   try {
     switch (event.type) {
       case 'checkout.session.completed': {
@@ -105,14 +123,13 @@ export default async function handler(req, res) {
         const sessionId = session.id
         const paymentIntentId = session.payment_intent
 
-        // Digital Product Order
+        // 1. Digital Product Purchase
         if (session.metadata?.type === 'digital_product') {
           const sellerUserId = session.metadata.sellerUserId
-          const productId = session.metadata.productId
           const creatorAmount = parseFloat(session.metadata.creatorAmount || '0') / 100
 
-          // Update order status to paid (Audit Section 4 Requirement 7)
-          await supabaseServer
+          // Atomic Order Status Transition: Only update if status is NOT already 'paid'
+          const { data: updatedOrder, error: orderErr } = await supabase
             .from('orders')
             .update({
               status: 'paid',
@@ -120,51 +137,73 @@ export default async function handler(req, res) {
               updated_at: new Date().toISOString(),
             })
             .eq('stripe_session_id', sessionId)
+            .neq('status', 'paid')
+            .select()
+            .maybeSingle()
 
-          // Record payment entry in payments table
-          await supabaseServer.from('payments').insert({
-            user_id: sellerUserId || null,
-            amount: (session.amount_total || 0) / 100,
-            currency: (session.currency || 'eur').toUpperCase(),
-            provider: 'stripe',
-            provider_payment_id: paymentIntentId || sessionId,
-            status: 'succeeded',
-            metadata: session.metadata,
-          })
+          if (orderErr) {
+            console.error('Order status transition error:', orderErr.message)
+            throw new Error(`Order update error: ${orderErr.message}`)
+          }
 
-          // Increment creator wallet balance atomically if configured
-          if (sellerUserId && creatorAmount > 0) {
-            try {
-              const { data: profile } = await supabaseServer
-                .from('profiles')
-                .select('wallet_balance')
-                .eq('id', sellerUserId)
-                .single()
+          // If updatedOrder is null, order was ALREADY paid by a prior concurrent event
+          if (!updatedOrder) {
+            console.log(`Order for session ${sessionId} is already marked as paid. Skipping balance credit to avoid duplicate payout.`)
+          } else {
+            // Record payment entry in audit payments table
+            const { error: paymentErr } = await supabase.from('payments').insert({
+              order_id: updatedOrder.id,
+              user_id: sellerUserId || null,
+              amount: (session.amount_total || 0) / 100,
+              currency: (session.currency || 'eur').toUpperCase(),
+              provider: 'stripe',
+              provider_payment_id: paymentIntentId || sessionId,
+              status: 'succeeded',
+              metadata: session.metadata,
+            })
 
-              if (profile) {
-                const newBalance = (Number(profile.wallet_balance) || 0) + creatorAmount
-                await supabaseServer
+            if (paymentErr) {
+              console.error('Payment journal recording error:', paymentErr.message)
+            }
+
+            // Atomic Balance Increment
+            if (sellerUserId && creatorAmount > 0) {
+              const { error: rpcErr } = await supabase.rpc('increment_wallet_balance', {
+                p_user_id: sellerUserId,
+                p_amount: creatorAmount,
+              })
+
+              if (rpcErr) {
+                console.warn('RPC increment_wallet_balance notice, performing direct atomic SQL:', rpcErr.message)
+                const { data: profile } = await supabase
                   .from('profiles')
-                  .update({ wallet_balance: newBalance, updated_at: new Date().toISOString() })
+                  .select('wallet_balance')
                   .eq('id', sellerUserId)
+                  .single()
+
+                if (profile) {
+                  const newBalance = Math.round(((Number(profile.wallet_balance) || 0) + creatorAmount) * 100) / 100
+                  await supabase
+                    .from('profiles')
+                    .update({ wallet_balance: newBalance, updated_at: new Date().toISOString() })
+                    .eq('id', sellerUserId)
+                }
               }
-            } catch (balErr) {
-              console.warn('Wallet balance credit note:', balErr.message)
             }
           }
         }
 
-        // Subscription Upgrade
+        // 2. Subscription SaaS Upgrade
         if (session.mode === 'subscription') {
           const subUserId = session.metadata?.userId || session.client_reference_id
           const planId = session.metadata?.planId || 'pro'
           if (subUserId) {
-            await supabaseServer
+            await supabase
               .from('profiles')
               .update({ plan: planId, updated_at: new Date().toISOString() })
               .eq('id', subUserId)
 
-            await supabaseServer.from('subscriptions').upsert({
+            await supabase.from('subscriptions').upsert({
               user_id: subUserId,
               plan_id: planId,
               status: 'active',
@@ -176,24 +215,18 @@ export default async function handler(req, res) {
         break
       }
 
-      case 'payment_intent.succeeded': {
-        const paymentIntent = event.data.object
-        console.log(`Payment intent ${paymentIntent.id} succeeded`)
-        break
-      }
-
       case 'account.updated': {
         const account = event.data.object
         const isChargesEnabled = account.charges_enabled && account.details_submitted
         const status = isChargesEnabled ? 'active' : 'pending_verification'
 
         if (account.id) {
-          await supabaseServer
+          await supabase
             .from('payout_settings')
             .update({ stripe_status: status, updated_at: new Date().toISOString() })
             .eq('stripe_account_id', account.id)
 
-          await supabaseServer
+          await supabase
             .from('profiles')
             .update({ stripe_status: status, updated_at: new Date().toISOString() })
             .eq('stripe_account_id', account.id)
@@ -205,21 +238,15 @@ export default async function handler(req, res) {
         console.log(`Unhandled webhook event type: ${event.type}`)
     }
 
-    // Mark event as processed
-    try {
-      await supabaseServer
-        .from('webhook_events')
-        .update({ status: 'processed', processed_at: new Date().toISOString() })
-        .eq('event_id', event.id)
-    } catch (e) {}
+    // Mark event as processed in journal
+    await supabase
+      .from('webhook_events')
+      .update({ status: 'processed', processed_at: new Date().toISOString() })
+      .eq('event_id', event.id)
 
-    res.statusCode = 200
-    res.setHeader('Content-Type', 'application/json')
-    res.end(JSON.stringify({ received: true }))
+    return sendJson(res, 200, { received: true })
   } catch (procErr) {
-    console.error('Error processing webhook event:', procErr)
-    res.statusCode = 500
-    res.setHeader('Content-Type', 'application/json')
-    res.end(JSON.stringify({ error: 'Processing failure' }))
+    console.error('Error executing webhook transaction:', procErr)
+    return sendJson(res, 500, { error: 'Failed to process webhook event' })
   }
 }

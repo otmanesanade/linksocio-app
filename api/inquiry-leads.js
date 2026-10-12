@@ -1,48 +1,5 @@
-// Server endpoint to record, retrieve and update inquiry leads with authentication & Supabase integration
-import fs from 'fs'
-import path from 'path'
-import os from 'os'
-import { supabaseServer, applyCors, getAuthenticatedUser } from './_supabase.js'
-
-const PRIMARY_PATH = path.join(process.cwd(), '.leads_store.json')
-const TMP_PATH = path.join(os.tmpdir(), '.linksocio_leads_store.json')
-
-if (!global.__linksocio_leads_cache) {
-  global.__linksocio_leads_cache = {}
-}
-
-function readLeadsStore() {
-  let store = global.__linksocio_leads_cache || {}
-  try {
-    if (fs.existsSync(PRIMARY_PATH)) {
-      const data = fs.readFileSync(PRIMARY_PATH, 'utf-8')
-      const parsed = JSON.parse(data || '{}')
-      store = { ...store, ...parsed }
-    }
-  } catch (e) {}
-
-  try {
-    if (fs.existsSync(TMP_PATH)) {
-      const data = fs.readFileSync(TMP_PATH, 'utf-8')
-      const parsed = JSON.parse(data || '{}')
-      store = { ...store, ...parsed }
-    }
-  } catch (e) {}
-
-  global.__linksocio_leads_cache = store
-  return store
-}
-
-function writeLeadsStore(store) {
-  global.__linksocio_leads_cache = store
-  const data = JSON.stringify(store, null, 2)
-  try {
-    fs.writeFileSync(PRIMARY_PATH, data, 'utf-8')
-  } catch (e) {}
-  try {
-    fs.writeFileSync(TMP_PATH, data, 'utf-8')
-  } catch (e) {}
-}
+// Server endpoint to record, retrieve and update inquiry leads with RBAC and Supabase persistence
+import { applyCors, getAuthenticatedUser, getSupabaseServerClient } from './_supabase.js'
 
 async function parseBody(req) {
   if (req.body) {
@@ -79,101 +36,138 @@ function sendJson(res, statusCode, data) {
 export default async function handler(req, res) {
   if (applyCors(req, res)) return
 
-  const authUser = await getAuthenticatedUser(req)
+  const { client: supabase, error: clientErr } = getSupabaseServerClient()
+  if (clientErr || !supabase) {
+    console.error('Database connection error in inquiry-leads:', clientErr)
+    return sendJson(res, 500, {
+      error: 'Database connection unavailable. Operation failed securely.',
+    })
+  }
 
-  // 1. GET: RETRIEVE CREATOR'S LEADS (Audit Section 2: Protected Private Route)
+  // 1. GET: Fetch creator's private leads (Audit Point 2 & 4: Protected route with Supabase only)
   if (req.method === 'GET') {
+    const authUser = await getAuthenticatedUser(req)
     if (!authUser) {
-      return sendJson(res, 401, { error: 'Authentication required to view leads' })
+      return sendJson(res, 401, {
+        error: 'Authentication required. Private leads cannot be accessed without an active session.',
+      })
     }
 
-    const currentUserId = authUser.id
-
-    // Fetch from Supabase PostgreSQL leads table (Audit Section 3)
     try {
-      const { data: dbLeads, error } = await supabaseServer
+      const { data: leads, error } = await supabase
         .from('leads')
         .select('*')
-        .eq('user_id', currentUserId)
+        .eq('user_id', authUser.id)
         .order('created_at', { ascending: false })
 
-      if (!error && dbLeads && dbLeads.length > 0) {
-        return sendJson(res, 200, { leads: dbLeads })
+      if (error) {
+        console.error('Database query error in leads GET:', error.message)
+        return sendJson(res, 500, { error: 'Database error fetching leads' })
       }
-    } catch (e) {}
 
-    // Fallback store scoped strictly to current user ID
-    const store = readLeadsStore()
-    const userLeads = store[currentUserId] || store[authUser.email] || []
-    return sendJson(res, 200, { leads: Array.isArray(userLeads) ? userLeads : [] })
+      return sendJson(res, 200, { leads: leads || [] })
+    } catch (err) {
+      console.error('Unexpected error in GET leads:', err)
+      return sendJson(res, 500, { error: 'Internal server error' })
+    }
   }
 
-  // 2. POST: SUBMIT INQUIRY LEAD (Public form on creator profile)
+  // 2. POST: Submit inquiry lead (Public customer submitting on creator's page)
   if (req.method === 'POST') {
-    const payload = await parseBody(req)
-    const singleLead = payload.lead
-    const batchLeads = payload.leads
-    const targetUserId = payload.userId || (authUser ? authUser.id : null)
+    try {
+      const payload = await parseBody(req)
+      const lead = payload.lead || payload
+      const targetUserId = payload.userId || lead.userId
 
-    if (!singleLead && !Array.isArray(batchLeads)) {
-      return sendJson(res, 400, { error: 'Missing lead payload' })
-    }
+      if (!targetUserId) {
+        return sendJson(res, 400, { error: 'Missing target creator userId' })
+      }
 
-    if (targetUserId && singleLead) {
-      try {
-        await supabaseServer.from('leads').insert({
+      const leadName = (lead.name || lead.lead_name || '').trim()
+      const leadEmail = (lead.email || lead.lead_email || '').trim()
+      const leadPhone = (lead.phone || lead.lead_phone || '').trim()
+      const serviceType = lead.service || lead.service_type || 'General'
+      const message = lead.message || ''
+
+      if (!leadName || (!leadEmail && !leadPhone)) {
+        return sendJson(res, 400, { error: 'Name and email or phone number are required' })
+      }
+
+      // Verify target creator exists in profiles
+      const { data: creatorProfile, error: profErr } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('id', targetUserId)
+        .maybeSingle()
+
+      if (profErr || !creatorProfile) {
+        return sendJson(res, 400, { error: 'Target creator profile not found' })
+      }
+
+      const { data: newLead, error: insertErr } = await supabase
+        .from('leads')
+        .insert({
           user_id: targetUserId,
-          lead_name: singleLead.name || 'Lead',
-          lead_email: singleLead.email || '',
-          lead_phone: singleLead.phone || '',
-          service_type: singleLead.service || singleLead.service_type || 'General',
-          message: singleLead.message || '',
+          lead_name: leadName,
+          lead_email: leadEmail,
+          lead_phone: leadPhone,
+          service_type: serviceType,
+          message,
           status: 'new',
         })
-      } catch (dbErr) {
-        console.warn('Supabase lead insert note:', dbErr.message)
+        .select()
+        .single()
+
+      if (insertErr) {
+        console.error('Database insert error in leads POST:', insertErr.message)
+        return sendJson(res, 500, { error: 'Database error creating lead' })
       }
+
+      return sendJson(res, 200, { success: true, lead: newLead })
+    } catch (err) {
+      console.error('Unexpected error in POST leads:', err)
+      return sendJson(res, 500, { error: 'Internal server error' })
     }
-
-    const store = readLeadsStore()
-    const key = targetUserId || (authUser ? authUser.id : 'default')
-    const list = Array.isArray(store[key]) ? store[key] : []
-
-    if (singleLead) {
-      list.unshift(singleLead)
-    } else if (Array.isArray(batchLeads)) {
-      list.unshift(...batchLeads)
-    }
-
-    store[key] = list
-    writeLeadsStore(store)
-
-    return sendJson(res, 200, { success: true, count: list.length })
   }
 
-  // 3. PATCH / PUT: UPDATE LEAD STATUS
+  // 3. PATCH: Update lead status (Restricted to authenticated creator)
   if (req.method === 'PATCH' || req.method === 'PUT') {
+    const authUser = await getAuthenticatedUser(req)
     if (!authUser) {
       return sendJson(res, 401, { error: 'Authentication required' })
     }
 
-    const payload = await parseBody(req)
-    const { leadId, status } = payload
-
-    if (!leadId || !status) {
-      return sendJson(res, 400, { error: 'Missing leadId or status' })
-    }
-
     try {
-      await supabaseServer
+      const payload = await parseBody(req)
+      const { leadId, status } = payload
+
+      if (!leadId || !status) {
+        return sendJson(res, 400, { error: 'Missing leadId or status' })
+      }
+
+      const { data: updated, error } = await supabase
         .from('leads')
         .update({ status })
         .eq('id', leadId)
         .eq('user_id', authUser.id)
-    } catch (e) {}
+        .select()
+        .maybeSingle()
 
-    return sendJson(res, 200, { success: true, leadId, status })
+      if (error) {
+        console.error('Database update error in leads PATCH:', error.message)
+        return sendJson(res, 500, { error: 'Database error updating lead status' })
+      }
+
+      if (!updated) {
+        return sendJson(res, 404, { error: 'Lead not found or not owned by caller' })
+      }
+
+      return sendJson(res, 200, { success: true, lead: updated })
+    } catch (err) {
+      console.error('Unexpected error in PATCH leads:', err)
+      return sendJson(res, 500, { error: 'Internal server error' })
+    }
   }
 
-  sendJson(res, 405, { error: 'Method not allowed' })
+  return sendJson(res, 405, { error: 'Method not allowed' })
 }

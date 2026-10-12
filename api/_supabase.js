@@ -1,59 +1,50 @@
 import { createClient } from '@supabase/supabase-js'
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || 'https://nknauhsucrnrhmtldick.supabase.co'
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_Hd83zLKF-81g4pj-hKMK3w_MOcEX4fD'
-
-export const supabaseServer = createClient(supabaseUrl, supabaseServiceKey, {
-  auth: {
-    persistSession: false,
-    autoRefreshToken: false,
-  },
-})
-
-// Allowed origins for CORS protection (Audit Section 6)
-const ALLOWED_ORIGINS = [
-  'https://linksocio.com',
-  'https://www.linksocio.com',
-  'https://linksocio-app.vercel.app',
-  ...(process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',').map(s => s.trim()) : []),
-]
 
 /**
- * Validates and applies CORS headers based on verified origin whitelist.
+ * Audit Point 1: Secure Server-Side Supabase Client (Fail-Closed).
+ * Absolutely NO fallback to VITE_SUPABASE_ANON_KEY or public keys for service-role operations.
+ * If SUPABASE_SERVICE_ROLE_KEY is missing, privileged operations must fail securely.
  */
-export function applyCors(req, res) {
-  const origin = req.headers?.origin || ''
-  const isDev = process.env.NODE_ENV !== 'production'
-  const isLocalhost = origin.includes('localhost') || origin.includes('127.0.0.1') || origin.includes('.aistudio.') || origin.includes('.run.app')
-  const isAllowed = ALLOWED_ORIGINS.includes(origin) || (isDev && isLocalhost)
+let _supabaseServerInstance = null
 
-  if (isAllowed && origin) {
-    res.setHeader('Access-Control-Allow-Origin', origin)
-  } else if (!origin) {
-    res.setHeader('Access-Control-Allow-Origin', '*')
-  } else {
-    // Fallback safe origin for known Linksocio domains
-    res.setHeader('Access-Control-Allow-Origin', 'https://www.linksocio.com')
+export function getSupabaseServerClient() {
+  const serviceKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim()
+
+  if (!serviceKey) {
+    return {
+      client: null,
+      error: 'CRITICAL_SECURITY_CONFIGURATION: SUPABASE_SERVICE_ROLE_KEY is missing. Backend operations fail closed.',
+    }
   }
 
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With')
-  res.setHeader('Access-Control-Allow-Credentials', 'true')
-  res.setHeader('X-Content-Type-Options', 'nosniff')
-  res.setHeader('X-Frame-Options', 'SAMEORIGIN')
-
-  if (req.method === 'OPTIONS') {
-    res.statusCode = 200
-    res.end()
-    return true
+  if (!_supabaseServerInstance) {
+    _supabaseServerInstance = createClient(supabaseUrl, serviceKey, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+      },
+    })
   }
-  return false
+
+  return { client: _supabaseServerInstance, error: null }
 }
 
 /**
- * Extracts and verifies the Supabase Auth session token from the Authorization header.
- * Rejects forged or unverified client IDs.
- * (Audit Section 2: P0 API Security & Access Control)
+ * Dedicated auth verification client for checking Bearer JWTs.
+ * Uses service key if available, or anon key strictly for verifying user tokens.
+ */
+const authKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || '').trim()
+const authClient = authKey
+  ? createClient(supabaseUrl, authKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    })
+  : null
+
+/**
+ * Extracts and verifies the Supabase Auth session token from Authorization header.
+ * Rejects forged or missing credentials.
  */
 export async function getAuthenticatedUser(req) {
   const authHeader = req.headers?.authorization || req.headers?.Authorization || ''
@@ -66,33 +57,94 @@ export async function getAuthenticatedUser(req) {
     return null
   }
 
+  if (!authClient) {
+    console.error('Cannot verify auth: Supabase client not initialized')
+    return null
+  }
+
   try {
-    const { data: { user }, error } = await supabaseServer.auth.getUser(token)
+    const { data: { user }, error } = await authClient.auth.getUser(token)
     if (error || !user) {
       return null
     }
     return user
   } catch (err) {
-    console.error('Failed to authenticate token:', err)
+    console.error('Error during token verification:', err.message)
     return null
   }
 }
 
 /**
- * Validates product details from server/DB to prevent client-side price tampering.
- * (Audit Section 4: P0 Order & Price Integrity)
+ * Audit Point 6: Strict CORS Guard.
+ * Explicitly rejects unallowed origins and verifies whitelisted domains.
+ */
+const ALLOWED_ORIGINS = new Set([
+  'https://linksocio.com',
+  'https://www.linksocio.com',
+  'https://linksocio-app.vercel.app',
+  ...(process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',').map(s => s.trim()).filter(Boolean) : []),
+])
+
+export function applyCors(req, res) {
+  const origin = req.headers?.origin || ''
+  const isDev = process.env.NODE_ENV !== 'production'
+  const isLocalhost =
+    origin.includes('localhost') ||
+    origin.includes('127.0.0.1') ||
+    origin.includes('.aistudio.') ||
+    origin.includes('.run.app')
+  const isAllowed = ALLOWED_ORIGINS.has(origin) || (isDev && isLocalhost)
+
+  // 1. Explicitly reject unauthorized cross-origin requests
+  if (origin && !isAllowed) {
+    res.statusCode = 403
+    res.setHeader('Content-Type', 'application/json')
+    res.end(JSON.stringify({ error: 'CORS policy: Request origin is not allowed' }))
+    return true
+  }
+
+  // 2. Set strict headers for authorized origins
+  if (origin && isAllowed) {
+    res.setHeader('Access-Control-Allow-Origin', origin)
+    res.setHeader('Vary', 'Origin')
+  }
+
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With')
+  res.setHeader('Access-Control-Allow-Credentials', 'true')
+  res.setHeader('X-Content-Type-Options', 'nosniff')
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN')
+
+  if (req.method === 'OPTIONS') {
+    res.statusCode = 204
+    res.end()
+    return true
+  }
+
+  return false
+}
+
+/**
+ * Audit Point 7: Server-side Product Verification.
+ * Fetches verified price, currency, and seller from Supabase database.
  */
 export async function getVerifiedProduct(productId) {
   if (!productId) return null
+  const { client, error } = getSupabaseServerClient()
+  if (error || !client) {
+    console.error('getVerifiedProduct failed:', error)
+    return null
+  }
+
   try {
-    const { data, error } = await supabaseServer
+    const { data, error: dbError } = await client
       .from('products')
       .select('*')
       .eq('id', productId)
       .eq('is_active', true)
       .single()
 
-    if (error || !data) {
+    if (dbError || !data) {
       return null
     }
     return data

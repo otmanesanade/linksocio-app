@@ -3,6 +3,7 @@ import { supabase } from './supabaseClient'
 import { getNotificationSettings, formatTemplate, generateWhatsAppUrl } from './notificationService'
 import confetti from 'canvas-confetti'
 import { useLanguage } from './context/LanguageContext'
+import { authFetch } from './utils/apiClient'
 
 export const DEFAULT_SETTINGS = {
   enabled: false,
@@ -64,11 +65,8 @@ export function getInquirySettings(profile) {
 }
 
 export async function fetchServerInquirySettings(username, userId) {
-  if (!username && !userId) return null
   try {
-    const cleanUser = (username || '').toLowerCase().trim().replace(/^@+/, '')
-    const query = cleanUser ? `username=${encodeURIComponent(cleanUser)}` : `userId=${encodeURIComponent(userId)}`
-    const res = await fetch(`/api/inquiry-settings?${query}`)
+    const res = await authFetch('/api/inquiry-settings')
     if (res.ok) {
       const data = await res.json()
       if (data && data.settings) {
@@ -93,16 +91,12 @@ export async function saveInquirySettingsLocally(profile, settings) {
     }
   } catch (e) {}
 
-  // Sync with server API
+  // Sync with server API securely via authenticated session
   try {
-    await fetch('/api/inquiry-settings', {
+    await authFetch('/api/inquiry-settings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        username: cleanUser,
-        userId: userId,
-        settings,
-      }),
+      body: JSON.stringify({ settings }),
     })
   } catch (e) {}
 }
@@ -252,9 +246,8 @@ export default function InquiryTab({ profile, onUpdated }) {
     }
 
     try {
-      // 1. Query server for the master list
-      const query = `username=${encodeURIComponent(cleanUsername)}&userId=${encodeURIComponent(userId)}`
-      const res = await fetch(`/api/inquiry-leads?${query}`)
+      // 1. Query server securely for the master list
+      const res = await authFetch('/api/inquiry-leads')
       if (res.ok) {
         const contentType = res.headers.get('content-type') || ''
         if (contentType.includes('application/json')) {

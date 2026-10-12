@@ -1,5 +1,5 @@
 import Stripe from 'stripe'
-import { supabaseServer, applyCors, getAuthenticatedUser, getVerifiedProduct } from './_supabase.js'
+import { applyCors, getAuthenticatedUser, getSupabaseServerClient } from './_supabase.js'
 
 let stripeInstance = null
 function getStripe() {
@@ -43,7 +43,6 @@ function sendJson(res, statusCode, data) {
   res.end(JSON.stringify(data))
 }
 
-// Supported Stripe Connect countries
 const SUPPORTED_CONNECT_COUNTRIES = new Set([
   'AT', 'AU', 'BE', 'BG', 'CA', 'CH', 'CY', 'CZ', 'DE', 'DK', 'EE', 'ES',
   'FI', 'FR', 'GB', 'GI', 'GR', 'HR', 'HU', 'IE', 'IT', 'LI', 'LT', 'LU',
@@ -52,7 +51,7 @@ const SUPPORTED_CONNECT_COUNTRIES = new Set([
 ])
 
 export default async function handler(req, res) {
-  // 1. Strict CORS validation (Audit Section 6)
+  // Audit Point 6: Strict CORS validation
   if (applyCors(req, res)) return
 
   const urlObj = new URL(req.url, `http://${req.headers?.host || 'localhost'}`)
@@ -79,72 +78,56 @@ export default async function handler(req, res) {
     })
   }
 
-  // 2. CONNECT / TEST-CONNECT (Audit Section 5: Disabled in production to prevent false positives)
+  // 2. CONNECT / TEST-CONNECT: Strictly disabled to prevent simulated accounts
   if (subroute.includes('test-connect')) {
-    const isProduction = process.env.NODE_ENV === 'production' || process.env.VERCEL_ENV === 'production'
-    if (isProduction) {
-      return sendJson(res, 403, {
-        success: false,
-        configured: false,
-        error: 'Test simulated connections are disabled in production. A verified Stripe Connect account is required.',
-      })
-    }
-    return sendJson(res, 200, {
+    return sendJson(res, 403, {
       success: false,
       configured: false,
-      isSandboxSimulationOnly: true,
-      message: 'Sandbox simulation only. Not a verified live connection.',
+      error: 'Simulated connections are disabled. Real verified Stripe Connect accounts are required.',
     })
   }
 
-  // 3. CONNECT / ONBOARD (Audit Section 5: No automatic US fallback, check supported countries)
+  // 3. CONNECT / ONBOARD: Server-verified creator onboarding
   if (subroute.includes('onboard')) {
     if (req.method !== 'POST') {
       return sendJson(res, 405, { error: 'Method not allowed' })
     }
 
-    const payload = await parseBody(req)
-    const { username, userId, email, country, returnUrl, refreshUrl } = payload || {}
-
-    if (!secretKey) {
-      return sendJson(res, 400, {
-        configured: false,
-        error: 'STRIPE_SECRET_KEY is missing in environment variables.',
-      })
+    const authUser = await getAuthenticatedUser(req)
+    if (!authUser) {
+      return sendJson(res, 401, { error: 'Authentication required for Stripe Connect onboarding' })
     }
 
-    if (isPublishableInsteadOfSecret) {
+    const payload = await parseBody(req)
+    const { country, returnUrl, refreshUrl } = payload || {}
+
+    if (!secretKey || isPublishableInsteadOfSecret) {
       return sendJson(res, 400, {
         configured: false,
-        error: 'STRIPE_SECRET_KEY is set to a publishable key. A secret key is required.',
+        error: 'STRIPE_SECRET_KEY is missing or invalid in server environment.',
       })
     }
 
     const stripe = getStripe()
     if (!stripe) {
-      return sendJson(res, 500, {
-        configured: false,
-        error: 'Unable to initialize Stripe client.',
-      })
+      return sendJson(res, 500, { configured: false, error: 'Unable to initialize Stripe client' })
     }
 
     const countryCode = (country || 'FR').toUpperCase().trim()
     const isMorocco = countryCode === 'MA' || countryCode === 'MOROCCO'
 
-    // Specific guidance for Morocco (Stripe Connect direct express creation unsupported)
     if (isMorocco) {
       return sendJson(res, 400, {
         configured: false,
         isMoroccoNotice: true,
-        error: "Stripe Connect does not support direct bank payouts in Morocco (MA). You can link an existing international Stripe Account ID (e.g. US LLC or Europe) or use local CIH / Moroccan bank transfer with 91% payouts.",
+        error: "Stripe Connect does not support direct accounts in Morocco (MA). Use local CIH/Attijariwafa transfer or link an existing international Stripe Account ID.",
       })
     }
 
-    // Reject unsupported countries without faking US country
     if (!SUPPORTED_CONNECT_COUNTRIES.has(countryCode)) {
       return sendJson(res, 400, {
         configured: false,
-        error: `Country code '${countryCode}' is not currently supported for direct Stripe Connect express accounts. Please select a supported country or use bank transfer.`,
+        error: `Country code '${countryCode}' is not supported for direct Stripe Connect. Please select a supported region.`,
       })
     }
 
@@ -152,15 +135,11 @@ export default async function handler(req, res) {
       const account = await stripe.accounts.create({
         type: 'express',
         country: countryCode,
-        email: email && email.includes('@') ? email.trim() : undefined,
+        email: authUser.email || undefined,
         capabilities: {
           transfers: { requested: true },
         },
-        business_profile: {
-          url: `https://www.linksocio.com/u/${username || 'creator'}`,
-          name: username || 'LinkSocio Creator',
-        },
-        metadata: { username: username || '', userId: userId || '' },
+        metadata: { userId: authUser.id },
       })
 
       const hostOrigin =
@@ -169,8 +148,7 @@ export default async function handler(req, res) {
           ? `${req.headers['x-forwarded-proto']}://${req.headers.host}`
           : `https://${req.headers.host || 'www.linksocio.com'}`)
 
-      const finalReturnUrl =
-        returnUrl || `${hostOrigin}/dashboard?tab=payouts&stripe_connected=true&acct=${account.id}`
+      const finalReturnUrl = returnUrl || `${hostOrigin}/dashboard?tab=payouts&stripe_connected=true&acct=${account.id}`
       const finalRefreshUrl = refreshUrl || `${hostOrigin}/dashboard?tab=payouts`
 
       const accountLink = await stripe.accountLinks.create({
@@ -187,15 +165,12 @@ export default async function handler(req, res) {
         status: 'pending_verification',
       })
     } catch (err) {
-      console.error('Stripe Connect onboarding error:', err)
-      return sendJson(res, 400, {
-        configured: false,
-        error: err.message || 'Stripe Connect error.',
-      })
+      console.error('Stripe Connect error:', err)
+      return sendJson(res, 400, { configured: false, error: err.message })
     }
   }
 
-  // 4. VERIFY-SESSION (Audit Section 4: Do not trust browser redirect alone)
+  // 4. VERIFY-SESSION
   if (subroute.includes('verify-session')) {
     const sessionId = req.query?.session_id || urlObj.searchParams.get('session_id')
     if (!sessionId) {
@@ -222,49 +197,65 @@ export default async function handler(req, res) {
     }
   }
 
-  // 5. CREATE-PRODUCT-CHECKOUT (Audit Section 4: Server-calculated price, fee, and order integrity)
+  // 5. CREATE-PRODUCT-CHECKOUT: Server-Side Price & Product Integrity (Audit Point 7)
   if (subroute.includes('create-product-checkout')) {
     if (req.method !== 'POST') {
       return sendJson(res, 405, { error: 'Method not allowed' })
     }
+
     const stripe = getStripe()
     if (!stripe) {
-      return sendJson(res, 500, {
-        configured: false,
-        error: 'Stripe Secret Key is missing or invalid.',
-      })
+      return sendJson(res, 500, { error: 'Stripe Secret Key is missing or invalid' })
     }
+
+    const { client: supabase, error: clientErr } = getSupabaseServerClient()
+    if (clientErr || !supabase) {
+      console.error('Database connection error in checkout:', clientErr)
+      return sendJson(res, 500, { error: 'Database service unavailable' })
+    }
+
     try {
       const payload = await parseBody(req)
-      const { username, userId, product, buyerEmail, buyerName, stripeAccountId, successUrl, cancelUrl } = payload || {}
+      const { productId, buyerEmail, buyerName, successUrl, cancelUrl } = payload || {}
 
-      if (!product || !product.name) {
-        return sendJson(res, 400, { error: 'Missing product information' })
+      if (!productId) {
+        return sendJson(res, 400, { error: 'Missing required productId parameter' })
       }
 
-      // Security check: Check DB for verified price (Audit Section 4)
-      let verifiedPrice = null
-      if (product.id) {
-        const dbProduct = await getVerifiedProduct(product.id)
-        if (dbProduct) {
-          verifiedPrice = parseFloat(dbProduct.price)
-        }
+      // Audit Point 7: Fetch verified product directly from database (Do NOT accept client price!)
+      const { data: dbProduct, error: prodErr } = await supabase
+        .from('products')
+        .select('*')
+        .eq('id', productId)
+        .eq('is_active', true)
+        .single()
+
+      if (prodErr || !dbProduct) {
+        return sendJson(res, 400, {
+          error: 'Product not found or inactive. Cannot process payment for unverified items.',
+        })
       }
 
-      // Fallback to sanitizing client price if product is dynamically created
-      const rawPrice = verifiedPrice !== null ? verifiedPrice : parseFloat(String(product.price || '0').replace(/[^\d.]/g, ''))
-      const unitAmount = Math.max(100, Math.round((rawPrice || 5) * 100))
+      const verifiedPrice = parseFloat(dbProduct.price)
+      if (isNaN(verifiedPrice) || verifiedPrice < 0) {
+        return sendJson(res, 400, { error: 'Invalid product pricing in database' })
+      }
 
-      let currency = 'eur'
-      const rawCurr = `${product.currency || ''} ${product.price || ''}`.toUpperCase()
-      if (/\b(MAD|DH|DIRHAM)\b/i.test(rawCurr)) currency = 'mad'
-      else if (rawCurr.includes('€') || /\bEUR\b/i.test(rawCurr)) currency = 'eur'
-      else if (rawCurr.includes('£') || /\bGBP\b/i.test(rawCurr)) currency = 'gbp'
-      else if (rawCurr.includes('$') || /\bUSD\b/i.test(rawCurr)) currency = 'usd'
+      // Calculate unit amounts in cents based on database price strictly
+      const unitAmount = Math.max(100, Math.round(verifiedPrice * 100))
+      const currency = (dbProduct.currency || 'eur').toLowerCase()
 
-      // Server strictly enforces 9% platform fee (Audit Section 4)
+      // Server enforces 9% platform fee strictly
       const platformFeeAmount = Math.round(unitAmount * 0.09)
       const creatorAmount = unitAmount - platformFeeAmount
+      const sellerUserId = dbProduct.user_id
+
+      // Check if seller has a verified Stripe Connect account
+      const { data: sellerPayoutSettings } = await supabase
+        .from('payout_settings')
+        .select('stripe_account_id, stripe_status')
+        .eq('user_id', sellerUserId)
+        .maybeSingle()
 
       const hostOrigin =
         req.headers['origin'] ||
@@ -275,15 +266,15 @@ export default async function handler(req, res) {
       const sessionPayload = {
         mode: 'payment',
         customer_email: buyerEmail && buyerEmail.includes('@') ? buyerEmail.trim() : undefined,
-        client_reference_id: userId || username || 'customer',
+        client_reference_id: sellerUserId,
         line_items: [
           {
             price_data: {
               currency,
               product_data: {
-                name: product.name,
-                description: `Sold by @${username || 'creator'} on LinkSocio (Instant Delivery)`,
-                images: product.image_url ? [product.image_url] : undefined,
+                name: dbProduct.name,
+                description: `LinkSocio Digital Product (Instant Delivery)`,
+                images: dbProduct.image_url ? [dbProduct.image_url] : undefined,
               },
               unit_amount: unitAmount,
             },
@@ -292,52 +283,55 @@ export default async function handler(req, res) {
         ],
         metadata: {
           type: 'digital_product',
-          productId: product.id || '',
-          productName: product.name || '',
-          sellerUsername: username || '',
-          sellerUserId: userId || '',
+          productId: dbProduct.id,
+          productName: dbProduct.name,
+          sellerUserId: sellerUserId,
           buyerName: buyerName || '',
           unitAmount: String(unitAmount),
           platformFeeAmount: String(platformFeeAmount),
           creatorAmount: String(creatorAmount),
           platformFeeRate: '9%',
         },
-        success_url: successUrl || `${hostOrigin}/u/${username}?order_success=true&prod_id=${product.id}`,
-        cancel_url: cancelUrl || `${hostOrigin}/u/${username}`,
+        success_url: successUrl || `${hostOrigin}/order-success?prod_id=${dbProduct.id}`,
+        cancel_url: cancelUrl || `${hostOrigin}/`,
       }
 
-      if (stripeAccountId && stripeAccountId.startsWith('acct_')) {
+      if (
+        sellerPayoutSettings &&
+        sellerPayoutSettings.stripe_status === 'active' &&
+        sellerPayoutSettings.stripe_account_id
+      ) {
         sessionPayload.payment_intent_data = {
           application_fee_amount: platformFeeAmount,
-          transfer_data: { destination: stripeAccountId },
+          transfer_data: { destination: sellerPayoutSettings.stripe_account_id },
         }
       }
 
       const session = await stripe.checkout.sessions.create(sessionPayload)
 
-      // Record pending order in Supabase PostgreSQL (Audit Section 3 & 4)
-      if (userId) {
-        try {
-          await supabaseServer.from('orders').insert({
-            seller_id: userId,
-            product_id: product.id || null,
-            buyer_email: buyerEmail || 'pending@customer.com',
-            buyer_name: buyerName || 'Customer',
-            amount: unitAmount / 100,
-            currency: currency.toUpperCase(),
-            platform_fee: platformFeeAmount / 100,
-            creator_amount: creatorAmount / 100,
-            status: 'pending',
-            stripe_session_id: session.id,
-          })
-        } catch (dbErr) {
-          console.warn('Supabase order creation note:', dbErr.message)
-        }
+      // Audit Point 4 & 7: Insert order with status 'pending' in database
+      const { error: orderInsertErr } = await supabase.from('orders').insert({
+        seller_id: sellerUserId,
+        product_id: dbProduct.id,
+        buyer_email: buyerEmail || 'pending@customer.com',
+        buyer_name: buyerName || 'Customer',
+        amount: unitAmount / 100,
+        currency: currency.toUpperCase(),
+        platform_fee: platformFeeAmount / 100,
+        creator_amount: creatorAmount / 100,
+        status: 'pending',
+        stripe_session_id: session.id,
+      })
+
+      if (orderInsertErr) {
+        console.error('Database error recording pending order:', orderInsertErr.message)
+        return sendJson(res, 500, { error: 'Database error creating order record' })
       }
 
       return sendJson(res, 200, { configured: true, url: session.url, sessionId: session.id })
     } catch (err) {
-      return sendJson(res, 500, { configured: false, error: err.message || 'Stripe error' })
+      console.error('Error creating product checkout:', err)
+      return sendJson(res, 500, { error: err.message || 'Stripe error' })
     }
   }
 
@@ -346,19 +340,23 @@ export default async function handler(req, res) {
     if (req.method !== 'POST') {
       return sendJson(res, 405, { error: 'Method not allowed' })
     }
+
+    const authUser = await getAuthenticatedUser(req)
+    if (!authUser) {
+      return sendJson(res, 401, { error: 'Authentication required to subscribe to plans' })
+    }
+
     const stripe = getStripe()
     if (!stripe) {
-      return sendJson(res, 500, {
-        configured: false,
-        error: 'STRIPE_SECRET_KEY is missing.',
-      })
+      return sendJson(res, 500, { error: 'STRIPE_SECRET_KEY is missing' })
     }
+
     try {
       const payload = await parseBody(req)
-      const { planId, planName, billingCycle, price, currency = 'eur', userId, username, customerEmail, successUrl, cancelUrl } = payload || {}
+      const { planId, planName, billingCycle, currency = 'eur', successUrl, cancelUrl } = payload || {}
       const isYearly = billingCycle === 'yearly'
 
-      // Server enforces fixed subscription pricing (Audit Section 4: no client manipulation)
+      // Server enforces fixed subscription pricing (No client manipulation)
       const validPrice = planId === 'business' ? (isYearly ? 119.88 : 11.99) : (isYearly ? 49.90 : 4.99)
       const unitAmount = Math.round(validPrice * 100)
 
@@ -370,8 +368,8 @@ export default async function handler(req, res) {
 
       const session = await stripe.checkout.sessions.create({
         mode: 'subscription',
-        customer_email: customerEmail && customerEmail.includes('@') ? customerEmail.trim() : undefined,
-        client_reference_id: userId || undefined,
+        customer_email: authUser.email || undefined,
+        client_reference_id: authUser.id,
         line_items: [
           {
             price_data: {
@@ -387,9 +385,8 @@ export default async function handler(req, res) {
           },
         ],
         metadata: {
-          userId: userId || '',
-          username: username || '',
-          planId: planId || '',
+          userId: authUser.id,
+          planId: planId || 'pro',
           billingCycle: billingCycle || 'monthly',
         },
         success_url: successUrl || `${hostOrigin}/dashboard?tab=billing&session_id={CHECKOUT_SESSION_ID}&upgraded=true`,
@@ -402,5 +399,5 @@ export default async function handler(req, res) {
     }
   }
 
-  sendJson(res, 404, { error: 'Unknown stripe endpoint' })
+  return sendJson(res, 404, { error: 'Unknown stripe endpoint' })
 }
