@@ -513,6 +513,16 @@ export default async function handler(req, res) {
             error: 'Completed payout cannot be rejected.',
           })
         }
+        if (errMsg.includes('CANNOT_REJECT_CANCELLED')) {
+          return sendJson(res, 409, {
+            error: 'Cannot reject cancelled payout request. Funds were already refunded upon cancellation.',
+          })
+        }
+        if (errMsg.includes('INVALID_STATUS')) {
+          return sendJson(res, 409, {
+            error: 'Payout request is not in an active refundable status.',
+          })
+        }
         if (errMsg.includes('PAYOUT_NOT_FOUND')) {
           return sendJson(res, 404, { error: 'Payout request not found.' })
         }

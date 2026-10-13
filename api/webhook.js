@@ -137,6 +137,7 @@ export default async function handler(req, res) {
           const sellerUserId = session.metadata.sellerUserId
           const productId = session.metadata.productId
           const creatorAmount = parseFloat(session.metadata.creatorAmount || '0') / 100
+          const totalAmount = (session.amount_total || 0) / 100
 
           // Check if order exists in Supabase
           const { data: existingOrder, error: findOrderErr } = await supabase
@@ -192,64 +193,30 @@ export default async function handler(req, res) {
             targetOrder = recoveredOrder
           }
 
-          // Atomic Order Status Transition: Only update if status is NOT already 'paid'
-          let orderNewlyPaid = false
-          if (targetOrder && targetOrder.status !== 'paid') {
-            const { data: updatedOrder, error: orderErr } = await supabase
-              .from('orders')
-              .update({
-                status: 'paid',
-                stripe_payment_intent_id: paymentIntentId,
-                updated_at: new Date().toISOString(),
-              })
-              .eq('id', targetOrder.id)
-              .neq('status', 'paid')
-              .select()
-              .maybeSingle()
-
-            if (orderErr) {
-              throw new Error(`Order update error: ${orderErr.message}`)
+          // ATOMIC TRANSACTION: Execute order status update, payment journal, and wallet credit together in PostgreSQL
+          const { data: atomicResult, error: atomicErr } = await supabase.rpc(
+            'record_paid_order_and_credit_wallet_atomic',
+            {
+              p_session_id: sessionId,
+              p_payment_intent_id: paymentIntentId || sessionId,
+              p_order_id: targetOrder?.id || null,
+              p_seller_id: sellerUserId || null,
+              p_creator_amount: creatorAmount,
+              p_total_amount: totalAmount,
+              p_currency: (session.currency || 'eur').toUpperCase(),
+              p_metadata: session.metadata || {},
             }
+          )
 
-            if (updatedOrder) {
-              orderNewlyPaid = true
-            }
-          } else if (targetOrder && targetOrder.status === 'paid' && !existingOrder) {
-            // Newly inserted through recovery flow
-            orderNewlyPaid = true
+          if (atomicErr) {
+            console.error('CRITICAL: record_paid_order_and_credit_wallet_atomic failed:', atomicErr.message)
+            throw new Error(`CRITICAL_FINANCIAL_ERROR: record_paid_order_and_credit_wallet_atomic failed: ${atomicErr.message}`)
           }
 
-          if (orderNewlyPaid) {
-            // Record payment entry in audit payments table
-            const { error: paymentErr } = await supabase.from('payments').insert({
-              order_id: targetOrder.id,
-              user_id: sellerUserId || null,
-              amount: (session.amount_total || 0) / 100,
-              currency: (session.currency || 'eur').toUpperCase(),
-              provider: 'stripe',
-              provider_payment_id: paymentIntentId || sessionId,
-              status: 'succeeded',
-              metadata: session.metadata,
-            })
-
-            if (paymentErr) {
-              console.error('Payment journal recording error:', paymentErr.message)
-            }
-
-            // Atomic Balance Increment
-            if (sellerUserId && creatorAmount > 0) {
-              const { error: rpcErr } = await supabase.rpc('increment_wallet_balance', {
-                p_user_id: sellerUserId,
-                p_amount: creatorAmount,
-              })
-
-              if (rpcErr) {
-                console.error('CRITICAL: increment_wallet_balance failed. Refusing non-atomic fallback:', rpcErr.message)
-                throw new Error(`CRITICAL_FINANCIAL_ERROR: increment_wallet_balance RPC failed: ${rpcErr.message}. Failing closed for safe Stripe retry.`)
-              }
-            }
-          } else {
+          if (atomicResult?.already_paid) {
             console.log(`Order for session ${sessionId} is already marked as paid. Skipping balance credit to avoid duplicate payout.`)
+          } else {
+            console.log(`Order for session ${sessionId} atomically transitioned to paid and seller wallet credited.`)
           }
         }
 

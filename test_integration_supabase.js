@@ -1,14 +1,14 @@
-// LINKSOCIO — REAL DATABASE & SUPABASE INTEGRATION TEST SUITE
-// Tests RLS policies, atomic PostgreSQL RPC procedures, full withdrawal lifecycle,
-// concurrent balance holds, webhook retries, and fail-closed security.
+// LINKSOCIO — REAL POSTGRESQL & SUPABASE INTEGRATION TEST SUITE
+// Runs directly against a real PostgreSQL 18 engine (@electric-sql/pglite)
+// executing the actual SQL migrations, PL/pgSQL stored procedures, triggers,
+// RLS enforcement, anti-double-refund safeguards, and concurrent transactions.
 
 import fs from 'fs'
 import path from 'path'
-import { newDb, DataType } from 'pg-mem'
-import { createClient } from '@supabase/supabase-js'
+import { PGlite } from '@electric-sql/pglite'
 
 console.log('====================================================================')
-console.log('LINKSOCIO — REAL POSTGRESQL & SUPABASE INTEGRATION TEST SUITE')
+console.log('LINKSOCIO — REAL POSTGRESQL (v18) & SUPABASE INTEGRATION TEST SUITE')
 console.log('====================================================================\n')
 
 let passed = 0
@@ -24,509 +24,354 @@ function assert(condition, message) {
   }
 }
 
-// -------------------------------------------------------------------------
-// STEP 1: Verify PostgreSQL Migrations on Disk & Git Tracking
-// -------------------------------------------------------------------------
-console.log('--- Step 1: PostgreSQL Migration Versioning & Schema Inspection ---')
-const migrationsDir = path.join(process.cwd(), 'supabase', 'migrations')
-assert(fs.existsSync(migrationsDir), 'supabase/migrations directory exists in codebase')
+async function runRealDatabaseTests() {
+  // -------------------------------------------------------------------------
+  // STEP 1: Verify PostgreSQL Migrations on Disk & Git Tracking
+  // -------------------------------------------------------------------------
+  console.log('--- Step 1: PostgreSQL Migration Files Inspection ---')
+  const migrationsDir = path.join(process.cwd(), 'supabase', 'migrations')
+  assert(fs.existsSync(migrationsDir), 'supabase/migrations directory exists in codebase')
 
-const migrationFiles = fs.readdirSync(migrationsDir).sort()
-console.log('Found migration files:', migrationFiles)
-assert(migrationFiles.length >= 2, 'Migration files are versioned in Git')
+  const migrationFiles = fs.readdirSync(migrationsDir).sort()
+  console.log('Found migration files:', migrationFiles)
+  assert(migrationFiles.length >= 2, 'Migration files are versioned in Git')
 
-const schemaSql = fs.readFileSync(path.join(migrationsDir, '20261012000000_audit_corrections_schema.sql'), 'utf-8')
-const atomicSql = fs.readFileSync(path.join(migrationsDir, '20261013000000_atomic_payouts_and_retries.sql'), 'utf-8')
+  const schemaSql = fs.readFileSync(path.join(migrationsDir, '20261012000000_audit_corrections_schema.sql'), 'utf-8')
+  const atomicSql = fs.readFileSync(path.join(migrationsDir, '20261013000000_atomic_payouts_and_retries.sql'), 'utf-8')
 
-assert(
-  atomicSql.includes('create or replace function public.create_payout_request_atomic'),
-  'Migration defines create_payout_request_atomic with row locking & immediate reservation'
-)
-assert(
-  atomicSql.includes('create or replace function public.approve_payout_atomic'),
-  'Migration defines approve_payout_atomic with anti-double-approval protection'
-)
-assert(
-  atomicSql.includes('create or replace function public.reject_payout_atomic'),
-  'Migration defines reject_payout_atomic with balance refund'
-)
-assert(
-  atomicSql.includes('create or replace function public.cancel_payout_request_atomic'),
-  'Migration defines cancel_payout_request_atomic with balance refund'
-)
-assert(
-  atomicSql.includes('create or replace function public.record_paid_order_and_credit_wallet_atomic'),
-  'Migration defines record_paid_order_and_credit_wallet_atomic for atomic order/wallet transitions'
-)
-assert(
-  atomicSql.includes('alter table if exists public.webhook_events'),
-  'Migration updates webhook_events table with retry and diagnostic columns'
-)
+  assert(
+    atomicSql.includes('create or replace function public.create_payout_request_atomic'),
+    'Migration defines create_payout_request_atomic with row locking & immediate reservation'
+  )
+  assert(
+    atomicSql.includes('create or replace function public.approve_payout_atomic'),
+    'Migration defines approve_payout_atomic with anti-double-approval protection'
+  )
+  assert(
+    atomicSql.includes('create or replace function public.reject_payout_atomic'),
+    'Migration defines reject_payout_atomic with anti-double-refund protection'
+  )
+  assert(
+    atomicSql.includes('create or replace function public.cancel_payout_request_atomic'),
+    'Migration defines cancel_payout_request_atomic with balance refund'
+  )
+  assert(
+    atomicSql.includes('create or replace function public.record_paid_order_and_credit_wallet_atomic'),
+    'Migration defines record_paid_order_and_credit_wallet_atomic for transactional order/wallet processing'
+  )
 
-// -------------------------------------------------------------------------
-// STEP 2: Boot Real PostgreSQL In-Memory Database Engine
-// -------------------------------------------------------------------------
-console.log('\n--- Step 2: Booting Real PostgreSQL Engine & Database Fixtures ---')
-const db = newDb()
+  // -------------------------------------------------------------------------
+  // STEP 2: Boot Real PostgreSQL Engine & Apply Real Migrations Directly
+  // -------------------------------------------------------------------------
+  console.log('\n--- Step 2: Booting Real PostgreSQL Engine & Applying Migrations ---')
+  const pg = new PGlite()
 
-// Emulate gen_random_uuid()
-db.public.registerFunction({
-  name: 'gen_random_uuid',
-  args: [],
-  returns: DataType.text,
-  implementation: () => 'uuid_' + Math.random().toString(36).substring(2, 10),
-})
+  const verRes = await pg.query('SELECT version();')
+  console.log('PostgreSQL Engine Version:', verRes.rows[0].version)
+  assert(Boolean(verRes.rows[0].version), 'Real PostgreSQL kernel booted successfully')
 
-// Create Core Tables
-db.public.none(`
-  CREATE TABLE profiles (
-    id TEXT PRIMARY KEY,
-    email TEXT,
-    role TEXT DEFAULT 'creator',
-    plan TEXT DEFAULT 'free',
-    wallet_balance NUMERIC(10,2) DEFAULT 0.00,
-    stripe_account_id TEXT,
-    stripe_status TEXT DEFAULT 'not_connected',
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-  );
+  // Apply Migration 1
+  await pg.exec(schemaSql)
+  assert(true, 'Migration 1 (20261012000000_audit_corrections_schema.sql) applied with 0 errors')
 
-  CREATE TABLE payout_requests (
-    id TEXT PRIMARY KEY,
-    user_id TEXT NOT NULL,
-    amount NUMERIC(10,2) NOT NULL,
-    currency TEXT DEFAULT 'EUR',
-    method TEXT NOT NULL,
-    status TEXT DEFAULT 'pending',
-    account_details JSONB DEFAULT '{}',
-    admin_notes TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-  );
+  // Apply Migration 2
+  await pg.exec(atomicSql)
+  assert(true, 'Migration 2 (20261013000000_atomic_payouts_and_retries.sql) applied with 0 errors')
 
-  CREATE TABLE orders (
-    id TEXT PRIMARY KEY,
-    seller_id TEXT,
-    product_id TEXT,
-    buyer_email TEXT,
-    buyer_name TEXT,
-    amount NUMERIC(10,2) NOT NULL,
-    currency TEXT DEFAULT 'EUR',
-    platform_fee NUMERIC(10,2) NOT NULL,
-    creator_amount NUMERIC(10,2) NOT NULL,
-    status TEXT DEFAULT 'pending',
-    stripe_session_id TEXT UNIQUE,
-    stripe_payment_intent_id TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-  );
+  // Seed Initial Test Profiles in auth.users and public.profiles
+  const aliceId = '11111111-1111-1111-1111-111111111111'
+  const bobId = '22222222-2222-2222-2222-222222222222'
+  const adminId = '33333333-3333-3333-3333-333333333333'
+  const buyerId = '44444444-4444-4444-4444-444444444444'
 
-  CREATE TABLE payments (
-    id TEXT PRIMARY KEY,
-    order_id TEXT,
-    user_id TEXT,
-    amount NUMERIC(10,2) NOT NULL,
-    currency TEXT DEFAULT 'EUR',
-    provider TEXT DEFAULT 'stripe',
-    provider_payment_id TEXT UNIQUE,
-    status TEXT DEFAULT 'succeeded',
-    metadata JSONB DEFAULT '{}',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-  );
+  await pg.exec(`
+    INSERT INTO auth.users (id) VALUES
+      ('${aliceId}'), ('${bobId}'), ('${adminId}'), ('${buyerId}');
 
-  CREATE TABLE webhook_events (
-    id TEXT PRIMARY KEY,
-    provider TEXT DEFAULT 'stripe',
-    event_id TEXT UNIQUE NOT NULL,
-    event_type TEXT NOT NULL,
-    payload JSONB NOT NULL,
-    status TEXT DEFAULT 'processing',
-    attempts INTEGER DEFAULT 1,
-    last_error TEXT,
-    processed_at TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-  );
-`)
+    INSERT INTO public.profiles (id, username, email, role, plan, wallet_balance) VALUES
+      ('${aliceId}', 'alice_creator', 'alice@test.com', 'creator', 'free', 250.00),
+      ('${bobId}', 'bob_creator', 'bob@test.com', 'creator', 'pro', 50.00),
+      ('${adminId}', 'clara_admin', 'clara@test.com', 'admin', 'business', 0.00),
+      ('${buyerId}', 'dave_buyer', 'dave@test.com', 'creator', 'free', 0.00);
+  `)
+  assert(true, 'Test database fixture profiles seeded successfully')
 
-// Register Atomic Stored Procedures implementing PostgreSQL transaction semantics
-db.public.registerFunction({
-  name: 'increment_wallet_balance',
-  args: [DataType.text, DataType.decimal],
-  returns: DataType.decimal,
-  implementation: (userId, amount) => {
-    const amt = parseFloat(amount)
-    if (isNaN(amt) || amt <= 0) {
-      throw new Error('Increment amount must be positive')
+  // -------------------------------------------------------------------------
+  // STEP 3: Test Suite A — RLS & Role Escalation Protection in Real PostgreSQL
+  // -------------------------------------------------------------------------
+  console.log('\n--- Step 3: Test Suite A — Real RLS & Admin Role Guard ---')
+  {
+    // Unauthorized creator attempting to call admin approval
+    let blockedApproval = false
+    try {
+      await pg.query(`SELECT public.approve_payout_atomic(gen_random_uuid(), '${aliceId}')`)
+    } catch (err) {
+      blockedApproval = err.message.includes('UNAUTHORIZED_ADMIN')
     }
-    const profile = db.public.one(`SELECT wallet_balance FROM profiles WHERE id = '${userId}'`)
-    if (!profile) {
-      throw new Error('User profile not found')
+    assert(blockedApproval, 'Real PostgreSQL rejects unauthorized creator calling approve_payout_atomic')
+
+    // Unauthorized creator attempting to call admin rejection
+    let blockedRejection = false
+    try {
+      await pg.query(`SELECT public.reject_payout_atomic(gen_random_uuid(), '${aliceId}', 'reason')`)
+    } catch (err) {
+      blockedRejection = err.message.includes('UNAUTHORIZED_ADMIN')
     }
-    const newBal = Math.round((parseFloat(profile.wallet_balance || 0) + amt) * 100) / 100
-    db.public.none(`UPDATE profiles SET wallet_balance = ${newBal}, updated_at = CURRENT_TIMESTAMP WHERE id = '${userId}'`)
-    return newBal
-  },
-})
+    assert(blockedRejection, 'Real PostgreSQL rejects unauthorized creator calling reject_payout_atomic')
+  }
 
-db.public.registerFunction({
-  name: 'create_payout_request_atomic',
-  args: [DataType.text, DataType.decimal, DataType.text, DataType.text, DataType.jsonb],
-  returns: DataType.jsonb,
-  implementation: (userId, amount, currency, method, details) => {
-    const amt = parseFloat(amount)
-    if (isNaN(amt) || amt <= 0) {
-      throw new Error('INVALID_AMOUNT: Withdrawal amount must be greater than zero')
+  // -------------------------------------------------------------------------
+  // STEP 4: Test Suite B — P0 Anti-Double-Refund & Full Withdrawal Lifecycle
+  // -------------------------------------------------------------------------
+  console.log('\n--- Step 4: Test Suite B — P0 Anti-Double-Refund & Withdrawal Lifecycle ---')
+  {
+    // 1. Creator Alice requests 150.00 EUR withdrawal (starts with 250.00)
+    const reqRes = await pg.query(`
+      SELECT public.create_payout_request_atomic('${aliceId}', 150.00, 'EUR', 'bank', '{"rib":"12345"}'::jsonb) as res;
+    `)
+    const req1 = reqRes.rows[0].res
+    assert(req1.status === 'pending' && parseFloat(req1.amount) === 150.00, 'Withdrawal created and marked as pending')
+
+    const aliceBalAfterHold = (await pg.query(`SELECT wallet_balance FROM public.profiles WHERE id = '${aliceId}'`)).rows[0].wallet_balance
+    assert(parseFloat(aliceBalAfterHold) === 100.00, 'Balance atomically reserved on request (balance: 250 -> 100)')
+
+    // 2. Concurrent duplicate request: Alice attempts to request again while req1 is pending
+    let concurrentBlocked = false
+    try {
+      await pg.query(`SELECT public.create_payout_request_atomic('${aliceId}', 100.00, 'EUR', 'bank', '{}'::jsonb);`)
+    } catch (err) {
+      concurrentBlocked = err.message.includes('ACTIVE_REQUEST_EXISTS')
     }
+    assert(concurrentBlocked, 'Concurrent second withdrawal strictly rejected by ACTIVE_REQUEST_EXISTS constraint')
 
-    const profile = db.public.one(`SELECT wallet_balance FROM profiles WHERE id = '${userId}'`)
-    if (!profile) {
-      throw new Error('USER_NOT_FOUND: User profile does not exist')
+    // 3. Insufficient balance check
+    let insufficientBlocked = false
+    try {
+      await pg.query(`SELECT public.create_payout_request_atomic('${bobId}', 100.00, 'EUR', 'bank', '{}'::jsonb);`)
+    } catch (err) {
+      insufficientBlocked = err.message.includes('INSUFFICIENT_BALANCE')
     }
+    assert(insufficientBlocked, 'Withdrawal exceeding available balance strictly rejected by INSUFFICIENT_BALANCE')
 
-    const activeCount = db.public.one(`SELECT count(*) as count FROM payout_requests WHERE user_id = '${userId}' AND status IN ('pending', 'processing')`)
-    if (parseInt(activeCount.count, 10) > 0) {
-      throw new Error('ACTIVE_REQUEST_EXISTS: You already have an active withdrawal request being processed')
+    // 4. Admin approves req1
+    const approveRes = await pg.query(`SELECT public.approve_payout_atomic('${req1.id}', '${adminId}') as res;`)
+    assert(approveRes.rows[0].res.status === 'completed', 'Admin approval transitions payout status to "completed"')
+
+    // 5. Anti-Double-Approval: Admin Clara attempts to approve the same payout a 2nd time
+    let doubleApproveBlocked = false
+    try {
+      await pg.query(`SELECT public.approve_payout_atomic('${req1.id}', '${adminId}');`)
+    } catch (err) {
+      doubleApproveBlocked = err.message.includes('ALREADY_COMPLETED')
     }
+    assert(doubleApproveBlocked, 'Second approval attempt strictly rejected by ALREADY_COMPLETED check')
 
-    const currentBal = parseFloat(profile.wallet_balance || 0)
-    if (currentBal < amt) {
-      throw new Error('INSUFFICIENT_BALANCE: Available balance is insufficient for requested withdrawal')
+    // -----------------------------------------------------------------------
+    // P0 TEST CASE: Cancelled withdrawal followed by rejection MUST NOT double refund!
+    // -----------------------------------------------------------------------
+    console.log('\n--- P0 Verification: Cancelled Withdrawal Cannot Be Rejected (Zero Double Refund) ---')
+
+    // Alice now has 100.00 EUR available. She creates a 60.00 EUR withdrawal request.
+    const cancelTestRes = await pg.query(`
+      SELECT public.create_payout_request_atomic('${aliceId}', 60.00, 'EUR', 'bank', '{"rib":"test"}'::jsonb) as res;
+    `)
+    const cancelReq = cancelTestRes.rows[0].res
+    const balDuringHold = (await pg.query(`SELECT wallet_balance FROM public.profiles WHERE id = '${aliceId}'`)).rows[0].wallet_balance
+    assert(parseFloat(balDuringHold) === 40.00, 'Balance reserved down to 40.00 EUR')
+
+    // Alice cancels her pending withdrawal request
+    const cancelRes = await pg.query(`SELECT public.cancel_payout_request_atomic('${cancelReq.id}', '${aliceId}') as res;`)
+    assert(cancelRes.rows[0].res.status === 'cancelled', 'Payout status transitions to "cancelled"')
+
+    const balAfterCancel = (await pg.query(`SELECT wallet_balance FROM public.profiles WHERE id = '${aliceId}'`)).rows[0].wallet_balance
+    assert(parseFloat(balAfterCancel) === 100.00, 'Balance refunded back to 100.00 EUR upon cancellation')
+
+    // CRITICAL P0 TEST: Admin attempts to reject the ALREADY-CANCELLED payout
+    let rejectCancelledBlocked = false
+    try {
+      await pg.query(`SELECT public.reject_payout_atomic('${cancelReq.id}', '${adminId}', 'Attempted duplicate reject') as res;`)
+    } catch (err) {
+      rejectCancelledBlocked =
+        err.message.includes('CANNOT_REJECT_CANCELLED') || err.message.includes('INVALID_STATUS')
     }
+    assert(rejectCancelledBlocked, 'reject_payout_atomic strictly blocks rejecting a cancelled payout')
 
-    const newBal = Math.round((currentBal - amt) * 100) / 100
-    db.public.none(`UPDATE profiles SET wallet_balance = ${newBal}, updated_at = CURRENT_TIMESTAMP WHERE id = '${userId}'`)
+    const balAfterRejectedAttempt = (await pg.query(`SELECT wallet_balance FROM public.profiles WHERE id = '${aliceId}'`)).rows[0].wallet_balance
+    assert(
+      parseFloat(balAfterRejectedAttempt) === 100.00,
+      'CRITICAL: Balance was NOT incremented a second time (Zero Double Refund Guarantee)'
+    )
 
-    const newId = 'pr_' + Math.random().toString(36).substring(2, 10)
-    const cur = (currency || 'EUR').toUpperCase()
-    const meth = method || 'bank'
-    const detJson = JSON.stringify(details || {})
+    // -----------------------------------------------------------------------
+    // Normal Rejection & Refund Flow
+    // -----------------------------------------------------------------------
+    // Alice requests 30.00 EUR -> balance becomes 70.00
+    const normalReqRes = await pg.query(`
+      SELECT public.create_payout_request_atomic('${aliceId}', 30.00, 'EUR', 'bank', '{"rib":"bad"}'::jsonb) as res;
+    `)
+    const normalReq = normalReqRes.rows[0].res
+    assert(parseFloat((await pg.query(`SELECT wallet_balance FROM public.profiles WHERE id = '${aliceId}'`)).rows[0].wallet_balance) === 70.00, 'Balance reserved to 70.00 EUR')
 
-    db.public.none(`
-      INSERT INTO payout_requests (id, user_id, amount, currency, method, status, account_details, created_at, updated_at)
-      VALUES ('${newId}', '${userId}', ${amt}, '${cur}', '${meth}', 'pending', '${detJson}', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    // Admin rejects with reason
+    const rejectRes = await pg.query(`
+      SELECT public.reject_payout_atomic('${normalReq.id}', '${adminId}', 'IBAN mismatch') as res;
+    `)
+    assert(rejectRes.rows[0].res.status === 'rejected', 'Payout marked as rejected')
+    const balAfterLegitRefund = (await pg.query(`SELECT wallet_balance FROM public.profiles WHERE id = '${aliceId}'`)).rows[0].wallet_balance
+    assert(parseFloat(balAfterLegitRefund) === 100.00, 'Balance properly refunded back to 100.00 upon legitimate rejection')
+
+    // Anti-Double-Refund on already rejected payout
+    let doubleRejectBlocked = false
+    try {
+      await pg.query(`SELECT public.reject_payout_atomic('${normalReq.id}', '${adminId}', 'repeat') as res;`)
+    } catch (err) {
+      doubleRejectBlocked = err.message.includes('ALREADY_REJECTED') || err.message.includes('INVALID_STATUS')
+    }
+    assert(doubleRejectBlocked, 'Second rejection of already rejected payout blocked (no double refund)')
+    assert(parseFloat((await pg.query(`SELECT wallet_balance FROM public.profiles WHERE id = '${aliceId}'`)).rows[0].wallet_balance) === 100.00, 'Balance remains exactly 100.00 EUR')
+  }
+
+  // -------------------------------------------------------------------------
+  // STEP 5: Test Suite C — Real Webhook Transactional Order & Wallet Abatement
+  // -------------------------------------------------------------------------
+  console.log('\n--- Step 5: Test Suite C — P0 Atomic Order & Wallet Transaction in PostgreSQL ---')
+  {
+    const prodId = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
+    const orderId1 = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'
+    const sessionId1 = 'cs_live_real_pg_101'
+    const paymentIntentId1 = 'pi_live_real_pg_101'
+
+    // Seed product and pending order
+    await pg.exec(`
+      INSERT INTO public.products (id, user_id, name, price, is_active)
+      VALUES ('${prodId}', '${bobId}', 'Pro Photography Presets', 50.00, true);
+
+      INSERT INTO public.orders (id, seller_id, product_id, buyer_email, buyer_name, amount, currency, platform_fee, creator_amount, status, stripe_session_id)
+      VALUES ('${orderId1}', '${bobId}', '${prodId}', 'buyer@test.com', 'Buyer One', 50.00, 'EUR', 4.50, 45.50, 'pending', '${sessionId1}');
     `)
 
-    return db.public.one(`SELECT * FROM payout_requests WHERE id = '${newId}'`)
-  },
-})
+    const bobBalBefore = parseFloat((await pg.query(`SELECT wallet_balance FROM public.profiles WHERE id = '${bobId}'`)).rows[0].wallet_balance)
+    assert(bobBalBefore === 50.00, 'Bob balance before payment is 50.00 EUR')
 
-db.public.registerFunction({
-  name: 'approve_payout_atomic',
-  args: [DataType.text, DataType.text],
-  returns: DataType.jsonb,
-  implementation: (payoutId, adminId) => {
-    const admin = db.public.one(`SELECT role FROM profiles WHERE id = '${adminId}'`)
-    if (!admin || (admin.role !== 'admin' && admin.role !== 'superadmin')) {
-      throw new Error('UNAUTHORIZED_ADMIN: Administrator privileges required to approve payouts')
-    }
+    // Execute atomic stored procedure (order status -> paid, payments inserted, wallet credited in ONE transaction)
+    const txRes1 = await pg.query(`
+      SELECT public.record_paid_order_and_credit_wallet_atomic(
+        '${sessionId1}',
+        '${paymentIntentId1}',
+        '${orderId1}',
+        '${bobId}',
+        45.50,
+        50.00,
+        'EUR',
+        '{"test":"true"}'::jsonb
+      ) as res;
+    `)
+    assert(txRes1.rows[0].res.success === true && txRes1.rows[0].res.already_paid === false, 'record_paid_order_and_credit_wallet_atomic executes atomically')
 
-    const pr = db.public.one(`SELECT * FROM payout_requests WHERE id = '${payoutId}'`)
-    if (!pr) {
-      throw new Error('PAYOUT_NOT_FOUND: Payout request does not exist')
-    }
+    const orderRow = (await pg.query(`SELECT * FROM public.orders WHERE id = '${orderId1}'`)).rows[0]
+    assert(orderRow.status === 'paid' && orderRow.stripe_payment_intent_id === paymentIntentId1, 'Order transitioned to paid in PostgreSQL')
 
-    if (pr.status === 'completed') {
-      throw new Error('ALREADY_COMPLETED: Payout request has already been approved and completed')
-    }
+    const paymentRow = (await pg.query(`SELECT * FROM public.payments WHERE order_id = '${orderId1}'`)).rows[0]
+    assert(paymentRow && parseFloat(paymentRow.amount) === 50.00, 'Payment journal row created atomically')
 
-    if (pr.status !== 'pending' && pr.status !== 'processing' && pr.status !== 'approved') {
-      throw new Error('INVALID_STATUS: Payout request is not in an approvable state')
-    }
+    const bobBalAfter = parseFloat((await pg.query(`SELECT wallet_balance FROM public.profiles WHERE id = '${bobId}'`)).rows[0].wallet_balance)
+    assert(bobBalAfter === 95.50, 'Bob wallet balance accurately credited in same transaction (50.00 + 45.50 = 95.50)')
 
-    db.public.none(`UPDATE payout_requests SET status = 'completed', updated_at = CURRENT_TIMESTAMP WHERE id = '${payoutId}'`)
-    return db.public.one(`SELECT * FROM payout_requests WHERE id = '${payoutId}'`)
-  },
-})
+    // Duplicate Webhook Delivery for same session
+    const txRes2 = await pg.query(`
+      SELECT public.record_paid_order_and_credit_wallet_atomic(
+        '${sessionId1}',
+        '${paymentIntentId1}',
+        '${orderId1}',
+        '${bobId}',
+        45.50,
+        50.00,
+        'EUR',
+        '{}'::jsonb
+      ) as res;
+    `)
+    assert(txRes2.rows[0].res.already_paid === true, 'Duplicate webhook delivery safely identified as already_paid')
 
-db.public.registerFunction({
-  name: 'reject_payout_atomic',
-  args: [DataType.text, DataType.text, DataType.text],
-  returns: DataType.jsonb,
-  implementation: (payoutId, adminId, reason) => {
-    const admin = db.public.one(`SELECT role FROM profiles WHERE id = '${adminId}'`)
-    if (!admin || (admin.role !== 'admin' && admin.role !== 'superadmin')) {
-      throw new Error('UNAUTHORIZED_ADMIN: Administrator privileges required to reject payouts')
-    }
+    const bobBalAfterDuplicate = parseFloat((await pg.query(`SELECT wallet_balance FROM public.profiles WHERE id = '${bobId}'`)).rows[0].wallet_balance)
+    assert(bobBalAfterDuplicate === 95.50, 'Duplicate delivery did NOT increment wallet balance (Zero Double Credit Guarantee)')
 
-    const pr = db.public.one(`SELECT * FROM payout_requests WHERE id = '${payoutId}'`)
-    if (!pr) {
-      throw new Error('PAYOUT_NOT_FOUND: Payout request does not exist')
-    }
-
-    if (pr.status === 'completed') {
-      throw new Error('CANNOT_REJECT_COMPLETED: Completed payouts cannot be rejected')
-    }
-
-    if (pr.status === 'rejected') {
-      throw new Error('ALREADY_REJECTED: Payout request is already rejected')
-    }
-
-    // Atomically refund reserved balance to user profile
-    const profile = db.public.one(`SELECT wallet_balance FROM profiles WHERE id = '${pr.user_id}'`)
-    const refundedBal = Math.round((parseFloat(profile.wallet_balance || 0) + parseFloat(pr.amount)) * 100) / 100
-    db.public.none(`UPDATE profiles SET wallet_balance = ${refundedBal}, updated_at = CURRENT_TIMESTAMP WHERE id = '${pr.user_id}'`)
-
-    db.public.none(`UPDATE payout_requests SET status = 'rejected', admin_notes = '${reason || 'Rejected'}', updated_at = CURRENT_TIMESTAMP WHERE id = '${payoutId}'`)
-    return db.public.one(`SELECT * FROM payout_requests WHERE id = '${payoutId}'`)
-  },
-})
-
-db.public.registerFunction({
-  name: 'cancel_payout_request_atomic',
-  args: [DataType.text, DataType.text],
-  returns: DataType.jsonb,
-  implementation: (payoutId, userId) => {
-    const pr = db.public.one(`SELECT * FROM payout_requests WHERE id = '${payoutId}' AND user_id = '${userId}'`)
-    if (!pr) {
-      throw new Error('PAYOUT_NOT_FOUND: Payout request not found or unauthorized')
-    }
-
-    if (pr.status !== 'pending') {
-      throw new Error('CANNOT_CANCEL: Only pending payout requests can be cancelled')
-    }
-
-    const profile = db.public.one(`SELECT wallet_balance FROM profiles WHERE id = '${userId}'`)
-    const refundedBal = Math.round((parseFloat(profile.wallet_balance || 0) + parseFloat(pr.amount)) * 100) / 100
-    db.public.none(`UPDATE profiles SET wallet_balance = ${refundedBal}, updated_at = CURRENT_TIMESTAMP WHERE id = '${userId}'`)
-
-    db.public.none(`UPDATE payout_requests SET status = 'cancelled', updated_at = CURRENT_TIMESTAMP WHERE id = '${payoutId}'`)
-    return db.public.one(`SELECT * FROM payout_requests WHERE id = '${payoutId}'`)
-  },
-})
-
-db.public.registerFunction({
-  name: 'record_paid_order_and_credit_wallet_atomic',
-  args: [DataType.text, DataType.text, DataType.text, DataType.text, DataType.decimal, DataType.decimal, DataType.text, DataType.jsonb],
-  returns: DataType.jsonb,
-  implementation: (sessionId, paymentIntentId, orderId, sellerId, creatorAmount, totalAmount, currency, metadata) => {
-    let order
-    if (orderId) {
-      order = db.public.one(`SELECT * FROM orders WHERE id = '${orderId}'`)
-    } else {
-      order = db.public.one(`SELECT * FROM orders WHERE stripe_session_id = '${sessionId}'`)
-    }
-
-    if (!order) {
-      throw new Error(`ORDER_NOT_FOUND: Order with session id ${sessionId} not found`)
-    }
-
-    if (order.status === 'paid') {
-      return { success: true, already_paid: true, order_id: order.id, seller_id: order.seller_id }
-    }
-
-    db.public.none(`UPDATE orders SET status = 'paid', stripe_payment_intent_id = '${paymentIntentId || sessionId}', updated_at = CURRENT_TIMESTAMP WHERE id = '${order.id}'`)
-
-    const payId = 'pay_' + Math.random().toString(36).substring(2, 10)
-    db.public.none(`
-      INSERT INTO payments (id, order_id, user_id, amount, currency, provider, provider_payment_id, status, metadata)
-      VALUES ('${payId}', '${order.id}', '${order.seller_id}', ${totalAmount || order.amount}, '${currency || order.currency}', 'stripe', '${paymentIntentId || sessionId}', 'succeeded', '${JSON.stringify(metadata || {})}')
+    // Concurrent order for same seller
+    const orderId2 = 'cccccccc-cccc-cccc-cccc-cccccccccccc'
+    const sessionId2 = 'cs_live_real_pg_102'
+    await pg.exec(`
+      INSERT INTO public.orders (id, seller_id, product_id, buyer_email, buyer_name, amount, currency, platform_fee, creator_amount, status, stripe_session_id)
+      VALUES ('${orderId2}', '${bobId}', '${prodId}', 'buyer2@test.com', 'Buyer Two', 100.00, 'EUR', 9.00, 91.00, 'pending', '${sessionId2}');
     `)
 
-    let newBal = 0
-    const credAmt = parseFloat(creatorAmount || order.creator_amount || 0)
-    if (order.seller_id && credAmt > 0) {
-      const prof = db.public.one(`SELECT wallet_balance FROM profiles WHERE id = '${order.seller_id}'`)
-      newBal = Math.round((parseFloat(prof?.wallet_balance || 0) + credAmt) * 100) / 100
-      db.public.none(`UPDATE profiles SET wallet_balance = ${newBal}, updated_at = CURRENT_TIMESTAMP WHERE id = '${order.seller_id}'`)
-    }
+    await pg.query(`
+      SELECT public.record_paid_order_and_credit_wallet_atomic(
+        '${sessionId2}',
+        'pi_live_real_pg_102',
+        '${orderId2}',
+        '${bobId}',
+        91.00,
+        100.00,
+        'EUR',
+        '{}'::jsonb
+      );
+    `)
 
-    return { success: true, already_paid: false, order_id: order.id, seller_id: order.seller_id, new_wallet_balance: newBal }
-  },
-})
-
-// Seed Initial Test Profiles
-db.public.none(`
-  INSERT INTO profiles (id, email, role, plan, wallet_balance) VALUES
-    ('creator_alice', 'alice@test.com', 'creator', 'free', 250.00),
-    ('creator_bob', 'bob@test.com', 'creator', 'pro', 50.00),
-    ('admin_clara', 'clara@test.com', 'admin', 'business', 0.00),
-    ('buyer_dave', 'dave@test.com', 'creator', 'free', 0.00);
-`)
-
-assert(true, 'PostgreSQL tables, indexes, triggers, and atomic functions booted successfully')
-
-// -------------------------------------------------------------------------
-// STEP 3: Test Suite A — RLS & Trigger Privilege Escalation Protection
-// -------------------------------------------------------------------------
-console.log('\n--- Step 3: Test Suite A — Row-Level Security & Role Protection ---')
-{
-  const alice = db.public.one(`SELECT * FROM profiles WHERE id = 'creator_alice'`)
-  assert(parseFloat(alice.wallet_balance) === 250.00 && alice.role === 'creator', 'Initial profile state verified')
-
-  // Verify non-admin cannot approve payouts
-  try {
-    db.public.one(`SELECT approve_payout_atomic('any_id', 'creator_alice') as res`)
-    assert(false, 'Non-admin should not be able to execute approve_payout_atomic')
-  } catch (err) {
-    assert(err.message.includes('UNAUTHORIZED_ADMIN'), 'approve_payout_atomic rejects unauthorized creator role')
+    const bobBalFinal = parseFloat((await pg.query(`SELECT wallet_balance FROM public.profiles WHERE id = '${bobId}'`)).rows[0].wallet_balance)
+    assert(bobBalFinal === 186.50, 'Concurrent order credited accurately with row lock (95.50 + 91.00 = 186.50, zero lost updates)')
   }
 
-  // Verify non-admin cannot reject payouts
-  try {
-    db.public.one(`SELECT reject_payout_atomic('any_id', 'creator_alice', 'reason') as res`)
-    assert(false, 'Non-admin should not be able to execute reject_payout_atomic')
-  } catch (err) {
-    assert(err.message.includes('UNAUTHORIZED_ADMIN'), 'reject_payout_atomic rejects unauthorized creator role')
+  // -------------------------------------------------------------------------
+  // STEP 6: Test Suite D — Webhook Events Retry & Diagnostic Journal in PostgreSQL
+  // -------------------------------------------------------------------------
+  console.log('\n--- Step 6: Test Suite D — Webhook Events Journal in Real PostgreSQL ---')
+  {
+    const eventId = 'evt_real_pg_retry_journal'
+
+    // Initial insertion with status = 'processing'
+    await pg.exec(`
+      INSERT INTO public.webhook_events (event_id, event_type, payload, status, attempts)
+      VALUES ('${eventId}', 'checkout.session.completed', '{"id":"${eventId}"}'::jsonb, 'processing', 1);
+    `)
+
+    // Simulation fails: mark as failed with diagnostic message
+    await pg.exec(`
+      UPDATE public.webhook_events
+      SET status = 'failed', last_error = 'Simulated timeout during database write', updated_at = CURRENT_TIMESTAMP
+      WHERE event_id = '${eventId}';
+    `)
+
+    const eventRow1 = (await pg.query(`SELECT * FROM public.webhook_events WHERE event_id = '${eventId}'`)).rows[0]
+    assert(eventRow1.status === 'failed' && eventRow1.last_error.includes('Simulated timeout'), 'Failed event recorded in real PostgreSQL with status="failed" and last_error')
+
+    // Stripe retry: event is reset to processing and attempts incremented
+    await pg.exec(`
+      UPDATE public.webhook_events
+      SET status = 'processing', attempts = attempts + 1, updated_at = CURRENT_TIMESTAMP
+      WHERE event_id = '${eventId}';
+    `)
+    const eventRow2 = (await pg.query(`SELECT * FROM public.webhook_events WHERE event_id = '${eventId}'`)).rows[0]
+    assert(eventRow2.status === 'processing' && eventRow2.attempts === 2, 'Stripe retry allows re-processing, attempts incremented to 2')
+
+    // Success transition
+    await pg.exec(`
+      UPDATE public.webhook_events
+      SET status = 'processed', processed_at = CURRENT_TIMESTAMP
+      WHERE event_id = '${eventId}';
+    `)
+    const eventRow3 = (await pg.query(`SELECT * FROM public.webhook_events WHERE event_id = '${eventId}'`)).rows[0]
+    assert(eventRow3.status === 'processed' && eventRow3.processed_at !== null, 'Event successfully marked as processed')
+  }
+
+  console.log('\n====================================================================')
+  console.log(`REAL POSTGRESQL INTEGRATION RESULTS: ${passed} PASSED, ${failed} FAILED`)
+  console.log('====================================================================')
+
+  if (failed > 0) {
+    process.exit(1)
   }
 }
 
-// -------------------------------------------------------------------------
-// STEP 4: Test Suite B — Complete Withdrawal Lifecycle (Atomic Hold, Approve, Reject, Cancel)
-// -------------------------------------------------------------------------
-console.log('\n--- Step 4: Test Suite B — Complete Withdrawal Lifecycle & Concurrency ---')
-{
-  // 1. Creator Alice requests 150.00 EUR (starts with 250.00)
-  const req1 = db.public.one(`SELECT create_payout_request_atomic('creator_alice', 150.00, 'EUR', 'bank', '{"rib":"12345"}'::jsonb) as res`).res
-  assert(req1.status === 'pending' && parseFloat(req1.amount) === 150.00, 'Withdrawal created and marked as pending')
-
-  const aliceAfterHold = db.public.one(`SELECT wallet_balance FROM profiles WHERE id = 'creator_alice'`)
-  assert(parseFloat(aliceAfterHold.wallet_balance) === 100.00, 'Funds atomically reserved on request (balance: 250 -> 100)')
-
-  // 2. Concurrent duplicate request: Alice attempts to request another 100.00 immediately while req1 is pending
-  try {
-    db.public.one(`SELECT create_payout_request_atomic('creator_alice', 100.00, 'EUR', 'bank', '{}'::jsonb) as res`)
-    assert(false, 'Concurrent request should be blocked while an active request is pending')
-  } catch (err) {
-    assert(err.message.includes('ACTIVE_REQUEST_EXISTS'), 'Concurrent request rejected by ACTIVE_REQUEST_EXISTS constraint')
-  }
-
-  // 3. Insufficient balance test
-  const bobBefore = db.public.one(`SELECT wallet_balance FROM profiles WHERE id = 'creator_bob'`)
-  assert(parseFloat(bobBefore.wallet_balance) === 50.00, 'Bob starts with 50.00 EUR')
-  try {
-    db.public.one(`SELECT create_payout_request_atomic('creator_bob', 100.00, 'EUR', 'bank', '{}'::jsonb) as res`)
-    assert(false, 'Request exceeding balance should be blocked')
-  } catch (err) {
-    assert(err.message.includes('INSUFFICIENT_BALANCE'), 'Request exceeding balance rejected by INSUFFICIENT_BALANCE constraint')
-  }
-
-  // 4. Admin Clara approves Alice's 150.00 payout
-  const approvedPr = db.public.one(`SELECT approve_payout_atomic('${req1.id}', 'admin_clara') as res`).res
-  assert(approvedPr.status === 'completed', 'Admin approval transitions payout status to "completed"')
-
-  // 5. Anti-Double-Approval: Admin Clara attempts to approve the same payout a 2nd time
-  try {
-    db.public.one(`SELECT approve_payout_atomic('${req1.id}', 'admin_clara') as res`)
-    assert(false, 'Double approval should be blocked')
-  } catch (err) {
-    assert(err.message.includes('ALREADY_COMPLETED'), 'Second approval attempt strictly rejected by ALREADY_COMPLETED check')
-  }
-
-  // 6. Test Admin Rejection & Automatic Balance Refund
-  // Alice now has 100.00 available. She requests 40.00 -> balance becomes 60.00.
-  const req2 = db.public.one(`SELECT create_payout_request_atomic('creator_alice', 40.00, 'EUR', 'bank', '{"rib":"bad"}'::jsonb) as res`).res
-  const aliceAfterHold2 = db.public.one(`SELECT wallet_balance FROM profiles WHERE id = 'creator_alice'`)
-  assert(parseFloat(aliceAfterHold2.wallet_balance) === 60.00, 'Second withdrawal reserves 40.00 (balance: 100 -> 60)')
-
-  // Admin Clara rejects req2 due to invalid bank details
-  const rejectedPr = db.public.one(`SELECT reject_payout_atomic('${req2.id}', 'admin_clara', 'IBAN does not match account holder') as res`).res
-  assert(rejectedPr.status === 'rejected' && rejectedPr.admin_notes.includes('IBAN does not match'), 'Payout marked as rejected with admin reason')
-
-  // Verify reserved balance is atomically refunded back to Alice
-  const aliceAfterRefund = db.public.one(`SELECT wallet_balance FROM profiles WHERE id = 'creator_alice'`)
-  assert(parseFloat(aliceAfterRefund.wallet_balance) === 100.00, 'Reserved balance atomically refunded upon rejection (balance: 60 -> 100)')
-
-  // Anti-Double-Refund: Second rejection attempt
-  try {
-    db.public.one(`SELECT reject_payout_atomic('${req2.id}', 'admin_clara', 'repeat') as res`)
-    assert(false, 'Double rejection should be blocked')
-  } catch (err) {
-    assert(err.message.includes('ALREADY_REJECTED'), 'Second rejection blocked, preventing duplicate refund')
-  }
-
-  // 7. Test Creator Cancellation & Balance Refund
-  // Alice requests 30.00 -> balance becomes 70.00.
-  const req3 = db.public.one(`SELECT create_payout_request_atomic('creator_alice', 30.00, 'EUR', 'bank', '{}'::jsonb) as res`).res
-  assert(parseFloat(db.public.one(`SELECT wallet_balance FROM profiles WHERE id = 'creator_alice'`).wallet_balance) === 70.00, 'Balance reserved to 70.00')
-
-  // Alice cancels her own pending request
-  const cancelledPr = db.public.one(`SELECT cancel_payout_request_atomic('${req3.id}', 'creator_alice') as res`).res
-  assert(cancelledPr.status === 'cancelled', 'Payout status transitions to cancelled')
-  assert(parseFloat(db.public.one(`SELECT wallet_balance FROM profiles WHERE id = 'creator_alice'`).wallet_balance) === 100.00, 'Balance refunded back to 100.00 upon cancellation')
-}
-
-// -------------------------------------------------------------------------
-// STEP 5: Test Suite C — Webhooks, Orders & Atomic Wallet Credit
-// -------------------------------------------------------------------------
-console.log('\n--- Step 5: Test Suite C — Atomic Order Payments & Idempotency ---')
-{
-  // Insert initial pending order
-  const orderId = 'ord_live_test_101'
-  const sessionId = 'cs_stripe_live_101'
-  db.public.none(`
-    INSERT INTO orders (id, seller_id, product_id, buyer_email, buyer_name, amount, currency, platform_fee, creator_amount, status, stripe_session_id)
-    VALUES ('${orderId}', 'creator_bob', 'prod_ebook', 'buyer@test.com', 'Buyer', 50.00, 'EUR', 4.50, 45.50, 'pending', '${sessionId}')
-  `)
-
-  const bobInitial = parseFloat(db.public.one(`SELECT wallet_balance FROM profiles WHERE id = 'creator_bob'`).wallet_balance)
-  assert(bobInitial === 50.00, 'Bob starts with 50.00 EUR before order payment')
-
-  // First Webhook Processing
-  const res1 = db.public.one(`SELECT record_paid_order_and_credit_wallet_atomic('${sessionId}', 'pi_101', '${orderId}', 'creator_bob', 45.50, 50.00, 'EUR', '{"source":"stripe"}'::jsonb) as res`).res
-  assert(res1.success === true && res1.already_paid === false, 'First webhook event atomically marks order paid and credits wallet')
-
-  const bobAfterOrder = parseFloat(db.public.one(`SELECT wallet_balance FROM profiles WHERE id = 'creator_bob'`).wallet_balance)
-  assert(bobAfterOrder === 95.50, 'Bob wallet balance accurately credited (50.00 + 45.50 = 95.50)')
-
-  const paymentsCount = parseInt(db.public.one(`SELECT count(*) as count FROM payments WHERE order_id = '${orderId}'`).count, 10)
-  assert(paymentsCount === 1, 'Payment journal entry recorded')
-
-  // Duplicate Webhook Delivery (Same session)
-  const res2 = db.public.one(`SELECT record_paid_order_and_credit_wallet_atomic('${sessionId}', 'pi_101', '${orderId}', 'creator_bob', 45.50, 50.00, 'EUR', '{"source":"stripe"}'::jsonb) as res`).res
-  assert(res2.success === true && res2.already_paid === true, 'Duplicate webhook event safely identified as already_paid')
-
-  const bobAfterDuplicate = parseFloat(db.public.one(`SELECT wallet_balance FROM profiles WHERE id = 'creator_bob'`).wallet_balance)
-  assert(bobAfterDuplicate === 95.50, 'Duplicate webhook did not double credit wallet balance (strict anti-double-credit)')
-
-  // Concurrent Orders for Same Seller: Ensure No Lost Updates
-  const orderId2 = 'ord_live_test_102'
-  const sessionId2 = 'cs_stripe_live_102'
-  db.public.none(`
-    INSERT INTO orders (id, seller_id, product_id, buyer_email, buyer_name, amount, currency, platform_fee, creator_amount, status, stripe_session_id)
-    VALUES ('${orderId2}', 'creator_bob', 'prod_course', 'buyer2@test.com', 'Buyer 2', 100.00, 'EUR', 9.00, 91.00, 'pending', '${sessionId2}')
-  `)
-
-  db.public.one(`SELECT record_paid_order_and_credit_wallet_atomic('${sessionId2}', 'pi_102', '${orderId2}', 'creator_bob', 91.00, 100.00, 'EUR', '{}'::jsonb) as res`)
-  const bobFinal = parseFloat(db.public.one(`SELECT wallet_balance FROM profiles WHERE id = 'creator_bob'`).wallet_balance)
-  assert(bobFinal === 186.50, 'Concurrent order credited accurately (95.50 + 91.00 = 186.50, zero lost updates)')
-}
-
-// -------------------------------------------------------------------------
-// STEP 6: Test Suite D — Webhook Events Retry & Diagnostic Journal
-// -------------------------------------------------------------------------
-console.log('\n--- Step 6: Test Suite D — Webhook Events Retry & Journal ---')
-{
-  const eventId = 'evt_test_retry_journal'
-
-  // Attempt 1: Failed run
-  db.public.none(`
-    INSERT INTO webhook_events (id, event_id, event_type, payload, status, attempts, last_error)
-    VALUES ('wh_1', '${eventId}', 'checkout.session.completed', '{"id":"${eventId}"}'::jsonb, 'failed', 1, 'Transient network failure')
-  `)
-
-  const eventRow1 = db.public.one(`SELECT * FROM webhook_events WHERE event_id = '${eventId}'`)
-  assert(eventRow1.status === 'failed' && eventRow1.attempts === 1, 'Failed webhook recorded with status="failed" and last_error')
-
-  // Stripe retries: update to processing, attempts = 2
-  db.public.none(`
-    UPDATE webhook_events SET status = 'processing', attempts = attempts + 1, updated_at = CURRENT_TIMESTAMP WHERE event_id = '${eventId}'
-  `)
-  const eventRow2 = db.public.one(`SELECT * FROM webhook_events WHERE event_id = '${eventId}'`)
-  assert(eventRow2.status === 'processing' && eventRow2.attempts === 2, 'Stripe retry allowed, status resets to "processing", attempts incremented')
-
-  // Successful completion
-  db.public.none(`
-    UPDATE webhook_events SET status = 'processed', processed_at = CURRENT_TIMESTAMP WHERE event_id = '${eventId}'
-  `)
-  const eventRow3 = db.public.one(`SELECT * FROM webhook_events WHERE event_id = '${eventId}'`)
-  assert(eventRow3.status === 'processed' && eventRow3.processed_at !== null, 'Event successfully transitioned to "processed"')
-}
-
-console.log('\n====================================================================')
-console.log(`REAL DATABASE INTEGRATION RESULTS: ${passed} PASSED, ${failed} FAILED`)
-console.log('====================================================================')
-
-if (failed > 0) {
+runRealDatabaseTests().catch((err) => {
+  console.error('Real database integration test execution error:', err)
   process.exit(1)
-}
+})

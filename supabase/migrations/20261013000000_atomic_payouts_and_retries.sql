@@ -9,6 +9,14 @@ alter table if exists public.webhook_events
   add column if not exists last_error text,
   add column if not exists updated_at timestamptz default now();
 
+-- Update payout_requests status constraint to include 'cancelled'
+alter table if exists public.payout_requests
+  drop constraint if exists payout_requests_status_check;
+
+alter table if exists public.payout_requests
+  add constraint payout_requests_status_check
+  check (status in ('pending', 'processing', 'approved', 'completed', 'rejected', 'cancelled'));
+
 -- 2. Atomic Withdrawal Request Creation with Row Locking & Immediate Reservation
 create or replace function public.create_payout_request_atomic(
   p_user_id uuid,
@@ -23,6 +31,7 @@ declare
   v_active_count integer;
   v_new_request public.payout_requests%rowtype;
 begin
+  perform set_config('linksocio.internal_tx', 'true', true);
   if p_amount <= 0 or p_amount is null then
     raise exception 'INVALID_AMOUNT: Withdrawal amount must be greater than zero';
   end if;
@@ -144,6 +153,7 @@ declare
   v_admin_role text;
   v_request public.payout_requests%rowtype;
 begin
+  perform set_config('linksocio.internal_tx', 'true', true);
   select role into v_admin_role
   from public.profiles
   where id = p_admin_id;
@@ -167,6 +177,15 @@ begin
 
   if v_request.status = 'rejected' then
     raise exception 'ALREADY_REJECTED: Payout request is already rejected';
+  end if;
+
+  if v_request.status = 'cancelled' then
+    raise exception 'CANNOT_REJECT_CANCELLED: Cancelled payouts cannot be rejected or refunded again';
+  end if;
+
+  -- Strictly require that current status is an active refundable state ('pending' or 'processing')
+  if v_request.status not in ('pending', 'processing') then
+    raise exception 'INVALID_STATUS: Payout request in status ''%'' is not in a refundable state', v_request.status;
   end if;
 
   -- Refund reserved balance back to user profile
@@ -196,6 +215,7 @@ returns jsonb as $$
 declare
   v_request public.payout_requests%rowtype;
 begin
+  perform set_config('linksocio.internal_tx', 'true', true);
   select * into v_request
   from public.payout_requests
   where id = p_payout_id and user_id = p_user_id
@@ -241,6 +261,7 @@ declare
   v_order public.orders%rowtype;
   v_new_balance numeric;
 begin
+  perform set_config('linksocio.internal_tx', 'true', true);
   if p_order_id is not null then
     select * into v_order from public.orders where id = p_order_id for update;
   else

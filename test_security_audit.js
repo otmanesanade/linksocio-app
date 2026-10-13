@@ -602,6 +602,100 @@ async function runTests() {
   }
 
   // -------------------------------------------------------------------------
+  // MANDATORY TEST 4B: P0 Anti-Double-Refund — Cancelled Payout Cannot Be Rejected
+  // -------------------------------------------------------------------------
+  console.log('\n--- Mandatory Test 4B: Anti-Double-Refund (Cancelled Payout Cannot Be Rejected) ---')
+  {
+    const creatorUser = { id: 'creator_cancel_test', role: 'creator' }
+    const adminUser = { id: 'admin_cancel_test', role: 'admin' }
+
+    let creatorBalance = 100.00
+    let payoutRecord = {
+      id: 'payout_cancel_44',
+      user_id: creatorUser.id,
+      amount: 60.00,
+      status: 'pending',
+    }
+    // Balance initially held down to 40.00
+    creatorBalance -= payoutRecord.amount
+
+    const mockDb = {
+      from(table) {
+        if (table === 'profiles') {
+          return {
+            select: () => ({
+              eq: (col, val) => ({
+                single: async () => ({
+                  data: { id: val, role: val === adminUser.id ? 'admin' : 'creator', wallet_balance: creatorBalance },
+                  error: null,
+                }),
+              }),
+            }),
+          }
+        }
+        return {
+          select: () => ({ eq: () => ({ single: async () => ({ data: null, error: null }) }) }),
+        }
+      },
+      rpc: async (name, args) => {
+        if (name === 'cancel_payout_request_atomic') {
+          if (payoutRecord.status !== 'pending') {
+            return { data: null, error: { message: 'CANNOT_CANCEL: Only pending payouts can be cancelled' } }
+          }
+          payoutRecord.status = 'cancelled'
+          creatorBalance += payoutRecord.amount
+          return { data: { ...payoutRecord }, error: null }
+        }
+        if (name === 'reject_payout_atomic') {
+          if (payoutRecord.status === 'cancelled') {
+            return { data: null, error: { message: 'CANNOT_REJECT_CANCELLED: Cancelled payouts cannot be rejected or refunded again' } }
+          }
+          if (payoutRecord.status !== 'pending' && payoutRecord.status !== 'processing') {
+            return { data: null, error: { message: `INVALID_STATUS: Payout request in status '${payoutRecord.status}' is not in a refundable state` } }
+          }
+          payoutRecord.status = 'rejected'
+          creatorBalance += payoutRecord.amount
+          return { data: { ...payoutRecord }, error: null }
+        }
+        return { data: null, error: { message: 'Unknown RPC' } }
+      },
+    }
+    __setMockSupabaseClient(mockDb)
+
+    // 1. Creator cancels their own pending payout
+    __setMockAuthUser(creatorUser)
+    const { req: cancelReq, res: cancelRes } = createMockReqRes({
+      method: 'POST',
+      url: '/api/payouts/cancel',
+      body: { payoutId: 'payout_cancel_44' },
+    })
+    await payoutsHandler(cancelReq, cancelRes)
+    const cancelResp = cancelRes.getResponse()
+
+    assert(cancelResp.statusCode === 200 && cancelResp.json?.success === true, 'Creator cancels pending payout request successfully')
+    assert(creatorBalance === 100.00, 'Balance refunded back to 100.00 upon user cancellation')
+
+    // 2. Admin attempts to reject the cancelled payout request
+    __setMockAuthUser(adminUser)
+    const { req: rejectReq, res: rejectRes } = createMockReqRes({
+      method: 'POST',
+      url: '/api/payouts/reject',
+      body: { payoutId: 'payout_cancel_44', reason: 'Attempt duplicate reject' },
+    })
+    await payoutsHandler(rejectReq, rejectRes)
+    const rejectResp = rejectRes.getResponse()
+
+    assert(
+      rejectResp.statusCode === 409 && rejectResp.json?.error.includes('Cannot reject cancelled payout request'),
+      'Admin reject endpoint rejects cancelled payout with 409 Conflict'
+    )
+    assert(
+      creatorBalance === 100.00,
+      'CRITICAL: Balance was NOT incremented again after rejected attempt (Zero Double Refund Guarantee)'
+    )
+  }
+
+  // -------------------------------------------------------------------------
   // MANDATORY TEST 5: Reject Invalid Subscription planId (Priority 4)
   // -------------------------------------------------------------------------
   console.log('\n--- Mandatory Test 5: Subscription Plan Authorization & Price Binding ---')

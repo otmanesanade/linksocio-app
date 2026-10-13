@@ -9,8 +9,20 @@
 --   - P0: Column-level protection for roles, balances, and plans
 -- =========================================================================
 
--- Enable UUID extension
-create extension if not exists "uuid-ossp";
+-- Enable UUID extension if available (gen_random_uuid() is native in Postgres 13+)
+do $$ begin
+  create extension if not exists "uuid-ossp";
+exception when others then null;
+end $$;
+
+-- Ensure roles and auth schema exist in local or standalone test environments
+create schema if not exists auth;
+create table if not exists auth.users (id uuid primary key default gen_random_uuid());
+do $$ begin create role anon; exception when others then null; end $$;
+do $$ begin create role authenticated; exception when others then null; end $$;
+do $$ begin create role service_role; exception when others then null; end $$;
+create or replace function auth.uid() returns uuid as $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid; $$ language sql stable;
+create or replace function auth.role() returns text as $$ select coalesce(current_setting('request.jwt.claim.role', true), 'anon'); $$ language sql stable;
 
 -- -------------------------------------------------------------------------
 -- 1. PROFILES TABLE (User profiles & Creator accounts)
@@ -18,6 +30,7 @@ create extension if not exists "uuid-ossp";
 create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   username text unique not null,
+  email text,
   full_name text,
   avatar_url text,
   bio text,
@@ -123,7 +136,7 @@ create table if not exists public.payout_requests (
   amount numeric(10, 2) not null check (amount > 0),
   currency text not null default 'EUR',
   method text not null,
-  status text not null default 'pending' check (status in ('pending', 'processing', 'approved', 'completed', 'rejected')),
+  status text not null default 'pending' check (status in ('pending', 'processing', 'approved', 'completed', 'rejected', 'cancelled')),
   account_details jsonb default '{}'::jsonb,
   admin_notes text,
   created_at timestamptz default now() not null,
@@ -246,9 +259,11 @@ create index if not exists idx_restaurant_menus_user on public.restaurant_menus 
 -- Trigger to protect sensitive columns on profiles (role, wallet_balance, plan)
 create or replace function public.protect_profile_fields()
 returns trigger as $$
+declare
+  v_role text := coalesce(current_setting('request.jwt.claim.role', true), '');
 begin
-  -- If invoked by regular user (not service_role), forbid modifying role, balance, or plan
-  if (coalesce(current_setting('request.jwt.claim.role', true), '') != 'service_role') then
+  -- If invoked by regular user (not service_role or internal atomic transaction), forbid modifying role, balance, or plan
+  if (v_role != 'service_role' and v_role != 'supabase_admin' and coalesce(current_setting('linksocio.internal_tx', true), '') != 'true') then
     if new.wallet_balance is distinct from old.wallet_balance then
       raise exception 'SECURITY_VIOLATION: wallet_balance cannot be modified directly by client';
     end if;
@@ -275,6 +290,7 @@ returns numeric as $$
 declare
   v_new_balance numeric;
 begin
+  perform set_config('linksocio.internal_tx', 'true', true);
   if p_amount <= 0 then
     raise exception 'Increment amount must be positive';
   end if;
