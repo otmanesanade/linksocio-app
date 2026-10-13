@@ -886,6 +886,128 @@ async function runTests() {
     )
   }
 
+  // -------------------------------------------------------------------------
+  // MANDATORY TEST 7: Order Self-Healing Recovery with Pending Status & Atomic Credit (P1)
+  // -------------------------------------------------------------------------
+  console.log('\n--- Mandatory Test 7: Order Recovery with Pending Status & Atomic Credit ---')
+  {
+    const missingSessionId = 'cs_recovered_orphan_888'
+    const sellerId = 'seller_recov_111'
+    const prodId = 'prod_recov_222'
+
+    let insertedOrderStatus = null
+    let rpcCalledWithStatus = null
+    let sellerWallet = 100.00
+    let paymentJournalCreated = false
+
+    const mockDb = {
+      from(table) {
+        if (table === 'webhook_events') {
+          return {
+            select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null, error: null }) }) }),
+            insert: async () => ({ error: null }),
+            update: () => ({ eq: async () => ({ error: null }) }),
+          }
+        }
+        if (table === 'orders') {
+          return {
+            select: () => ({
+              eq: () => ({
+                maybeSingle: async () => ({ data: null, error: null }), // Order initially NOT found
+              }),
+            }),
+            insert: (orderData) => {
+              insertedOrderStatus = orderData.status
+              return {
+                select: () => ({
+                  single: async () => ({
+                    data: { id: 'order_recov_333', ...orderData },
+                    error: null,
+                  }),
+                }),
+              }
+            },
+          }
+        }
+        if (table === 'products') {
+          return {
+            select: () => ({
+              eq: () => ({
+                maybeSingle: async () => ({
+                  data: { id: prodId, user_id: sellerId, price: '50.00', name: 'Digital Guide' },
+                  error: null,
+                }),
+              }),
+            }),
+          }
+        }
+        return {
+          select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null, error: null }) }) }),
+        }
+      },
+      rpc: async (name, args) => {
+        if (name === 'record_paid_order_and_credit_wallet_atomic') {
+          rpcCalledWithStatus = insertedOrderStatus
+          if (insertedOrderStatus === 'pending') {
+            sellerWallet += args.p_creator_amount
+            paymentJournalCreated = true
+            return {
+              data: { success: true, already_paid: false, new_balance: sellerWallet },
+              error: null,
+            }
+          }
+          return {
+            data: { success: true, already_paid: true },
+            error: null,
+          }
+        }
+        return { data: null, error: { message: 'Unknown RPC' } }
+      },
+    }
+    __setMockSupabaseClient(mockDb)
+
+    __setMockStripe({
+      webhooks: {
+        constructEvent: () => ({
+          id: 'evt_recovery_test_888',
+          type: 'checkout.session.completed',
+          data: {
+            object: {
+              id: missingSessionId,
+              payment_intent: 'pi_recov_888',
+              amount_total: 5000,
+              currency: 'eur',
+              customer_details: { email: 'buyer@test.com' },
+              metadata: {
+                type: 'digital_product',
+                productId: prodId,
+                sellerUserId: sellerId,
+                creatorAmount: '4550',
+                buyerName: 'Buyer Recovery',
+              },
+            },
+          },
+        }),
+      },
+    })
+
+    const { req: whReq, res: whRes } = createMockReqRes({
+      method: 'POST',
+      url: '/api/webhook',
+      headers: { 'stripe-signature': 'valid_sig' },
+      body: JSON.stringify({ id: 'evt_recovery_test_888' }),
+    })
+
+    await webhookHandler(whReq, whRes)
+    const whResp = whRes.getResponse()
+
+    assert(whResp.statusCode === 200, 'Webhook executes successfully for recovered missing order')
+    assert(insertedOrderStatus === 'pending', 'CRITICAL P1: Recovered order is inserted with status="pending" (NOT "paid")')
+    assert(rpcCalledWithStatus === 'pending', 'record_paid_order_and_credit_wallet_atomic was called on pending order')
+    assert(paymentJournalCreated === true, 'Payment journal entry created atomically')
+    assert(sellerWallet === 145.50, 'Seller wallet credited atomically with creatorAmount (100.00 + 45.50 = 145.50)')
+  }
+
   console.log('\n====================================================')
   console.log(`AUDIT TEST RESULTS: ${passed} PASSED, ${failed} FAILED`)
   console.log('====================================================')

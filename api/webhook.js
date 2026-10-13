@@ -169,6 +169,9 @@ export default async function handler(req, res) {
             const feeAmount = Math.round(totalAmount * 0.09 * 100) / 100
             const netAmount = Math.round((totalAmount - feeAmount) * 100) / 100
 
+            // P1 FIX: Insert recovered order in 'pending' status so the atomic stored procedure
+            // record_paid_order_and_credit_wallet_atomic manages the transition to 'paid',
+            // creates the payment journal entry, and credits the seller's wallet atomically.
             const { data: recoveredOrder, error: recovErr } = await supabase
               .from('orders')
               .insert({
@@ -180,7 +183,7 @@ export default async function handler(req, res) {
                 currency: (session.currency || 'eur').toUpperCase(),
                 platform_fee: feeAmount,
                 creator_amount: netAmount,
-                status: 'paid',
+                status: 'pending',
                 stripe_session_id: sessionId,
                 stripe_payment_intent_id: paymentIntentId,
               })
@@ -194,15 +197,19 @@ export default async function handler(req, res) {
           }
 
           // ATOMIC TRANSACTION: Execute order status update, payment journal, and wallet credit together in PostgreSQL
+          const effectiveSellerId = sellerUserId || targetOrder?.seller_id || null
+          const effectiveCreatorAmount = creatorAmount > 0 ? creatorAmount : (targetOrder?.creator_amount || 0)
+          const effectiveTotalAmount = totalAmount > 0 ? totalAmount : (targetOrder?.amount || 0)
+
           const { data: atomicResult, error: atomicErr } = await supabase.rpc(
             'record_paid_order_and_credit_wallet_atomic',
             {
               p_session_id: sessionId,
               p_payment_intent_id: paymentIntentId || sessionId,
               p_order_id: targetOrder?.id || null,
-              p_seller_id: sellerUserId || null,
-              p_creator_amount: creatorAmount,
-              p_total_amount: totalAmount,
+              p_seller_id: effectiveSellerId,
+              p_creator_amount: effectiveCreatorAmount,
+              p_total_amount: effectiveTotalAmount,
               p_currency: (session.currency || 'eur').toUpperCase(),
               p_metadata: session.metadata || {},
             }
