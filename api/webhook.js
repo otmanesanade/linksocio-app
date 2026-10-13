@@ -244,28 +244,8 @@ export default async function handler(req, res) {
               })
 
               if (rpcErr) {
-                console.warn('RPC increment_wallet_balance notice, performing direct atomic balance credit:', rpcErr.message)
-                const { data: profile, error: profErr } = await supabase
-                  .from('profiles')
-                  .select('wallet_balance')
-                  .eq('id', sellerUserId)
-                  .single()
-
-                if (profErr) {
-                  throw new Error(`Database error fetching creator profile: ${profErr.message}`)
-                }
-
-                if (profile) {
-                  const newBalance = Math.round(((Number(profile.wallet_balance) || 0) + creatorAmount) * 100) / 100
-                  const { error: updateBalErr } = await supabase
-                    .from('profiles')
-                    .update({ wallet_balance: newBalance, updated_at: new Date().toISOString() })
-                    .eq('id', sellerUserId)
-
-                  if (updateBalErr) {
-                    throw new Error(`Database error updating wallet balance: ${updateBalErr.message}`)
-                  }
-                }
+                console.error('CRITICAL: increment_wallet_balance failed. Refusing non-atomic fallback:', rpcErr.message)
+                throw new Error(`CRITICAL_FINANCIAL_ERROR: increment_wallet_balance RPC failed: ${rpcErr.message}. Failing closed for safe Stripe retry.`)
               }
             }
           } else {

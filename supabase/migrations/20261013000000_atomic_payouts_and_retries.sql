@@ -187,7 +187,130 @@ begin
 end;
 $$ language plpgsql security definer;
 
--- 5. Revoke direct execution from untrusted roles; grant exclusively to service_role
+-- 5. Atomic Cancellation of Pending Payout by Creator with Refund
+create or replace function public.cancel_payout_request_atomic(
+  p_payout_id uuid,
+  p_user_id uuid
+)
+returns jsonb as $$
+declare
+  v_request public.payout_requests%rowtype;
+begin
+  select * into v_request
+  from public.payout_requests
+  where id = p_payout_id and user_id = p_user_id
+  for update;
+
+  if not found then
+    raise exception 'PAYOUT_NOT_FOUND: Payout request not found or unauthorized';
+  end if;
+
+  if v_request.status != 'pending' then
+    raise exception 'CANNOT_CANCEL: Only pending payout requests can be cancelled';
+  end if;
+
+  -- Refund reserved balance back to profile
+  update public.profiles
+  set wallet_balance = round((coalesce(wallet_balance, 0) + v_request.amount)::numeric, 2),
+      updated_at = now()
+  where id = p_user_id;
+
+  update public.payout_requests
+  set status = 'cancelled',
+      updated_at = now()
+  where id = p_payout_id
+  returning * into v_request;
+
+  return to_jsonb(v_request);
+end;
+$$ language plpgsql security definer;
+
+-- 6. Atomic Paid Order Transition and Wallet Balance Credit
+create or replace function public.record_paid_order_and_credit_wallet_atomic(
+  p_session_id text,
+  p_payment_intent_id text default null,
+  p_order_id uuid default null,
+  p_seller_id uuid default null,
+  p_creator_amount numeric default null,
+  p_total_amount numeric default null,
+  p_currency text default 'EUR',
+  p_metadata jsonb default '{}'::jsonb
+)
+returns jsonb as $$
+declare
+  v_order public.orders%rowtype;
+  v_new_balance numeric;
+begin
+  if p_order_id is not null then
+    select * into v_order from public.orders where id = p_order_id for update;
+  else
+    select * into v_order from public.orders where stripe_session_id = p_session_id for update;
+  end if;
+
+  if not found then
+    raise exception 'ORDER_NOT_FOUND: Order with session id % not found', p_session_id;
+  end if;
+
+  -- Idempotency check: if already paid, do not double credit
+  if v_order.status = 'paid' then
+    return jsonb_build_object(
+      'success', true,
+      'already_paid', true,
+      'order_id', v_order.id,
+      'seller_id', v_order.seller_id
+    );
+  end if;
+
+  -- Transition order status to paid
+  update public.orders
+  set status = 'paid',
+      stripe_payment_intent_id = coalesce(p_payment_intent_id, stripe_payment_intent_id),
+      updated_at = now()
+  where id = v_order.id
+  returning * into v_order;
+
+  -- Insert into payments journal if not already recorded
+  insert into public.payments (
+    order_id,
+    user_id,
+    amount,
+    currency,
+    provider,
+    provider_payment_id,
+    status,
+    metadata
+  ) values (
+    v_order.id,
+    v_order.seller_id,
+    coalesce(p_total_amount, v_order.amount),
+    coalesce(p_currency, v_order.currency),
+    'stripe',
+    coalesce(p_payment_intent_id, p_session_id),
+    'succeeded',
+    coalesce(p_metadata, '{}'::jsonb)
+  )
+  on conflict (provider_payment_id) do nothing;
+
+  -- Atomically credit the seller's wallet balance
+  if v_order.seller_id is not null and coalesce(v_order.creator_amount, p_creator_amount, 0) > 0 then
+    update public.profiles
+    set wallet_balance = round((coalesce(wallet_balance, 0) + coalesce(v_order.creator_amount, p_creator_amount, 0))::numeric, 2),
+        updated_at = now()
+    where id = v_order.seller_id
+    returning wallet_balance into v_new_balance;
+  end if;
+
+  return jsonb_build_object(
+    'success', true,
+    'already_paid', false,
+    'order_id', v_order.id,
+    'seller_id', v_order.seller_id,
+    'new_wallet_balance', v_new_balance
+  );
+end;
+$$ language plpgsql security definer;
+
+-- 7. Revoke direct execution from untrusted roles; grant exclusively to service_role
 revoke execute on function public.create_payout_request_atomic(uuid, numeric, text, text, jsonb) from public, anon, authenticated;
 grant execute on function public.create_payout_request_atomic(uuid, numeric, text, text, jsonb) to service_role;
 
@@ -196,3 +319,9 @@ grant execute on function public.approve_payout_atomic(uuid, uuid) to service_ro
 
 revoke execute on function public.reject_payout_atomic(uuid, uuid, text) from public, anon, authenticated;
 grant execute on function public.reject_payout_atomic(uuid, uuid, text) to service_role;
+
+revoke execute on function public.cancel_payout_request_atomic(uuid, uuid) from public, anon, authenticated;
+grant execute on function public.cancel_payout_request_atomic(uuid, uuid) to service_role;
+
+revoke execute on function public.record_paid_order_and_credit_wallet_atomic(text, text, uuid, uuid, numeric, numeric, text, jsonb) from public, anon, authenticated;
+grant execute on function public.record_paid_order_and_credit_wallet_atomic(text, text, uuid, uuid, numeric, numeric, text, jsonb) to service_role;

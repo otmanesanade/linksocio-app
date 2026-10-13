@@ -307,6 +307,7 @@ export default async function handler(req, res) {
   }
 
   // 3. REQUEST: Create withdrawal request with atomic reservation & concurrency prevention
+  // STRICT REQUIREMENT 2: Zero non-atomic fallbacks. All financial hold operations MUST use atomic stored procedures.
   if (subroute === 'request' || subroute.includes('request')) {
     if (req.method !== 'POST') {
       return sendJson(res, 405, { error: 'Method not allowed' })
@@ -323,7 +324,7 @@ export default async function handler(req, res) {
         return sendJson(res, 400, { error: 'Invalid payout amount. Amount must be greater than zero.' })
       }
 
-      // ATOMIC POSTGRESQL WITHDRAWAL CREATION & RESERVATION
+      // ATOMIC POSTGRESQL WITHDRAWAL CREATION & RESERVATION (Strict Fail-Closed)
       const { data: rpcData, error: rpcErr } = await supabase.rpc('create_payout_request_atomic', {
         p_user_id: currentUserId,
         p_amount: Math.round(amount * 100) / 100,
@@ -332,13 +333,10 @@ export default async function handler(req, res) {
         p_details: details,
       })
 
-      if (!rpcErr && rpcData) {
-        return sendJson(res, 200, { success: true, payout: rpcData })
-      }
-
-      // Handle specific domain errors raised by PostgreSQL atomic function
       if (rpcErr) {
         const errMsg = rpcErr.message || ''
+        console.error('Database RPC error in create_payout_request_atomic:', errMsg)
+
         if (errMsg.includes('ACTIVE_REQUEST_EXISTS')) {
           return sendJson(res, 400, {
             error: 'You already have an active withdrawal request being processed. Please await completion.',
@@ -355,101 +353,71 @@ export default async function handler(req, res) {
           })
         }
 
-        // If RPC function is not found, fallback to transaction-safe atomic sequence
-        console.warn('RPC create_payout_request_atomic notice, executing atomic fallback:', errMsg)
-      }
-
-      // ATOMIC FALLBACK: Strict balance check, active request lock, atomic deduction & insert
-      const { data: profile, error: profErr } = await supabase
-        .from('profiles')
-        .select('wallet_balance')
-        .eq('id', currentUserId)
-        .single()
-
-      if (profErr || !profile) {
-        console.error('Failed to verify profile wallet balance:', profErr?.message)
-        return sendJson(res, 500, { error: 'Database error verifying account balance' })
-      }
-
-      const currentBalance = Number(profile.wallet_balance) || 0
-      if (amount > currentBalance) {
-        return sendJson(res, 400, {
-          error: `Insufficient balance. Available balance is ${currentBalance} ${currency}.`,
+        // STRICT FAIL-CLOSED: Refuse insecure non-atomic fallback
+        return sendJson(res, 500, {
+          error: 'Withdrawal creation failed safely. Financial operations require verified atomic execution.',
         })
       }
 
-      const { data: activeRequests, error: activeErr } = await supabase
-        .from('payout_requests')
-        .select('id, status')
-        .eq('user_id', currentUserId)
-        .in('status', ['pending', 'processing'])
-
-      if (activeErr) {
-        console.error('Database error checking pending withdrawal requests:', activeErr.message)
-        return sendJson(res, 500, { error: 'Database error checking pending withdrawal requests' })
-      }
-
-      if (activeRequests && activeRequests.length > 0) {
-        return sendJson(res, 400, {
-          error: 'You already have an active withdrawal request being processed. Please await completion.',
-        })
-      }
-
-      // Atomically decrement wallet balance to reserve funds
-      const newBal = Math.max(0, Math.round((currentBalance - amount) * 100) / 100)
-      const { data: updatedProfile, error: balUpdateErr } = await supabase
-        .from('profiles')
-        .update({ wallet_balance: newBal, updated_at: new Date().toISOString() })
-        .eq('id', currentUserId)
-        .gte('wallet_balance', amount)
-        .select()
-        .single()
-
-      if (balUpdateErr || !updatedProfile) {
-        return sendJson(res, 400, {
-          error: 'Concurrent transaction detected or insufficient balance. Request cancelled.',
-        })
-      }
-
-      // Insert new withdrawal request into Supabase
-      const { data: newRequest, error: insertErr } = await supabase
-        .from('payout_requests')
-        .insert({
-          user_id: currentUserId,
-          amount: Math.round(amount * 100) / 100,
-          currency,
-          method,
-          status: 'pending',
-          account_details: details,
-        })
-        .select()
-        .single()
-
-      if (insertErr) {
-        console.error('Database error creating payout request. Rolling back balance hold:', insertErr.message)
-        // Rollback balance reservation
-        await supabase
-          .from('profiles')
-          .update({ wallet_balance: currentBalance, updated_at: new Date().toISOString() })
-          .eq('id', currentUserId)
-
-        return sendJson(res, 500, { error: 'Database error creating payout request' })
-      }
-
-      return sendJson(res, 200, { success: true, payout: newRequest })
+      return sendJson(res, 200, { success: true, payout: rpcData })
     } catch (err) {
       console.error('Unexpected error in POST payout request:', err)
       return sendJson(res, 500, { error: 'Internal server error' })
     }
   }
 
-  // 4. ADMIN APPROVE: Server-verified administrator approval with anti-double-approval
+  // 4. CANCEL: Creator cancels their own pending withdrawal request (Atomic refund)
+  if (subroute === 'cancel' || subroute.includes('cancel')) {
+    if (req.method !== 'POST') {
+      return sendJson(res, 405, { error: 'Method not allowed' })
+    }
+
+    try {
+      const payload = await parseBody(req)
+      const payoutId = payload?.payoutId
+      if (!payoutId) {
+        return sendJson(res, 400, { error: 'Missing payoutId' })
+      }
+
+      const { data: rpcData, error: rpcErr } = await supabase.rpc('cancel_payout_request_atomic', {
+        p_payout_id: payoutId,
+        p_user_id: currentUserId,
+      })
+
+      if (rpcErr) {
+        const errMsg = rpcErr.message || ''
+        console.error('Database RPC error in cancel_payout_request_atomic:', errMsg)
+        if (errMsg.includes('CANNOT_CANCEL')) {
+          return sendJson(res, 400, { error: 'Only pending payout requests can be cancelled.' })
+        }
+        if (errMsg.includes('PAYOUT_NOT_FOUND')) {
+          return sendJson(res, 404, { error: 'Payout request not found or unauthorized.' })
+        }
+        return sendJson(res, 500, { error: 'Cancellation failed safely.' })
+      }
+
+      return sendJson(res, 200, { success: true, payout: rpcData })
+    } catch (err) {
+      console.error('Unexpected error in cancel payout request:', err)
+      return sendJson(res, 500, { error: 'Internal server error' })
+    }
+  }
+
+  // 5. ADMIN APPROVE: Server-verified administrator approval with anti-double-approval
+  // STRICT REQUIREMENT 2: Zero non-atomic fallbacks.
   if (subroute.includes('approve')) {
     if (req.method !== 'POST') {
       return sendJson(res, 405, { error: 'Method not allowed' })
     }
 
     try {
+      const payload = await parseBody(req)
+      const payoutId = payload?.payoutId
+      if (!payoutId) {
+        return sendJson(res, 400, { error: 'Missing payoutId' })
+      }
+
+      // Check caller admin role
       const { data: callerProfile, error: callerErr } = await supabase
         .from('profiles')
         .select('role')
@@ -460,24 +428,16 @@ export default async function handler(req, res) {
         return sendJson(res, 403, { error: 'Forbidden. Administrator authorization required.' })
       }
 
-      const payload = await parseBody(req)
-      const payoutId = payload?.payoutId
-      if (!payoutId) {
-        return sendJson(res, 400, { error: 'Missing payoutId' })
-      }
-
-      // ATOMIC POSTGRESQL APPROVAL
+      // ATOMIC POSTGRESQL APPROVAL (Strict Fail-Closed)
       const { data: rpcData, error: rpcErr } = await supabase.rpc('approve_payout_atomic', {
         p_payout_id: payoutId,
         p_admin_id: currentUserId,
       })
 
-      if (!rpcErr && rpcData) {
-        return sendJson(res, 200, { success: true, payout: rpcData })
-      }
-
       if (rpcErr) {
         const errMsg = rpcErr.message || ''
+        console.error('Database RPC error in approve_payout_atomic:', errMsg)
+
         if (errMsg.includes('ALREADY_COMPLETED')) {
           return sendJson(res, 409, {
             error: 'Payout request is already completed. Double approval prevented.',
@@ -489,44 +449,85 @@ export default async function handler(req, res) {
         if (errMsg.includes('UNAUTHORIZED_ADMIN')) {
           return sendJson(res, 403, { error: 'Forbidden. Administrator authorization required.' })
         }
-        console.warn('RPC approve_payout_atomic notice, executing atomic fallback:', errMsg)
-      }
+        if (errMsg.includes('INVALID_STATUS')) {
+          return sendJson(res, 400, { error: 'Payout request is not in an approvable state.' })
+        }
 
-      // ATOMIC FALLBACK: Check status and transition only if status != 'completed'
-      const { data: pr, error: fetchErr } = await supabase
-        .from('payout_requests')
-        .select('*')
-        .eq('id', payoutId)
-        .single()
-
-      if (fetchErr || !pr) {
-        return sendJson(res, 404, { error: 'Payout request not found' })
-      }
-
-      if (pr.status === 'completed') {
-        return sendJson(res, 409, {
-          error: 'Payout request is already completed. Double approval prevented.',
+        // STRICT FAIL-CLOSED: Refuse insecure non-atomic fallback
+        return sendJson(res, 500, {
+          error: 'Payout approval failed safely. Insecure non-atomic operations are strictly forbidden.',
         })
       }
 
-      // Mark request completed conditionally where status != 'completed'
-      const { data: completedPr, error: updateErr } = await supabase
-        .from('payout_requests')
-        .update({ status: 'completed', updated_at: new Date().toISOString() })
-        .eq('id', payoutId)
-        .neq('status', 'completed')
-        .select()
-        .single()
-
-      if (updateErr || !completedPr) {
-        return sendJson(res, 409, {
-          error: 'Payout request was already completed by another concurrent administrator.',
-        })
-      }
-
-      return sendJson(res, 200, { success: true, payout: completedPr })
+      return sendJson(res, 200, { success: true, payout: rpcData })
     } catch (err) {
       console.error('Unexpected error in admin approve:', err)
+      return sendJson(res, 500, { error: 'Internal server error' })
+    }
+  }
+
+  // 6. ADMIN REJECT: Server-verified administrator rejection with balance refund (Requirement 3)
+  if (subroute.includes('reject')) {
+    if (req.method !== 'POST') {
+      return sendJson(res, 405, { error: 'Method not allowed' })
+    }
+
+    try {
+      const payload = await parseBody(req)
+      const payoutId = payload?.payoutId
+      const reason = payload?.reason || 'Administrative rejection'
+
+      if (!payoutId) {
+        return sendJson(res, 400, { error: 'Missing payoutId' })
+      }
+
+      // Check caller admin role
+      const { data: callerProfile, error: callerErr } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', currentUserId)
+        .single()
+
+      if (callerErr || !callerProfile || (callerProfile.role !== 'admin' && callerProfile.role !== 'superadmin')) {
+        return sendJson(res, 403, { error: 'Forbidden. Administrator authorization required.' })
+      }
+
+      // ATOMIC POSTGRESQL REJECTION WITH REFUND (Strict Fail-Closed)
+      const { data: rpcData, error: rpcErr } = await supabase.rpc('reject_payout_atomic', {
+        p_payout_id: payoutId,
+        p_admin_id: currentUserId,
+        p_reason: reason,
+      })
+
+      if (rpcErr) {
+        const errMsg = rpcErr.message || ''
+        console.error('Database RPC error in reject_payout_atomic:', errMsg)
+
+        if (errMsg.includes('ALREADY_REJECTED')) {
+          return sendJson(res, 409, {
+            error: 'Payout request is already rejected.',
+          })
+        }
+        if (errMsg.includes('CANNOT_REJECT_COMPLETED')) {
+          return sendJson(res, 409, {
+            error: 'Completed payout cannot be rejected.',
+          })
+        }
+        if (errMsg.includes('PAYOUT_NOT_FOUND')) {
+          return sendJson(res, 404, { error: 'Payout request not found.' })
+        }
+        if (errMsg.includes('UNAUTHORIZED_ADMIN')) {
+          return sendJson(res, 403, { error: 'Forbidden. Administrator authorization required.' })
+        }
+
+        return sendJson(res, 500, {
+          error: 'Payout rejection failed safely. Insecure non-atomic operations are strictly forbidden.',
+        })
+      }
+
+      return sendJson(res, 200, { success: true, payout: rpcData })
+    } catch (err) {
+      console.error('Unexpected error in admin reject:', err)
       return sendJson(res, 500, { error: 'Internal server error' })
     }
   }
