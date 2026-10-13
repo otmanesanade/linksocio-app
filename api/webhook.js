@@ -1,15 +1,6 @@
-import Stripe from 'stripe'
+import { getStripe } from './_stripe.js'
 import { getSupabaseServerClient } from './_supabase.js'
-
-let stripeInstance = null
-function getStripe() {
-  const key = (process.env.STRIPE_SECRET_KEY || '').trim()
-  if (!key || key.startsWith('pk_')) return null
-  if (!stripeInstance) {
-    stripeInstance = new Stripe(key)
-  }
-  return stripeInstance
-}
+import { validateSubscriptionPlan } from './_plans.js'
 
 async function getRawBody(req) {
   return new Promise((resolve, reject) => {
@@ -37,7 +28,7 @@ export default async function handler(req, res) {
     return sendJson(res, 500, { error: 'Stripe is not configured on the server' })
   }
 
-  // Audit Point 2: Always enforce webhook signature verification. Fail closed if secret is missing.
+  // Audit Point 2: Enforce webhook signature verification. Fail closed if secret is missing.
   const webhookSecret = (process.env.STRIPE_WEBHOOK_SECRET || '').trim()
   if (!webhookSecret) {
     console.error('CRITICAL SECURITY ALERT: STRIPE_WEBHOOK_SECRET is not configured. Rejecting webhook.')
@@ -66,18 +57,18 @@ export default async function handler(req, res) {
     return sendJson(res, 400, { error: `Invalid webhook signature: ${err.message}` })
   }
 
-  // Audit Point 4 & 5: Check Supabase database connectivity
+  // Check Supabase database connectivity
   const { client: supabase, error: clientErr } = getSupabaseServerClient()
   if (clientErr || !supabase) {
     console.error('Database connection error in webhook:', clientErr)
     return sendJson(res, 500, { error: 'Database service unavailable. Stripe will retry.' })
   }
 
-  // Audit Point 5: Real Idempotency Journal via webhook_events
+  // PRIORITY 2: REAL IDEMPOTENCY & SAFE RETRY JOURNAL VIA webhook_events
   try {
     const { data: existingEvent, error: checkErr } = await supabase
       .from('webhook_events')
-      .select('id, status')
+      .select('id, status, attempts')
       .eq('event_id', event.id)
       .maybeSingle()
 
@@ -86,28 +77,46 @@ export default async function handler(req, res) {
       return sendJson(res, 500, { error: 'Failed to verify event idempotency' })
     }
 
-    if (existingEvent && (existingEvent.status === 'processed' || existingEvent.status === 'processing')) {
-      console.log(`Idempotency check: Event ${event.id} is already ${existingEvent.status}. Ignoring duplicate.`)
+    // If event was already completely processed, return 200 idempotently
+    if (existingEvent && existingEvent.status === 'processed') {
+      console.log(`Idempotency check: Event ${event.id} is already processed. Ignoring duplicate.`)
       return sendJson(res, 200, { received: true, already_processed: true })
     }
 
-    if (!existingEvent) {
+    // If event previously failed or is being retried by Stripe, reset status to 'processing' and allow retry
+    if (existingEvent) {
+      const nextAttempt = (Number(existingEvent.attempts) || 1) + 1
+      console.log(`Retrying event ${event.id} (attempt ${nextAttempt}, previous status: ${existingEvent.status})`)
+      const { error: retryUpdateErr } = await supabase
+        .from('webhook_events')
+        .update({
+          status: 'processing',
+          attempts: nextAttempt,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('event_id', event.id)
+
+      if (retryUpdateErr) {
+        console.error('Failed to update retry status in webhook_events:', retryUpdateErr.message)
+      }
+    } else {
+      // First time receiving event: insert journal record with status 'processing'
       const { error: insertErr } = await supabase.from('webhook_events').insert({
         provider: 'stripe',
         event_id: event.id,
         event_type: event.type,
         payload: event,
         status: 'processing',
+        attempts: 1,
       })
 
       if (insertErr) {
-        // Unique constraint violation indicates concurrent handling
         if (insertErr.code === '23505') {
-          console.log(`Concurrent processing detected for event ${event.id}. Exiting gracefully.`)
-          return sendJson(res, 200, { received: true, concurrent_duplicate: true })
+          console.log(`Concurrent processing detected for event ${event.id}.`)
+        } else {
+          console.error('Failed to register webhook event in journal:', insertErr.message)
+          return sendJson(res, 500, { error: 'Database write error registering event' })
         }
-        console.error('Failed to register webhook event in journal:', insertErr.message)
-        return sendJson(res, 500, { error: 'Database write error registering event' })
       }
     }
   } catch (idempErr) {
@@ -115,7 +124,7 @@ export default async function handler(req, res) {
     return sendJson(res, 500, { error: 'Idempotency verification failed' })
   }
 
-  // Audit Point 5: Atomic Order & Balance Processing
+  // ATOMIC EVENT BUSINESS TRANSACTION
   try {
     switch (event.type) {
       case 'checkout.session.completed': {
@@ -126,33 +135,94 @@ export default async function handler(req, res) {
         // 1. Digital Product Purchase
         if (session.metadata?.type === 'digital_product') {
           const sellerUserId = session.metadata.sellerUserId
+          const productId = session.metadata.productId
           const creatorAmount = parseFloat(session.metadata.creatorAmount || '0') / 100
 
-          // Atomic Order Status Transition: Only update if status is NOT already 'paid'
-          const { data: updatedOrder, error: orderErr } = await supabase
+          // Check if order exists in Supabase
+          const { data: existingOrder, error: findOrderErr } = await supabase
             .from('orders')
-            .update({
-              status: 'paid',
-              stripe_payment_intent_id: paymentIntentId,
-              updated_at: new Date().toISOString(),
-            })
+            .select('*')
             .eq('stripe_session_id', sessionId)
-            .neq('status', 'paid')
-            .select()
             .maybeSingle()
 
-          if (orderErr) {
-            console.error('Order status transition error:', orderErr.message)
-            throw new Error(`Order update error: ${orderErr.message}`)
+          if (findOrderErr) {
+            throw new Error(`Database error querying order for session ${sessionId}: ${findOrderErr.message}`)
           }
 
-          // If updatedOrder is null, order was ALREADY paid by a prior concurrent event
-          if (!updatedOrder) {
-            console.log(`Order for session ${sessionId} is already marked as paid. Skipping balance credit to avoid duplicate payout.`)
-          } else {
+          let targetOrder = existingOrder
+
+          // RECOVERY STRATEGY (Priority 5): If order wasn't saved during checkout due to past DB glitch, self-heal
+          if (!targetOrder && productId) {
+            console.warn(`Order for session ${sessionId} not found. Executing recovery self-healing insert.`)
+            const { data: verifiedProd, error: vpErr } = await supabase
+              .from('products')
+              .select('*')
+              .eq('id', productId)
+              .maybeSingle()
+
+            if (vpErr || !verifiedProd) {
+              throw new Error(`Cannot recover missing order: Product ${productId} not found in database.`)
+            }
+
+            const totalAmount = (session.amount_total || 0) / 100
+            const feeAmount = Math.round(totalAmount * 0.09 * 100) / 100
+            const netAmount = Math.round((totalAmount - feeAmount) * 100) / 100
+
+            const { data: recoveredOrder, error: recovErr } = await supabase
+              .from('orders')
+              .insert({
+                seller_id: verifiedProd.user_id,
+                product_id: verifiedProd.id,
+                buyer_email: session.customer_details?.email || 'customer@linksocio.com',
+                buyer_name: session.metadata.buyerName || 'Customer',
+                amount: totalAmount,
+                currency: (session.currency || 'eur').toUpperCase(),
+                platform_fee: feeAmount,
+                creator_amount: netAmount,
+                status: 'paid',
+                stripe_session_id: sessionId,
+                stripe_payment_intent_id: paymentIntentId,
+              })
+              .select()
+              .single()
+
+            if (recovErr) {
+              throw new Error(`Failed to insert recovered order: ${recovErr.message}`)
+            }
+            targetOrder = recoveredOrder
+          }
+
+          // Atomic Order Status Transition: Only update if status is NOT already 'paid'
+          let orderNewlyPaid = false
+          if (targetOrder && targetOrder.status !== 'paid') {
+            const { data: updatedOrder, error: orderErr } = await supabase
+              .from('orders')
+              .update({
+                status: 'paid',
+                stripe_payment_intent_id: paymentIntentId,
+                updated_at: new Date().toISOString(),
+              })
+              .eq('id', targetOrder.id)
+              .neq('status', 'paid')
+              .select()
+              .maybeSingle()
+
+            if (orderErr) {
+              throw new Error(`Order update error: ${orderErr.message}`)
+            }
+
+            if (updatedOrder) {
+              orderNewlyPaid = true
+            }
+          } else if (targetOrder && targetOrder.status === 'paid' && !existingOrder) {
+            // Newly inserted through recovery flow
+            orderNewlyPaid = true
+          }
+
+          if (orderNewlyPaid) {
             // Record payment entry in audit payments table
             const { error: paymentErr } = await supabase.from('payments').insert({
-              order_id: updatedOrder.id,
+              order_id: targetOrder.id,
               user_id: sellerUserId || null,
               amount: (session.amount_total || 0) / 100,
               currency: (session.currency || 'eur').toUpperCase(),
@@ -174,42 +244,80 @@ export default async function handler(req, res) {
               })
 
               if (rpcErr) {
-                console.warn('RPC increment_wallet_balance notice, performing direct atomic SQL:', rpcErr.message)
-                const { data: profile } = await supabase
+                console.warn('RPC increment_wallet_balance notice, performing direct atomic balance credit:', rpcErr.message)
+                const { data: profile, error: profErr } = await supabase
                   .from('profiles')
                   .select('wallet_balance')
                   .eq('id', sellerUserId)
                   .single()
 
+                if (profErr) {
+                  throw new Error(`Database error fetching creator profile: ${profErr.message}`)
+                }
+
                 if (profile) {
                   const newBalance = Math.round(((Number(profile.wallet_balance) || 0) + creatorAmount) * 100) / 100
-                  await supabase
+                  const { error: updateBalErr } = await supabase
                     .from('profiles')
                     .update({ wallet_balance: newBalance, updated_at: new Date().toISOString() })
                     .eq('id', sellerUserId)
+
+                  if (updateBalErr) {
+                    throw new Error(`Database error updating wallet balance: ${updateBalErr.message}`)
+                  }
                 }
               }
             }
+          } else {
+            console.log(`Order for session ${sessionId} is already marked as paid. Skipping balance credit to avoid duplicate payout.`)
           }
         }
 
-        // 2. Subscription SaaS Upgrade
+        // 2. PRIORITY 4: Subscription SaaS Upgrade with Server-Side Plan Validation
         if (session.mode === 'subscription') {
           const subUserId = session.metadata?.userId || session.client_reference_id
-          const planId = session.metadata?.planId || 'pro'
-          if (subUserId) {
-            await supabase
-              .from('profiles')
-              .update({ plan: planId, updated_at: new Date().toISOString() })
-              .eq('id', subUserId)
+          const rawPlanId = session.metadata?.planId
 
-            await supabase.from('subscriptions').upsert({
+          if (!subUserId) {
+            throw new Error('Subscription session missing user reference metadata')
+          }
+
+          // Authoritative Plan Validation
+          const validated = validateSubscriptionPlan(rawPlanId, session.metadata?.billingCycle)
+          if (!validated) {
+            console.error(`SECURITY ALERT: Unknown or unauthorized subscription planId "${rawPlanId}". Rejecting upgrade.`)
+            throw new Error(`Invalid planId "${rawPlanId}". Subscription upgrade aborted.`)
+          }
+
+          // Verify price paid consistency
+          const amountPaid = session.amount_total
+          if (amountPaid && Math.abs(amountPaid - validated.unitAmount) > 100) {
+            console.error(`SECURITY ALERT: Price paid (${amountPaid}) does not match authoritative plan amount (${validated.unitAmount})`)
+            throw new Error(`Price inconsistency detected for plan ${validated.planId}`)
+          }
+
+          const { error: profUpdateErr } = await supabase
+            .from('profiles')
+            .update({ plan: validated.planId, updated_at: new Date().toISOString() })
+            .eq('id', subUserId)
+
+          if (profUpdateErr) {
+            throw new Error(`Database error upgrading profile plan: ${profUpdateErr.message}`)
+          }
+
+          const { error: subErr } = await supabase.from('subscriptions').upsert(
+            {
               user_id: subUserId,
-              plan_id: planId,
+              plan_id: validated.planId,
               status: 'active',
               stripe_subscription_id: session.subscription || sessionId,
               updated_at: new Date().toISOString(),
-            })
+            },
+            { onConflict: 'stripe_subscription_id' }
+          )
+
+          if (subErr) {
+            throw new Error(`Database error recording subscription: ${subErr.message}`)
           }
         }
         break
@@ -221,15 +329,23 @@ export default async function handler(req, res) {
         const status = isChargesEnabled ? 'active' : 'pending_verification'
 
         if (account.id) {
-          await supabase
+          const { error: psErr } = await supabase
             .from('payout_settings')
             .update({ stripe_status: status, updated_at: new Date().toISOString() })
             .eq('stripe_account_id', account.id)
 
-          await supabase
+          if (psErr) {
+            console.error('Error updating payout_settings on account.updated:', psErr.message)
+          }
+
+          const { error: profErr } = await supabase
             .from('profiles')
             .update({ stripe_status: status, updated_at: new Date().toISOString() })
             .eq('stripe_account_id', account.id)
+
+          if (profErr) {
+            console.error('Error updating profiles on account.updated:', profErr.message)
+          }
         }
         break
       }
@@ -238,15 +354,30 @@ export default async function handler(req, res) {
         console.log(`Unhandled webhook event type: ${event.type}`)
     }
 
-    // Mark event as processed in journal
+    // Mark event as successfully processed in journal
     await supabase
       .from('webhook_events')
-      .update({ status: 'processed', processed_at: new Date().toISOString() })
+      .update({
+        status: 'processed',
+        processed_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
       .eq('event_id', event.id)
 
     return sendJson(res, 200, { received: true })
   } catch (procErr) {
-    console.error('Error executing webhook transaction:', procErr)
-    return sendJson(res, 500, { error: 'Failed to process webhook event' })
+    // Record error in journal and mark as 'failed' so Stripe retries can be processed cleanly
+    console.error(`Error executing webhook transaction for event ${event.id}:`, procErr.message)
+
+    await supabase
+      .from('webhook_events')
+      .update({
+        status: 'failed',
+        last_error: procErr.message || 'Unknown processing error',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('event_id', event.id)
+
+    return sendJson(res, 500, { error: `Webhook processing failed: ${procErr.message}` })
   }
 }

@@ -1,15 +1,6 @@
-import Stripe from 'stripe'
 import { applyCors, getAuthenticatedUser, getSupabaseServerClient } from './_supabase.js'
-
-let stripeInstance = null
-function getStripe() {
-  const key = (process.env.STRIPE_SECRET_KEY || '').trim()
-  if (!key || key.startsWith('pk_')) return null
-  if (!stripeInstance) {
-    stripeInstance = new Stripe(key)
-  }
-  return stripeInstance
-}
+import { getStripe } from './_stripe.js'
+import { validateSubscriptionPlan } from './_plans.js'
 
 async function parseBody(req) {
   if (req.body) {
@@ -158,6 +149,22 @@ export default async function handler(req, res) {
         type: 'account_onboarding',
       })
 
+      // Link pending account in database
+      const { client: supabase } = getSupabaseServerClient()
+      if (supabase) {
+        await supabase
+          .from('payout_settings')
+          .upsert(
+            {
+              user_id: authUser.id,
+              stripe_account_id: account.id,
+              stripe_status: 'pending_verification',
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: 'user_id' }
+          )
+      }
+
       return sendJson(res, 200, {
         configured: true,
         accountId: account.id,
@@ -197,7 +204,7 @@ export default async function handler(req, res) {
     }
   }
 
-  // 5. CREATE-PRODUCT-CHECKOUT: Server-Side Price & Product Integrity (Audit Point 7)
+  // 5. CREATE-PRODUCT-CHECKOUT: Server-Side Price & Product Integrity + Anti-Orphan Recovery (Audit Points 5 & 7)
   if (subroute.includes('create-product-checkout')) {
     if (req.method !== 'POST') {
       return sendJson(res, 405, { error: 'Method not allowed' })
@@ -222,7 +229,7 @@ export default async function handler(req, res) {
         return sendJson(res, 400, { error: 'Missing required productId parameter' })
       }
 
-      // Audit Point 7: Fetch verified product directly from database (Do NOT accept client price!)
+      // Fetch verified product directly from database (Do NOT accept client price!)
       const { data: dbProduct, error: prodErr } = await supabase
         .from('products')
         .select('*')
@@ -307,35 +314,58 @@ export default async function handler(req, res) {
         }
       }
 
-      const session = await stripe.checkout.sessions.create(sessionPayload)
+      let session = null
+      try {
+        session = await stripe.checkout.sessions.create(sessionPayload)
 
-      // Audit Point 4 & 7: Insert order with status 'pending' in database
-      const { error: orderInsertErr } = await supabase.from('orders').insert({
-        seller_id: sellerUserId,
-        product_id: dbProduct.id,
-        buyer_email: buyerEmail || 'pending@customer.com',
-        buyer_name: buyerName || 'Customer',
-        amount: unitAmount / 100,
-        currency: currency.toUpperCase(),
-        platform_fee: platformFeeAmount / 100,
-        creator_amount: creatorAmount / 100,
-        status: 'pending',
-        stripe_session_id: session.id,
-      })
+        let insertBuilder = supabase.from('orders').insert({
+          seller_id: sellerUserId,
+          product_id: dbProduct.id,
+          buyer_email: buyerEmail || 'pending@customer.com',
+          buyer_name: buyerName || 'Customer',
+          amount: unitAmount / 100,
+          currency: currency.toUpperCase(),
+          platform_fee: platformFeeAmount / 100,
+          creator_amount: creatorAmount / 100,
+          status: 'pending',
+          stripe_session_id: session.id,
+        })
 
-      if (orderInsertErr) {
-        console.error('Database error recording pending order:', orderInsertErr.message)
-        return sendJson(res, 500, { error: 'Database error creating order record' })
+        if (typeof insertBuilder?.select === 'function') {
+          insertBuilder = insertBuilder.select()
+        }
+        if (typeof insertBuilder?.single === 'function') {
+          insertBuilder = insertBuilder.single()
+        }
+
+        const { data: newOrder, error: orderInsertErr } = await insertBuilder
+
+        if (orderInsertErr || !newOrder) {
+          throw new Error(`Database error recording order: ${orderInsertErr?.message || 'Insert failed'}`)
+        }
+
+        return sendJson(res, 200, { configured: true, url: session.url, sessionId: session.id })
+      } catch (postSessionErr) {
+        if (session && session.id) {
+          try {
+            await stripe.checkout.sessions.expire(session.id)
+            console.log(`Successfully expired orphaned Stripe session ${session.id} after Supabase error.`)
+          } catch (expireErr) {
+            console.error(`Failed to expire orphaned Stripe session ${session.id}:`, expireErr.message)
+          }
+        }
+
+        return sendJson(res, 500, {
+          error: 'Database error recording order. Checkout session was safely invalidated to prevent orphaned payments.',
+        })
       }
-
-      return sendJson(res, 200, { configured: true, url: session.url, sessionId: session.id })
     } catch (err) {
       console.error('Error creating product checkout:', err)
       return sendJson(res, 500, { error: err.message || 'Stripe error' })
     }
   }
 
-  // 6. CREATE-CHECKOUT (Subscription SaaS plan)
+  // 6. CREATE-CHECKOUT (Subscription SaaS plan with Authoritative Plan Validation - Priority 4)
   if (subroute.includes('create-checkout') || subroute === '') {
     if (req.method !== 'POST') {
       return sendJson(res, 405, { error: 'Method not allowed' })
@@ -353,18 +383,23 @@ export default async function handler(req, res) {
 
     try {
       const payload = await parseBody(req)
-      const { planId, planName, billingCycle, currency = 'eur', successUrl, cancelUrl } = payload || {}
-      const isYearly = billingCycle === 'yearly'
+      const { planId, billingCycle, currency = 'eur', successUrl, cancelUrl } = payload || {}
 
-      // Server enforces fixed subscription pricing (No client manipulation)
-      const validPrice = planId === 'business' ? (isYearly ? 119.88 : 11.99) : (isYearly ? 49.90 : 4.99)
-      const unitAmount = Math.round(validPrice * 100)
+      // PRIORITY 4: Strict Server-Side Validation of Subscription Plan
+      const validatedPlan = validateSubscriptionPlan(planId, billingCycle)
+      if (!validatedPlan) {
+        return sendJson(res, 400, {
+          error: `Invalid planId '${planId}'. Allowed subscription plans are: creator, pro, business.`,
+        })
+      }
 
       const hostOrigin =
         req.headers['origin'] ||
         (req.headers['x-forwarded-proto']
           ? `${req.headers['x-forwarded-proto']}://${req.headers.host}`
           : `https://${req.headers.host || 'www.linksocio.com'}`)
+
+      const isYearly = validatedPlan.billingCycle === 'yearly'
 
       const session = await stripe.checkout.sessions.create({
         mode: 'subscription',
@@ -375,10 +410,10 @@ export default async function handler(req, res) {
             price_data: {
               currency: currency.toLowerCase(),
               product_data: {
-                name: `LinkSocio ${planName || 'Creator'} Plan`,
+                name: `LinkSocio ${validatedPlan.planName} Plan`,
                 description: `LinkSocio Subscription - ${isYearly ? 'Annual Billing' : 'Monthly Billing'}`,
               },
-              unit_amount: unitAmount,
+              unit_amount: validatedPlan.unitAmount,
               recurring: { interval: isYearly ? 'year' : 'month' },
             },
             quantity: 1,
@@ -386,8 +421,9 @@ export default async function handler(req, res) {
         ],
         metadata: {
           userId: authUser.id,
-          planId: planId || 'pro',
-          billingCycle: billingCycle || 'monthly',
+          planId: validatedPlan.planId,
+          billingCycle: validatedPlan.billingCycle,
+          expectedAmount: String(validatedPlan.unitAmount),
         },
         success_url: successUrl || `${hostOrigin}/dashboard?tab=billing&session_id={CHECKOUT_SESSION_ID}&upgraded=true`,
         cancel_url: cancelUrl || `${hostOrigin}/dashboard?tab=billing`,

@@ -8,8 +8,17 @@ const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL ||
  * If SUPABASE_SERVICE_ROLE_KEY is missing, privileged operations must fail securely.
  */
 let _supabaseServerInstance = null
+let _mockSupabaseClient = null
+
+export function __setMockSupabaseClient(client) {
+  _mockSupabaseClient = client
+}
 
 export function getSupabaseServerClient() {
+  if (_mockSupabaseClient !== null) {
+    return { client: _mockSupabaseClient, error: null }
+  }
+
   const serviceKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim()
 
   if (!serviceKey) {
@@ -42,11 +51,21 @@ const authClient = authKey
     })
   : null
 
+let _mockAuthUser = null
+
+export function __setMockAuthUser(user) {
+  _mockAuthUser = user
+}
+
 /**
  * Extracts and verifies the Supabase Auth session token from Authorization header.
  * Rejects forged or missing credentials.
  */
 export async function getAuthenticatedUser(req) {
+  if (_mockAuthUser !== null) {
+    return _mockAuthUser
+  }
+
   const authHeader = req.headers?.authorization || req.headers?.Authorization || ''
   if (!authHeader.startsWith('Bearer ')) {
     return null

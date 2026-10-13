@@ -1,5 +1,6 @@
 // Server endpoint to manage creator payout settings, statistics, and withdrawal requests with Supabase persistence
 import { applyCors, getAuthenticatedUser, getSupabaseServerClient } from './_supabase.js'
+import { getStripe } from './_stripe.js'
 
 async function parseBody(req) {
   if (req.body) {
@@ -112,23 +113,84 @@ export default async function handler(req, res) {
         const payload = await parseBody(req)
         const newSettings = payload.settings || {}
 
-        const hasStripeAccount = Boolean(newSettings.stripeAccountId && newSettings.stripeAccountId.trim())
-        const stripeStatus = hasStripeAccount
-          ? (newSettings.stripeStatus || 'pending_verification')
-          : 'not_connected'
+        // PRIORITY 1: Reject manual manipulation of stripeStatus
+        if (newSettings.stripeStatus && newSettings.stripeStatus === 'active') {
+          return sendJson(res, 400, {
+            error: 'Security violation: stripeStatus cannot be manually set to active by client. Account must be verified directly with Stripe.',
+          })
+        }
+
+        // Fetch existing database settings
+        const { data: currentSettings, error: fetchErr } = await supabase
+          .from('payout_settings')
+          .select('*')
+          .eq('user_id', currentUserId)
+          .maybeSingle()
+
+        if (fetchErr) {
+          console.error('Database error querying existing payout_settings:', fetchErr.message)
+          return sendJson(res, 500, { error: 'Database error validating payout settings' })
+        }
+
+        let verifiedStripeAccountId = currentSettings?.stripe_account_id || ''
+        let verifiedStripeStatus = currentSettings?.stripe_status || 'not_connected'
+
+        // Client submitted a stripeAccountId: verify it directly with Stripe
+        if (newSettings.stripeAccountId !== undefined) {
+          const submittedId = (newSettings.stripeAccountId || '').trim()
+
+          if (!submittedId) {
+            // User disconnecting Stripe
+            verifiedStripeAccountId = ''
+            verifiedStripeStatus = 'not_connected'
+          } else if (submittedId !== currentSettings?.stripe_account_id) {
+            // New account ID provided: verify directly with Stripe API
+            const stripe = getStripe()
+            if (!stripe) {
+              return sendJson(res, 500, {
+                error: 'Stripe is not configured on the server. Cannot verify submitted stripeAccountId.',
+              })
+            }
+
+            try {
+              const account = await stripe.accounts.retrieve(submittedId)
+              if (!account || !account.id) {
+                return sendJson(res, 400, {
+                  error: 'Stripe account verification failed: Account not found.',
+                })
+              }
+
+              // Verify account is linked to this authenticated user if metadata exists
+              if (account.metadata?.userId && account.metadata.userId !== currentUserId) {
+                return sendJson(res, 403, {
+                  error: 'Security violation: Stripe account is linked to another user ID.',
+                })
+              }
+
+              const isChargesEnabled = Boolean(account.charges_enabled && account.details_submitted)
+              verifiedStripeStatus = isChargesEnabled ? 'active' : 'pending_verification'
+              verifiedStripeAccountId = account.id
+            } catch (stripeErr) {
+              console.error('Direct Stripe verification failed for account:', submittedId, stripeErr.message)
+              return sendJson(res, 400, {
+                error: `Unable to verify Stripe account with Stripe API: ${stripeErr.message}`,
+              })
+            }
+          }
+        }
 
         const { data, error } = await supabase
           .from('payout_settings')
           .upsert(
             {
               user_id: currentUserId,
-              method: newSettings.payoutMethod || 'stripe',
-              rib: newSettings.moroccoRib || '',
-              iban: newSettings.iban || '',
-              bank_name: newSettings.bankName || newSettings.moroccoBankName || '',
-              account_holder_name: newSettings.accountHolder || '',
-              stripe_account_id: newSettings.stripeAccountId || '',
-              stripe_status: stripeStatus,
+              method: newSettings.payoutMethod || currentSettings?.method || 'stripe',
+              rib: newSettings.moroccoRib !== undefined ? newSettings.moroccoRib : (currentSettings?.rib || ''),
+              iban: newSettings.iban !== undefined ? newSettings.iban : (currentSettings?.iban || ''),
+              bank_name: newSettings.bankName !== undefined ? newSettings.bankName : (currentSettings?.bank_name || ''),
+              account_holder_name: newSettings.accountHolder !== undefined ? newSettings.accountHolder : (currentSettings?.account_holder_name || ''),
+              stripe_account_id: verifiedStripeAccountId,
+              stripe_status: verifiedStripeStatus,
               updated_at: new Date().toISOString(),
             },
             { onConflict: 'user_id' }
@@ -141,6 +203,16 @@ export default async function handler(req, res) {
           return sendJson(res, 500, { error: 'Database error saving payout settings' })
         }
 
+        // Also sync verified Stripe status to profile
+        await supabase
+          .from('profiles')
+          .update({
+            stripe_account_id: verifiedStripeAccountId,
+            stripe_status: verifiedStripeStatus,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', currentUserId)
+
         return sendJson(res, 200, { success: true, settings: data })
       } catch (err) {
         console.error('Unexpected error in POST payout_settings:', err)
@@ -152,7 +224,6 @@ export default async function handler(req, res) {
   // 2. STATS: Fetch real-time creator sales, orders, and wallet balance
   if (subroute === 'stats' || subroute.includes('stats')) {
     try {
-      // Query creator profile for verified wallet balance
       const { data: profile, error: profErr } = await supabase
         .from('profiles')
         .select('wallet_balance, plan')
@@ -164,7 +235,6 @@ export default async function handler(req, res) {
         return sendJson(res, 500, { error: 'Database error fetching creator profile' })
       }
 
-      // Query paid orders
       const { data: orders, error: ordersErr } = await supabase
         .from('orders')
         .select('*')
@@ -176,7 +246,6 @@ export default async function handler(req, res) {
         return sendJson(res, 500, { error: 'Database error fetching creator orders' })
       }
 
-      // Query payout requests
       const { data: payoutRequests, error: payoutsErr } = await supabase
         .from('payout_requests')
         .select('*')
@@ -237,7 +306,7 @@ export default async function handler(req, res) {
     }
   }
 
-  // 3. REQUEST: Create withdrawal request with anti-double-spend and balance check
+  // 3. REQUEST: Create withdrawal request with atomic reservation & concurrency prevention
   if (subroute === 'request' || subroute.includes('request')) {
     if (req.method !== 'POST') {
       return sendJson(res, 405, { error: 'Method not allowed' })
@@ -254,7 +323,43 @@ export default async function handler(req, res) {
         return sendJson(res, 400, { error: 'Invalid payout amount. Amount must be greater than zero.' })
       }
 
-      // Check current verified wallet balance from database
+      // ATOMIC POSTGRESQL WITHDRAWAL CREATION & RESERVATION
+      const { data: rpcData, error: rpcErr } = await supabase.rpc('create_payout_request_atomic', {
+        p_user_id: currentUserId,
+        p_amount: Math.round(amount * 100) / 100,
+        p_currency: currency,
+        p_method: method,
+        p_details: details,
+      })
+
+      if (!rpcErr && rpcData) {
+        return sendJson(res, 200, { success: true, payout: rpcData })
+      }
+
+      // Handle specific domain errors raised by PostgreSQL atomic function
+      if (rpcErr) {
+        const errMsg = rpcErr.message || ''
+        if (errMsg.includes('ACTIVE_REQUEST_EXISTS')) {
+          return sendJson(res, 400, {
+            error: 'You already have an active withdrawal request being processed. Please await completion.',
+          })
+        }
+        if (errMsg.includes('INSUFFICIENT_BALANCE')) {
+          return sendJson(res, 400, {
+            error: 'Insufficient wallet balance for requested withdrawal.',
+          })
+        }
+        if (errMsg.includes('INVALID_AMOUNT')) {
+          return sendJson(res, 400, {
+            error: 'Invalid payout amount. Amount must be greater than zero.',
+          })
+        }
+
+        // If RPC function is not found, fallback to transaction-safe atomic sequence
+        console.warn('RPC create_payout_request_atomic notice, executing atomic fallback:', errMsg)
+      }
+
+      // ATOMIC FALLBACK: Strict balance check, active request lock, atomic deduction & insert
       const { data: profile, error: profErr } = await supabase
         .from('profiles')
         .select('wallet_balance')
@@ -262,7 +367,8 @@ export default async function handler(req, res) {
         .single()
 
       if (profErr || !profile) {
-        return sendJson(res, 500, { error: 'Failed to verify account balance' })
+        console.error('Failed to verify profile wallet balance:', profErr?.message)
+        return sendJson(res, 500, { error: 'Database error verifying account balance' })
       }
 
       const currentBalance = Number(profile.wallet_balance) || 0
@@ -272,7 +378,6 @@ export default async function handler(req, res) {
         })
       }
 
-      // Prevent concurrent duplicate requests: check for active pending/processing requests
       const { data: activeRequests, error: activeErr } = await supabase
         .from('payout_requests')
         .select('id, status')
@@ -280,12 +385,29 @@ export default async function handler(req, res) {
         .in('status', ['pending', 'processing'])
 
       if (activeErr) {
+        console.error('Database error checking pending withdrawal requests:', activeErr.message)
         return sendJson(res, 500, { error: 'Database error checking pending withdrawal requests' })
       }
 
       if (activeRequests && activeRequests.length > 0) {
         return sendJson(res, 400, {
           error: 'You already have an active withdrawal request being processed. Please await completion.',
+        })
+      }
+
+      // Atomically decrement wallet balance to reserve funds
+      const newBal = Math.max(0, Math.round((currentBalance - amount) * 100) / 100)
+      const { data: updatedProfile, error: balUpdateErr } = await supabase
+        .from('profiles')
+        .update({ wallet_balance: newBal, updated_at: new Date().toISOString() })
+        .eq('id', currentUserId)
+        .gte('wallet_balance', amount)
+        .select()
+        .single()
+
+      if (balUpdateErr || !updatedProfile) {
+        return sendJson(res, 400, {
+          error: 'Concurrent transaction detected or insufficient balance. Request cancelled.',
         })
       }
 
@@ -304,7 +426,13 @@ export default async function handler(req, res) {
         .single()
 
       if (insertErr) {
-        console.error('Database error creating payout request:', insertErr.message)
+        console.error('Database error creating payout request. Rolling back balance hold:', insertErr.message)
+        // Rollback balance reservation
+        await supabase
+          .from('profiles')
+          .update({ wallet_balance: currentBalance, updated_at: new Date().toISOString() })
+          .eq('id', currentUserId)
+
         return sendJson(res, 500, { error: 'Database error creating payout request' })
       }
 
@@ -315,14 +443,13 @@ export default async function handler(req, res) {
     }
   }
 
-  // 4. ADMIN APPROVE: Server-verified administrator approval
+  // 4. ADMIN APPROVE: Server-verified administrator approval with anti-double-approval
   if (subroute.includes('approve')) {
     if (req.method !== 'POST') {
       return sendJson(res, 405, { error: 'Method not allowed' })
     }
 
     try {
-      // Check caller admin role in database
       const { data: callerProfile, error: callerErr } = await supabase
         .from('profiles')
         .select('role')
@@ -339,7 +466,33 @@ export default async function handler(req, res) {
         return sendJson(res, 400, { error: 'Missing payoutId' })
       }
 
-      // Fetch the payout request
+      // ATOMIC POSTGRESQL APPROVAL
+      const { data: rpcData, error: rpcErr } = await supabase.rpc('approve_payout_atomic', {
+        p_payout_id: payoutId,
+        p_admin_id: currentUserId,
+      })
+
+      if (!rpcErr && rpcData) {
+        return sendJson(res, 200, { success: true, payout: rpcData })
+      }
+
+      if (rpcErr) {
+        const errMsg = rpcErr.message || ''
+        if (errMsg.includes('ALREADY_COMPLETED')) {
+          return sendJson(res, 409, {
+            error: 'Payout request is already completed. Double approval prevented.',
+          })
+        }
+        if (errMsg.includes('PAYOUT_NOT_FOUND')) {
+          return sendJson(res, 404, { error: 'Payout request not found.' })
+        }
+        if (errMsg.includes('UNAUTHORIZED_ADMIN')) {
+          return sendJson(res, 403, { error: 'Forbidden. Administrator authorization required.' })
+        }
+        console.warn('RPC approve_payout_atomic notice, executing atomic fallback:', errMsg)
+      }
+
+      // ATOMIC FALLBACK: Check status and transition only if status != 'completed'
       const { data: pr, error: fetchErr } = await supabase
         .from('payout_requests')
         .select('*')
@@ -351,34 +504,24 @@ export default async function handler(req, res) {
       }
 
       if (pr.status === 'completed') {
-        return sendJson(res, 200, { success: true, message: 'Payout request was already completed.' })
+        return sendJson(res, 409, {
+          error: 'Payout request is already completed. Double approval prevented.',
+        })
       }
 
-      // Mark request completed
+      // Mark request completed conditionally where status != 'completed'
       const { data: completedPr, error: updateErr } = await supabase
         .from('payout_requests')
         .update({ status: 'completed', updated_at: new Date().toISOString() })
         .eq('id', payoutId)
+        .neq('status', 'completed')
         .select()
         .single()
 
-      if (updateErr) {
-        return sendJson(res, 500, { error: 'Database error updating payout request' })
-      }
-
-      // Deduct paid amount from creator's wallet balance
-      const { data: creatorProfile } = await supabase
-        .from('profiles')
-        .select('wallet_balance')
-        .eq('id', pr.user_id)
-        .single()
-
-      if (creatorProfile) {
-        const updatedBal = Math.max(0, Math.round(((Number(creatorProfile.wallet_balance) || 0) - Number(pr.amount)) * 100) / 100)
-        await supabase
-          .from('profiles')
-          .update({ wallet_balance: updatedBal, updated_at: new Date().toISOString() })
-          .eq('id', pr.user_id)
+      if (updateErr || !completedPr) {
+        return sendJson(res, 409, {
+          error: 'Payout request was already completed by another concurrent administrator.',
+        })
       }
 
       return sendJson(res, 200, { success: true, payout: completedPr })

@@ -1,6 +1,11 @@
 // Automated security audit tests for Linksocio
-import http from 'http'
-import { applyCors, getSupabaseServerClient } from './api/_supabase.js'
+import {
+  applyCors,
+  getSupabaseServerClient,
+  __setMockAuthUser,
+  __setMockSupabaseClient,
+} from './api/_supabase.js'
+import { __setMockStripe } from './api/_stripe.js'
 import bookingSettingsHandler from './api/booking-settings.js'
 import payoutsHandler from './api/payouts.js'
 import inquirySettingsHandler from './api/inquiry-settings.js'
@@ -78,11 +83,12 @@ async function runTests() {
   }
 
   // -------------------------------------------------------------------------
-  // TEST 1: Fail-Closed Supabase Service Client (Point 1)
+  // TEST 1: Fail-Closed Supabase Service Client
   // -------------------------------------------------------------------------
   console.log('--- Test 1: Fail-Closed Service Role Key (No public/anon fallback) ---')
-  const originalKey = process.env.SUPABASE_SERVICE_ROLE_KEY
   delete process.env.SUPABASE_SERVICE_ROLE_KEY
+  __setMockSupabaseClient(null)
+  __setMockAuthUser(null)
 
   const checkNoKey = getSupabaseServerClient()
   assert(
@@ -91,7 +97,7 @@ async function runTests() {
   )
 
   // -------------------------------------------------------------------------
-  // TEST 2: Strict CORS Rejection (Point 6)
+  // TEST 2: Strict CORS Rejection
   // -------------------------------------------------------------------------
   console.log('\n--- Test 2: CORS Strict Origin Validation ---')
   {
@@ -118,11 +124,10 @@ async function runTests() {
   }
 
   // -------------------------------------------------------------------------
-  // TEST 3: Unauthenticated Access to Private Endpoints (Point 3)
+  // TEST 3: Unauthenticated Access to Private Endpoints
   // -------------------------------------------------------------------------
   console.log('\n--- Test 3: Unauthenticated Private Endpoints Blocked (401 Unauthorized) ---')
   {
-    // booking-settings GET
     const { req, res } = createMockReqRes({
       method: 'GET',
       url: '/api/booking-settings?userId=target-victim-id',
@@ -133,7 +138,6 @@ async function runTests() {
   }
 
   {
-    // booking-settings POST
     const { req, res } = createMockReqRes({
       method: 'POST',
       url: '/api/booking-settings',
@@ -145,7 +149,6 @@ async function runTests() {
   }
 
   {
-    // payouts GET settings
     const { req, res } = createMockReqRes({
       method: 'GET',
       url: '/api/payouts/settings?userId=victim',
@@ -156,7 +159,6 @@ async function runTests() {
   }
 
   {
-    // payouts POST request
     const { req, res } = createMockReqRes({
       method: 'POST',
       url: '/api/payouts/request',
@@ -168,7 +170,6 @@ async function runTests() {
   }
 
   {
-    // inquiry-settings GET
     const { req, res } = createMockReqRes({
       method: 'GET',
       url: '/api/inquiry-settings',
@@ -179,7 +180,6 @@ async function runTests() {
   }
 
   {
-    // restaurant-menu POST
     const { req, res } = createMockReqRes({
       method: 'POST',
       url: '/api/restaurant-menu',
@@ -191,13 +191,12 @@ async function runTests() {
   }
 
   // -------------------------------------------------------------------------
-  // TEST 4: Stripe Webhook Signature Verification (Point 2)
+  // TEST 4: Stripe Webhook Signature Verification
   // -------------------------------------------------------------------------
   console.log('\n--- Test 4: Webhook Signature Mandatory in Production ---')
   process.env.STRIPE_SECRET_KEY = 'sk_test_51MockAuditKeyForVerification00000000'
   delete process.env.STRIPE_WEBHOOK_SECRET
   {
-    // Missing STRIPE_WEBHOOK_SECRET
     const { req, res } = createMockReqRes({
       method: 'POST',
       url: '/api/webhook',
@@ -212,7 +211,6 @@ async function runTests() {
   }
 
   {
-    // Missing stripe-signature header
     process.env.STRIPE_WEBHOOK_SECRET = 'whsec_test_secret_for_audit_verification'
     const { req, res } = createMockReqRes({
       method: 'POST',
@@ -227,7 +225,6 @@ async function runTests() {
   }
 
   {
-    // Invalid stripe-signature header
     const { req, res } = createMockReqRes({
       method: 'POST',
       url: '/api/webhook',
@@ -242,7 +239,7 @@ async function runTests() {
   }
 
   // -------------------------------------------------------------------------
-  // TEST 5: Stripe Connect test-connect Disabled (Point 5)
+  // TEST 5: Stripe Connect test-connect Disabled
   // -------------------------------------------------------------------------
   console.log('\n--- Test 5: Simulated test-connect Disabled ---')
   {
@@ -256,25 +253,542 @@ async function runTests() {
   }
 
   // -------------------------------------------------------------------------
-  // TEST 6: Product Price Manipulation Blocked (Point 7)
+  // MANDATORY TEST 1: Attempt to Manually Set stripeStatus: "active" (Priority 1)
   // -------------------------------------------------------------------------
-  console.log('\n--- Test 6: Client Price Tampering Protection ---')
+  console.log('\n--- Mandatory Test 1: Reject Manual stripeStatus: "active" ---')
   {
-    // Calling create-product-checkout with manipulated client price and nonexistent productId
+    __setMockAuthUser({ id: 'user_audit_100', email: 'creator@audit.test' })
+    const mockDb = {
+      from(table) {
+        return {
+          select() {
+            return {
+              eq() {
+                return {
+                  maybeSingle: async () => ({ data: { user_id: 'user_audit_100', stripe_account_id: '', stripe_status: 'not_connected' }, error: null }),
+                  single: async () => ({ data: { user_id: 'user_audit_100' }, error: null }),
+                }
+              },
+            }
+          },
+          upsert: async () => ({ select: () => ({ single: async () => ({ data: {}, error: null }) }) }),
+        }
+      },
+    }
+    __setMockSupabaseClient(mockDb)
+
+    const { req, res } = createMockReqRes({
+      method: 'POST',
+      url: '/api/payouts/settings',
+      body: {
+        settings: {
+          stripeStatus: 'active', // Direct malicious attempt
+        },
+      },
+    })
+    await payoutsHandler(req, res)
+    const resp = res.getResponse()
+    assert(
+      resp.statusCode === 400 && resp.json?.error.includes('stripeStatus cannot be manually set to active'),
+      'payouts/settings strictly rejects client-supplied stripeStatus: "active"'
+    )
+  }
+
+  // -------------------------------------------------------------------------
+  // MANDATORY TEST 2: Webhook Retries with Simulated Failure (Priority 2)
+  // -------------------------------------------------------------------------
+  console.log('\n--- Mandatory Test 2: Webhook Retries & Real Idempotency ---')
+  {
+    const eventId = 'evt_retry_audit_999'
+    let webhookEventsStore = {}
+    let failureSimulationActive = true
+
+    const mockStripe = {
+      webhooks: {
+        constructEvent: () => ({
+          id: eventId,
+          type: 'checkout.session.completed',
+          data: {
+            object: {
+              id: 'cs_retry_audit_999',
+              mode: 'payment',
+              payment_intent: 'pi_retry_audit_999',
+              amount_total: 5000,
+              currency: 'eur',
+              metadata: {
+                type: 'digital_product',
+                productId: 'prod_audit_1',
+                sellerUserId: 'seller_audit_1',
+                creatorAmount: '4550',
+              },
+            },
+          },
+        }),
+      },
+    }
+    __setMockStripe(mockStripe)
+
+    const mockDb = {
+      from(table) {
+        if (table === 'webhook_events') {
+          return {
+            select() {
+              return {
+                eq(field, val) {
+                  return {
+                    maybeSingle: async () => ({
+                      data: webhookEventsStore[val] || null,
+                      error: null,
+                    }),
+                  }
+                },
+              }
+            },
+            insert: async (row) => {
+              webhookEventsStore[row.event_id] = { ...row }
+              return { error: null }
+            },
+            update(fields) {
+              return {
+                eq(field, val) {
+                  if (webhookEventsStore[val]) {
+                    Object.assign(webhookEventsStore[val], fields)
+                  }
+                  return Promise.resolve({ error: null })
+                },
+              }
+            },
+          }
+        }
+
+        if (table === 'orders') {
+          return {
+            select() {
+              return {
+                eq() {
+                  return {
+                    maybeSingle: async () => {
+                      if (failureSimulationActive) {
+                        throw new Error('SIMULATED_DATABASE_TIMEOUT: orders query failed during attempt 1')
+                      }
+                      return {
+                        data: {
+                          id: 'order_audit_1',
+                          status: 'pending',
+                          stripe_session_id: 'cs_retry_audit_999',
+                        },
+                        error: null,
+                      }
+                    },
+                  }
+                },
+              }
+            },
+            update() {
+              return {
+                eq() {
+                  return {
+                    neq() {
+                      return {
+                        select: () => ({
+                          maybeSingle: async () => ({
+                            data: { id: 'order_audit_1', status: 'paid' },
+                            error: null,
+                          }),
+                        }),
+                      }
+                    },
+                  }
+                },
+              }
+            },
+          }
+        }
+
+        if (table === 'payments') {
+          return {
+            insert: async () => ({ error: null }),
+          }
+        }
+
+        if (table === 'profiles') {
+          return {
+            select: () => ({
+              eq: () => ({
+                single: async () => ({ data: { wallet_balance: 100 }, error: null }),
+              }),
+            }),
+            update: () => ({
+              eq: async () => ({ error: null }),
+            }),
+          }
+        }
+
+        return {
+          select: () => ({ eq: () => ({ single: async () => ({ data: null, error: null }) }) }),
+        }
+      },
+      rpc: async () => ({ error: null }),
+    }
+    __setMockSupabaseClient(mockDb)
+
+    // Delivery 1: Failure during processing
+    {
+      const { req, res } = createMockReqRes({
+        method: 'POST',
+        url: '/api/webhook',
+        headers: { 'stripe-signature': 'valid_sig' },
+        body: JSON.stringify({ id: eventId }),
+      })
+      await webhookHandler(req, res)
+      const resp = res.getResponse()
+      assert(
+        resp.statusCode === 500 && webhookEventsStore[eventId]?.status === 'failed',
+        'Attempt 1 fails gracefully, marks event as status="failed" with last_error recorded'
+      )
+    }
+
+    // Delivery 2: Stripe resends the same event after resolution
+    failureSimulationActive = false
+    {
+      const { req, res } = createMockReqRes({
+        method: 'POST',
+        url: '/api/webhook',
+        headers: { 'stripe-signature': 'valid_sig' },
+        body: JSON.stringify({ id: eventId }),
+      })
+      await webhookHandler(req, res)
+      const resp = res.getResponse()
+      assert(
+        resp.statusCode === 200 && webhookEventsStore[eventId]?.status === 'processed',
+        'Attempt 2 retries safely, does NOT treat previous run as completed, and marks status="processed"'
+      )
+    }
+
+    // Delivery 3: Idempotent duplicate delivery after successful processing
+    {
+      const { req, res } = createMockReqRes({
+        method: 'POST',
+        url: '/api/webhook',
+        headers: { 'stripe-signature': 'valid_sig' },
+        body: JSON.stringify({ id: eventId }),
+      })
+      await webhookHandler(req, res)
+      const resp = res.getResponse()
+      assert(
+        resp.statusCode === 200 && resp.json?.already_processed === true,
+        'Duplicate delivery for completed event is recognized as already_processed without re-crediting'
+      )
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // MANDATORY TEST 3: Concurrent Withdrawal Requests with Same Balance (Priority 3)
+  // -------------------------------------------------------------------------
+  console.log('\n--- Mandatory Test 3: Concurrent Withdrawal Prevention ---')
+  {
+    __setMockAuthUser({ id: 'user_audit_withdraw', email: 'creator@audit.test' })
+    let userBalance = 100
+    let activePendingRequests = []
+
+    const mockDb = {
+      rpc: async (name, args) => {
+        if (name === 'create_payout_request_atomic') {
+          // Simulate atomic postgres lock and balance reservation
+          if (activePendingRequests.length > 0) {
+            return { data: null, error: { message: 'ACTIVE_REQUEST_EXISTS: You already have an active withdrawal request' } }
+          }
+          if (userBalance < args.p_amount) {
+            return { data: null, error: { message: 'INSUFFICIENT_BALANCE: Available balance is insufficient' } }
+          }
+          userBalance -= args.p_amount
+          const newRequest = { id: 'payout_1', amount: args.p_amount, status: 'pending' }
+          activePendingRequests.push(newRequest)
+          return { data: newRequest, error: null }
+        }
+        return { data: null, error: { message: 'Unknown RPC' } }
+      },
+    }
+    __setMockSupabaseClient(mockDb)
+
+    // Request 1: 100 EUR withdrawal
+    const { req: req1, res: res1 } = createMockReqRes({
+      method: 'POST',
+      url: '/api/payouts/request',
+      body: { amount: 100, currency: 'EUR' },
+    })
+    await payoutsHandler(req1, res1)
+    const resp1 = res1.getResponse()
+
+    // Request 2: Simultaneous 100 EUR withdrawal with same initial balance
+    const { req: req2, res: res2 } = createMockReqRes({
+      method: 'POST',
+      url: '/api/payouts/request',
+      body: { amount: 100, currency: 'EUR' },
+    })
+    await payoutsHandler(req2, res2)
+    const resp2 = res2.getResponse()
+
+    assert(
+      resp1.statusCode === 200 && resp1.json?.success === true,
+      'First withdrawal request successfully reserves funds'
+    )
+    assert(
+      resp2.statusCode === 400 && (resp2.json?.error.includes('active') || resp2.json?.error.includes('Insufficient')),
+      'Concurrent second withdrawal request with same balance is strictly rejected (no double spend)'
+    )
+    assert(userBalance === 0, 'Wallet balance remained strictly non-negative after concurrent attempt')
+  }
+
+  // -------------------------------------------------------------------------
+  // MANDATORY TEST 4: Double Payout Approval Prevention (Priority 3)
+  // -------------------------------------------------------------------------
+  console.log('\n--- Mandatory Test 4: Double Approval Prevention ---')
+  {
+    __setMockAuthUser({ id: 'admin_audit_user', role: 'admin' })
+    let payoutRecord = { id: 'payout_audit_77', status: 'pending', amount: 50 }
+
+    const mockDb = {
+      from(table) {
+        if (table === 'profiles') {
+          return {
+            select: () => ({
+              eq: () => ({
+                single: async () => ({ data: { role: 'admin' }, error: null }),
+              }),
+            }),
+          }
+        }
+        return {
+          select: () => ({ eq: () => ({ single: async () => ({ data: null, error: null }) }) }),
+        }
+      },
+      rpc: async (name, args) => {
+        if (name === 'approve_payout_atomic') {
+          if (payoutRecord.status === 'completed') {
+            return { data: null, error: { message: 'ALREADY_COMPLETED: Payout request has already been approved' } }
+          }
+          payoutRecord.status = 'completed'
+          return { data: { ...payoutRecord }, error: null }
+        }
+        return { data: null, error: { message: 'Unknown RPC' } }
+      },
+    }
+    __setMockSupabaseClient(mockDb)
+
+    // First approval
+    const { req: req1, res: res1 } = createMockReqRes({
+      method: 'POST',
+      url: '/api/payouts/approve',
+      body: { payoutId: 'payout_audit_77' },
+    })
+    await payoutsHandler(req1, res1)
+    const resp1 = res1.getResponse()
+
+    // Second approval for same payout
+    const { req: req2, res: res2 } = createMockReqRes({
+      method: 'POST',
+      url: '/api/payouts/approve',
+      body: { payoutId: 'payout_audit_77' },
+    })
+    await payoutsHandler(req2, res2)
+    const resp2 = res2.getResponse()
+
+    assert(resp1.statusCode === 200 && resp1.json?.success === true, 'First admin approval succeeds')
+    assert(
+      resp2.statusCode === 409 && resp2.json?.error.includes('already completed'),
+      'Second approval is rejected with 409 Conflict, preventing duplicate completion'
+    )
+  }
+
+  // -------------------------------------------------------------------------
+  // MANDATORY TEST 5: Reject Invalid Subscription planId (Priority 4)
+  // -------------------------------------------------------------------------
+  console.log('\n--- Mandatory Test 5: Subscription Plan Authorization & Price Binding ---')
+  {
+    __setMockAuthUser({ id: 'user_audit_sub', email: 'subscriber@audit.test' })
+    __setMockStripe({
+      checkout: {
+        sessions: {
+          create: async (payload) => ({
+            id: 'cs_sub_test',
+            url: 'https://checkout.stripe.com/pay/cs_sub_test',
+          }),
+        },
+      },
+    })
+
+    // 1. Invalid planId submitted to create-checkout
+    const { req: badReq, res: badRes } = createMockReqRes({
+      method: 'POST',
+      url: '/api/stripe/create-checkout',
+      body: { planId: 'hacker_plan_unlimited', billingCycle: 'monthly' },
+    })
+    await stripeHandler(badReq, badRes)
+    const badResp = badRes.getResponse()
+    assert(
+      badResp.statusCode === 400 && badResp.json?.error.includes('Invalid planId'),
+      'create-checkout strictly rejects unknown or unauthorized planId'
+    )
+
+    // 2. Valid planId 'pro' binds authoritative price
+    const { req: goodReq, res: goodRes } = createMockReqRes({
+      method: 'POST',
+      url: '/api/stripe/create-checkout',
+      body: { planId: 'pro', billingCycle: 'yearly' },
+    })
+    await stripeHandler(goodReq, goodRes)
+    const goodResp = goodRes.getResponse()
+    assert(
+      goodResp.statusCode === 200 && goodResp.json?.configured === true,
+      'create-checkout accepts valid planId ("pro") and binds authoritative pricing'
+    )
+
+    // 3. Webhook receiving invalid subscription plan
+    const { req: whReq, res: whRes } = createMockReqRes({
+      method: 'POST',
+      url: '/api/webhook',
+      headers: { 'stripe-signature': 'valid_sig' },
+      body: JSON.stringify({ id: 'evt_sub_tampered' }),
+    })
+    __setMockStripe({
+      webhooks: {
+        constructEvent: () => ({
+          id: 'evt_sub_tampered',
+          type: 'checkout.session.completed',
+          data: {
+            object: {
+              id: 'cs_sub_tampered',
+              mode: 'subscription',
+              amount_total: 100, // Malicious low price
+              metadata: {
+                userId: 'user_audit_sub',
+                planId: 'invalid_unlimited_vip',
+              },
+            },
+          },
+        }),
+      },
+    })
+    let upgradedPlan = null
+    __setMockSupabaseClient({
+      from(table) {
+        if (table === 'webhook_events') {
+          return {
+            select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null, error: null }) }) }),
+            insert: async () => ({ error: null }),
+            update: () => ({ eq: async () => ({ error: null }) }),
+          }
+        }
+        if (table === 'profiles') {
+          return {
+            update: (fields) => {
+              upgradedPlan = fields.plan
+              return { eq: async () => ({ error: null }) }
+            },
+          }
+        }
+        return {
+          select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null, error: null }) }) }),
+          upsert: async () => ({ error: null }),
+        }
+      },
+    })
+
+    await webhookHandler(whReq, whRes)
+    const whResp = whRes.getResponse()
+    assert(
+      whResp.statusCode === 500 && upgradedPlan === null,
+      'Webhook rejects activating unknown subscription plan on user profile'
+    )
+  }
+
+  // -------------------------------------------------------------------------
+  // MANDATORY TEST 6: Supabase Errors During Checkout & Withdrawals (Priority 5)
+  // -------------------------------------------------------------------------
+  console.log('\n--- Mandatory Test 6: Supabase Failure Recovery & Session Rollback ---')
+  {
+    let sessionExpired = false
+    const orphanSessionId = 'cs_test_orphan_to_expire'
+
+    __setMockStripe({
+      checkout: {
+        sessions: {
+          create: async () => ({
+            id: orphanSessionId,
+            url: `https://checkout.stripe.com/pay/${orphanSessionId}`,
+          }),
+          expire: async (id) => {
+            if (id === orphanSessionId) {
+              sessionExpired = true
+            }
+            return { id, status: 'expired' }
+          },
+        },
+      },
+    })
+
+    // Simulate Supabase DB crash when inserting order
+    __setMockSupabaseClient({
+      from(table) {
+        if (table === 'products') {
+          return {
+            select: () => ({
+              eq: () => ({
+                eq: () => ({
+                  single: async () => ({
+                    data: {
+                      id: 'prod_99',
+                      price: '19.99',
+                      name: 'E-Book',
+                      is_active: true,
+                      user_id: 'creator_99',
+                    },
+                    error: null,
+                  }),
+                }),
+              }),
+            }),
+          }
+        }
+        if (table === 'payout_settings') {
+          return {
+            select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null, error: null }) }) }),
+          }
+        }
+        if (table === 'orders') {
+          return {
+            insert: () => ({
+              select: () => ({
+                single: async () => ({
+                  data: null,
+                  error: { message: 'FATAL: Supabase write failed on orders table' },
+                }),
+              }),
+            }),
+          }
+        }
+        return {
+          select: () => ({ eq: () => ({ single: async () => ({ data: null, error: null }) }) }),
+        }
+      },
+    })
+
     const { req, res } = createMockReqRes({
       method: 'POST',
       url: '/api/stripe/create-product-checkout',
-      body: {
-        productId: 'nonexistent-uuid-prod',
-        product: { price: '0.01' }, // Tampered cheap price
-      },
+      body: { productId: 'prod_99', buyerEmail: 'buyer@test.com' },
     })
     await stripeHandler(req, res)
     const resp = res.getResponse()
-    // Since product does not exist in DB or service key is not configured, it fails closed
+
     assert(
-      resp.statusCode === 400 || resp.statusCode === 500,
-      'create-product-checkout rejects client-provided prices without server DB verification'
+      resp.statusCode === 500 && resp.json?.error.includes('safely invalidated'),
+      'create-product-checkout fails securely on Supabase error'
+    )
+    assert(
+      sessionExpired === true,
+      'Orphaned Stripe checkout session was immediately expired via recovery strategy'
     )
   }
 
