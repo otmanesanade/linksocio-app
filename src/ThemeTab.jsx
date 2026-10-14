@@ -44,16 +44,32 @@ export default function ThemeTab({ user, profile, onUpdated }) {
   const [saved, setSaved] = useState(false)
 
   useEffect(() => {
+    if (profile?.theme_preset) {
+      setSelectedTheme(profile.theme_preset)
+    }
+    if (profile?.font_family) {
+      setSelectedFont(profile.font_family)
+    }
+    if (profile?.font_color !== undefined && profile?.font_color !== null) {
+      setSelectedFontColor(profile.font_color)
+    }
+    if (profile?.button_style) {
+      setSelectedButtonStyle(profile.button_style)
+    }
     if (profile?.hide_branding !== undefined) {
       setHideBranding(Boolean(profile.hide_branding))
     }
-  }, [profile?.hide_branding])
+    if (profile?.header_cover_style) {
+      setHeaderCoverStyle(profile.header_cover_style)
+    }
+  }, [profile?.theme_preset, profile?.font_family, profile?.font_color, profile?.button_style, profile?.hide_branding, profile?.header_cover_style])
 
   async function updateSetting(field, value) {
     if (field === 'theme_preset') {
       setSelectedTheme(value)
       if (profile?.username) localStorage.setItem(`linksocio_theme_preset_${profile.username}`, value)
       if (user?.id) localStorage.setItem(`linksocio_theme_preset_${user.id}`, value)
+      if (profile?.id) localStorage.setItem(`linksocio_theme_preset_${profile.id}`, value)
     }
     if (field === 'font_family') setSelectedFont(value)
     if (field === 'font_color') {
@@ -63,6 +79,9 @@ export default function ThemeTab({ user, profile, onUpdated }) {
       }
       if (user?.id) {
         localStorage.setItem(`linksocio_font_color_${user.id}`, value || '')
+      }
+      if (profile?.id) {
+        localStorage.setItem(`linksocio_font_color_${profile.id}`, value || '')
       }
     }
     if (field === 'button_style') setSelectedButtonStyle(value)
@@ -74,6 +93,9 @@ export default function ThemeTab({ user, profile, onUpdated }) {
       if (user?.id) {
         localStorage.setItem(`linksocio_hide_branding_${user.id}`, String(value))
       }
+      if (profile?.id) {
+        localStorage.setItem(`linksocio_hide_branding_${profile.id}`, String(value))
+      }
     }
     if (field === 'header_cover_style') {
       setHeaderCoverStyle(value)
@@ -83,13 +105,17 @@ export default function ThemeTab({ user, profile, onUpdated }) {
       if (user?.id) {
         localStorage.setItem(`linksocio_header_cover_${user.id}`, String(value))
       }
+      if (profile?.id) {
+        localStorage.setItem(`linksocio_header_cover_${profile.id}`, String(value))
+      }
     }
 
+    const targetId = profile?.id || user.id
     try {
-      await supabase.from('profiles').update({ [field]: value }).eq('id', user.id)
+      await supabase.from('profiles').update({ [field]: value }).eq('id', targetId)
     } catch (e) {}
 
-    onUpdated()
+    if (onUpdated) onUpdated()
     setSaved(true)
     setTimeout(() => setSaved(false), 1400)
   }

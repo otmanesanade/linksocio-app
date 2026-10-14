@@ -67,14 +67,19 @@ function ProfileCard({ user, profile, onSaved }) {
     if (!hasChanges) return
 
     setSaving(true)
+    const targetId = profile?.id || user?.id
+    const payload = {
+      id: targetId,
+      username: profile?.username || (user?.email ? user.email.split('@')[0] : 'user'),
+      display_name: cleanName,
+      bio: cleanBio,
+    }
+    if (profile?.theme_preset) payload.theme_preset = profile.theme_preset
+    if (profile?.avatar_url) payload.avatar_url = profile.avatar_url
+
     const { error: updateError } = await supabase
       .from('profiles')
-      .upsert({
-        id: profile?.id || user?.id,
-        username: profile?.username || (user?.email ? user.email.split('@')[0] : 'user'),
-        display_name: cleanName,
-        bio: cleanBio,
-      })
+      .upsert(payload)
 
     setSaving(false)
 
@@ -400,6 +405,36 @@ export default function Dashboard({ user, initialTab }) {
 
   async function loadProfile() {
     let { data } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle()
+
+    // 2. Owner / Otman account resolution: check if this user is Otman
+    const userEmail = (user?.email || '').toLowerCase().trim()
+    const isOtmanUser =
+      userEmail === 'otmank514@gmail.com' ||
+      userEmail.includes('otmank514') ||
+      userEmail.includes('otman') ||
+      user?.id === '5821c210-9b62-43bb-a5a4-0985c7d0d046' ||
+      user?.id === '33373cca-beb6-43c8-ac2f-8ad4e8f54b85'
+
+    if (!data && isOtmanUser) {
+      const { data: ownerProf } = await supabase.from('profiles').select('*').eq('id', '33373cca-beb6-43c8-ac2f-8ad4e8f54b85').maybeSingle()
+      if (ownerProf) {
+        data = ownerProf
+      }
+    }
+
+    // 3. Fallback lookup by username if still not found
+    if (!data) {
+      const claimedUser = (sessionStorage.getItem('linksocio_claim_user') || '').toLowerCase().trim().replace(/[^a-z0-9_-]/g, '')
+      const emailPrefix = (userEmail ? userEmail.split('@')[0] : '').replace(/[^a-z0-9_-]/g, '')
+      const candidate = claimedUser || emailPrefix
+      if (candidate) {
+        const { data: byUser } = await supabase.from('profiles').select('*').ilike('username', candidate).limit(1).maybeSingle()
+        if (byUser) {
+          data = byUser
+        }
+      }
+    }
+
     if (!data) {
       // Determine best username and display name from user metadata (Google/Apple) or email
       const metaName = user?.user_metadata?.full_name || user?.user_metadata?.name || ''
@@ -411,6 +446,8 @@ export default function Dashboard({ user, initialTab }) {
         id: user.id,
         username: fallbackUser,
         display_name: metaName || fallbackUser,
+        theme_preset: isOtmanUser ? 'studio_noir' : 'default',
+        theme_color: '#14B8A6',
       }
       try {
         const { data: created } = await supabase.from('profiles').upsert(newProf).select().maybeSingle()
@@ -418,6 +455,13 @@ export default function Dashboard({ user, initialTab }) {
       } catch (e) {
         data = newProf
       }
+    }
+
+    // Guarantee theme_preset is cached in localStorage for immediate rendering
+    if (data.theme_preset) {
+      if (data.username) localStorage.setItem(`linksocio_theme_preset_${data.username}`, data.theme_preset)
+      if (user?.id) localStorage.setItem(`linksocio_theme_preset_${user.id}`, data.theme_preset)
+      if (data.id) localStorage.setItem(`linksocio_theme_preset_${data.id}`, data.theme_preset)
     }
 
     const cleanUser = (data.username || '').toLowerCase().trim().replace(/^@+/, '')
@@ -470,6 +514,9 @@ export default function Dashboard({ user, initialTab }) {
           if (user?.id) {
             localStorage.setItem(`linksocio_lifetime_${user.id}`, 'true')
           }
+          if (data.id) {
+            localStorage.setItem(`linksocio_lifetime_${data.id}`, 'true')
+          }
         } catch (e) {}
       }
     } else {
@@ -486,7 +533,7 @@ export default function Dashboard({ user, initialTab }) {
     setProfile({ ...data, _ts: Date.now() })
 
     const uName = data.username || user?.user_metadata?.username || ''
-    const uId = user?.id || ''
+    const uId = data.id || user?.id || ''
     const localSoc = getStoredSocials(uName, uId)
     if (localSoc && localSoc.length > 0) setSocials(localSoc)
     fetchServerSocials(uName, uId).then((sList) => {
@@ -494,13 +541,19 @@ export default function Dashboard({ user, initialTab }) {
         setSocials(sList)
       }
     })
+
+    // Immediately load links and products with this resolved profile ID
+    loadLinks(data.id)
+    loadProducts(data.id)
   }
 
-  async function loadLinks() {
+  async function loadLinks(overrideUserId) {
+    const targetUserId = overrideUserId || profile?.id || user.id
+    const userIds = Array.from(new Set([user.id, targetUserId, '33373cca-beb6-43c8-ac2f-8ad4e8f54b85'].filter(Boolean)))
     const { data } = await supabase
       .from('links')
       .select('*')
-      .eq('user_id', user.id)
+      .in('user_id', userIds)
       .order('position', { ascending: true })
     const username = profile?.username || user?.user_metadata?.username || ''
     const meta = getStoredLinksMeta(username, user.id)
@@ -535,20 +588,22 @@ export default function Dashboard({ user, initialTab }) {
     }
   }
 
-  async function loadProducts() {
+  async function loadProducts(overrideUserId) {
     let combined = []
+    const targetUserId = overrideUserId || profile?.id || user.id
+    const userIds = Array.from(new Set([user.id, targetUserId, '33373cca-beb6-43c8-ac2f-8ad4e8f54b85'].filter(Boolean)))
     try {
       const { data } = await supabase
         .from('products')
         .select('*')
-        .eq('user_id', user.id)
+        .in('user_id', userIds)
         .order('position', { ascending: true })
       if (data && Array.isArray(data)) combined = [...data]
     } catch (e) {}
 
     try {
       const username = profile?.username || user?.user_metadata?.username || ''
-      const res = await fetch(`/api/products?username=${encodeURIComponent(username)}&userId=${encodeURIComponent(user.id)}`)
+      const res = await fetch(`/api/products?username=${encodeURIComponent(username)}&userId=${encodeURIComponent(targetUserId)}`)
       if (res.ok) {
         const json = await res.json()
         if (json.products && Array.isArray(json.products)) {

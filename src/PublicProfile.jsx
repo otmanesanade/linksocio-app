@@ -56,7 +56,7 @@ export default function PublicProfile({ username }) {
     }
 
     // Alias resolution for otman -> otmank514 / primary account
-    if (!profileData && (cleanUser.toLowerCase() === 'otman' || cleanUser.toLowerCase() === 'otmank514')) {
+    if (!profileData && (cleanUser.toLowerCase() === 'otman' || cleanUser.toLowerCase() === 'otmank514' || cleanUser.toLowerCase() === 'otmane' || cleanUser.toLowerCase().includes('otman'))) {
       const { data: aliasData } = await supabase
         .from('profiles')
         .select('*')
@@ -180,17 +180,18 @@ export default function PublicProfile({ username }) {
 
     setProfile(profileData)
 
+    const targetIds = Array.from(new Set([profileData.id, isOwnerAccount ? '33373cca-beb6-43c8-ac2f-8ad4e8f54b85' : null].filter(Boolean)))
     const [{ data: linksData }, { data: productsData }] = await Promise.all([
       supabase
         .from('links')
         .select('*')
-        .eq('user_id', profileData.id)
+        .in('user_id', targetIds)
         .eq('active', true)
         .order('position', { ascending: true }),
       supabase
         .from('products')
         .select('*')
-        .eq('user_id', profileData.id)
+        .in('user_id', targetIds)
         .order('position', { ascending: true }),
     ])
 

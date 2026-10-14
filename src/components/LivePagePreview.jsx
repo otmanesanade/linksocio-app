@@ -353,7 +353,8 @@ export function LivePagePreview({ profile, links = [], products = [], socials = 
     profile?.theme_preset ||
     (profile?.username && typeof window !== 'undefined' && localStorage.getItem(`linksocio_theme_preset_${profile.username}`)) ||
     (profile?.id && typeof window !== 'undefined' && localStorage.getItem(`linksocio_theme_preset_${profile.id}`)) ||
-    'default'
+    (typeof window !== 'undefined' && (localStorage.getItem('linksocio_theme_preset_otmank514') || localStorage.getItem('linksocio_theme_preset_33373cca-beb6-43c8-ac2f-8ad4e8f54b85'))) ||
+    (profile?.username && profile.username.toLowerCase().includes('otman') ? 'studio_noir' : 'default')
   const rawTheme = getTheme(themeKey)
   const fontKey =
     profile?.font_family ||
@@ -470,7 +471,7 @@ export function LivePagePreview({ profile, links = [], products = [], socials = 
 
   // Ensure contact email from profile / server meta is represented in top social icons
   const cleanUsername = String(profile?.username || '').toLowerCase().trim().replace(/^@+/, '')
-  const isOwnerProfile = cleanUsername === 'otman' || cleanUsername === 'otmank514' || profile?.id === '33373cca-beb6-43c8-ac2f-8ad4e8f54b85'
+  const isOwnerProfile = cleanUsername === 'otman' || cleanUsername === 'otmank514' || cleanUsername.includes('otman') || profile?.id === '33373cca-beb6-43c8-ac2f-8ad4e8f54b85' || profile?.id === '5821c210-9b62-43bb-a5a4-0985c7d0d046'
 
   const resolvedEmail =
     profile?.contact_email ||

@@ -32,9 +32,12 @@ export function checkIsOwner(user, profile) {
   return (
     email === 'otmank514@gmail.com' ||
     email.includes('otmank514') ||
+    email.includes('otman') ||
     username === 'otman' ||
     username === 'otmank514' ||
+    username.includes('otman') ||
     userId === '5821c210-9b62-43bb-a5a4-0985c7d0d046' ||
+    userId === '33373cca-beb6-43c8-ac2f-8ad4e8f54b85' ||
     plan === 'owner' ||
     plan === 'lifetime'
   )

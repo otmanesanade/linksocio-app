@@ -215,13 +215,16 @@ export default function SettingsTab({ user, profile, onSaved, initialSubTab = 'p
     setProfileSaving(true)
     setProfileError('')
 
+    const targetId = profile?.id || user.id
     // Only send fields that exist in the Supabase 'profiles' table schema
     const validProfilePayload = {
-      id: user.id,
+      id: targetId,
       username: cleanUsername,
       display_name: cleanName,
       bio: cleanBio,
     }
+    if (profile?.theme_preset) validProfilePayload.theme_preset = profile.theme_preset
+    if (profile?.avatar_url) validProfilePayload.avatar_url = profile.avatar_url
 
     try {
       // Upsert ensures the profile is created if not already present or updated if existing
