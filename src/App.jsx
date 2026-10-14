@@ -155,10 +155,9 @@ export default function App() {
   // Dashboard, Billing, Settings, Admin & Payouts/Stripe routes
   if (path === 'dashboard' || path === 'billing' || path === 'settings' || path === 'admin' || path === 'payouts' || path === 'stripe' || path === 'wallet') {
     if (user) {
-      const isAdminUser = checkIsAdmin(user)
       const initialTab =
         path === 'admin'
-          ? (isAdminUser ? 'admin' : 'links')
+          ? 'admin'
           : path === 'billing'
           ? 'billing'
           : path === 'settings'

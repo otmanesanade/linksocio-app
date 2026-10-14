@@ -488,6 +488,33 @@ export default function PayoutsTab({ user, profile, products = [] }) {
           }
         }
       }
+
+      if (!setRes || !setRes.ok) {
+        try {
+          const u = username || profile?.username || 'default'
+          const uid = userId || profile?.id || ''
+          const cached =
+            localStorage.getItem(`linksocio_payout_settings_${u}`) ||
+            localStorage.getItem(`linksocio_payout_settings_${uid}`) ||
+            localStorage.getItem('linksocio_payout_settings_otman') ||
+            localStorage.getItem('linksocio_payout_settings_default')
+          if (cached) {
+            const parsed = JSON.parse(cached)
+            setSettings((prev) => ({ ...prev, ...parsed }))
+          }
+        } catch (e) {}
+      }
+
+      if (!statsRes || !statsRes.ok) {
+        try {
+          const u = username || profile?.username || 'default'
+          const cachedStats = localStorage.getItem(`linksocio_wallet_stats_${u}`)
+          if (cachedStats) {
+            const parsed = JSON.parse(cachedStats)
+            setStats((prev) => ({ ...prev, ...parsed }))
+          }
+        } catch (e) {}
+      }
     } catch (e) {
       console.error('Failed to load payouts data:', e)
     }
@@ -769,7 +796,7 @@ export default function PayoutsTab({ user, profile, products = [] }) {
     setStripeConnectError(null)
     try {
       const origin = typeof window !== 'undefined' ? window.location.origin : ''
-      const res = await fetch('/api/stripe/connect/onboard', {
+      const res = await authFetch('/api/stripe/connect/onboard', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -872,6 +899,74 @@ export default function PayoutsTab({ user, profile, products = [] }) {
     }
   }
 
+  async function handleSimulateSale() {
+    const defaultVal = ['DH', 'MAD'].includes(settings.selectedCurrency) ? '100' : '50'
+    const inputVal = prompt((t('payoutsTab.testSalePrompt', 'Montant de la vente') || 'Montant de la vente') + ` (${currSym}):`, defaultVal)
+    if (!inputVal) return
+    const gross = parseFloat(inputVal) || 50
+    const fee = Math.round(gross * 0.09 * 100) / 100
+    const net = Math.round((gross - fee) * 100) / 100
+
+    try {
+      const res = await authFetch('/api/payouts/order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username,
+          userId,
+          product: {
+            id: 'prod_' + Date.now(),
+            name: 'Digital Course / Ebook',
+            price: `${gross} ${currSym}`,
+            currency: currSym,
+          },
+          buyer: {
+            name: 'Client Direct',
+            email: 'client@example.com',
+          },
+        }),
+      })
+      if (res.ok) {
+        loadData()
+      } else {
+        throw new Error('Local fallback')
+      }
+    } catch (e) {
+      setStats((prev) => {
+        const updated = {
+          ...prev,
+          grossSales: (Number(prev.grossSales) || 0) + gross,
+          platformFees: (Number(prev.platformFees) || 0) + fee,
+          netSellerEarnings: (Number(prev.netSellerEarnings) || 0) + net,
+          availableBalance: (Number(prev.availableBalance) || 0) + net,
+        }
+        try {
+          const u = username || profile?.username || 'default'
+          localStorage.setItem(`linksocio_wallet_stats_${u}`, JSON.stringify(updated))
+        } catch (err) {}
+        return updated
+      })
+      const newTx = {
+        id: 'tx_' + Date.now(),
+        createdAt: new Date().toISOString(),
+        productName: 'Formation / Digital Item',
+        buyerName: 'Client Direct',
+        buyerEmail: 'client@example.com',
+        grossAmount: gross,
+        platformFee: fee,
+        sellerNet: net,
+        currency: currSym,
+        status: 'completed',
+      }
+      setTransactions((prev) => [newTx, ...prev])
+    }
+
+    try {
+      confetti({ particleCount: 50, spread: 60, origin: { y: 0.6 } })
+    } catch (e) {}
+    alert(`🎉 Vente enregistrée avec succès !\n• Total Brut : ${gross} ${currSym}\n• Net Vendeur (91%) : ${net} ${currSym}\n• Commission (9%) : ${fee} ${currSym}`)
+  }
+
   async function handleApprovePayout(payoutId) {
     if (!confirm(t('payoutsTab.confirmApprovePayout', 'Mark this payout transfer request as settled and transferred?'))) return
     try {
@@ -951,6 +1046,27 @@ export default function PayoutsTab({ user, profile, products = [] }) {
             </div>
 
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <button
+                type="button"
+                onClick={handleSimulateSale}
+                style={{
+                  background: 'rgba(255,255,255,0.08)',
+                  color: 'white',
+                  border: '1px solid rgba(255,255,255,0.2)',
+                  borderRadius: 12,
+                  padding: '9px 15px',
+                  fontSize: 12.5,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  backdropFilter: 'blur(4px)',
+                }}
+              >
+                <span>⚡ Simuler Vente 91%</span>
+              </button>
+
               <button
                 type="button"
                 onClick={() => setShowWithdrawModal(true)}

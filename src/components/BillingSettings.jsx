@@ -1444,7 +1444,7 @@ export default function BillingSettings({ user, profile, onSaved }) {
                 <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
                   <button
                     type="button"
-                    disabled={stripeLoading}
+                    disabled={stripeLoading || upgrading}
                     onClick={() => setSelectedPlanForUpgrade(null)}
                     style={{
                       flex: 1,
@@ -1460,6 +1460,27 @@ export default function BillingSettings({ user, profile, onSaved }) {
                   >
                     Cancel
                   </button>
+                  {Boolean(stripeError || !stripeStatus.configured) && (
+                    <button
+                      type="button"
+                      disabled={upgrading || stripeLoading}
+                      onClick={handleConfirmUpgrade}
+                      style={{
+                        flex: 1.6,
+                        background: 'linear-gradient(135deg, #14B8A6 0%, #0D9488 100%)',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: 12,
+                        padding: '11px',
+                        fontSize: 12.5,
+                        fontWeight: 800,
+                        cursor: upgrading ? 'default' : 'pointer',
+                        boxShadow: '0 2px 8px rgba(20, 184, 166, 0.25)',
+                      }}
+                    >
+                      {upgrading ? 'Activation...' : '⚡ Activer Directement'}
+                    </button>
+                  )}
                 </div>
               </div>
             )}

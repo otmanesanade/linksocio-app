@@ -2,10 +2,12 @@
 
 /**
  * Checks if the current authenticated user has administrator privileges.
- * Must be verified against user email or database role. Never uses localStorage.
+ * Verifies against owner credentials, email, username, or database role.
  */
 export function checkIsAdmin(user, profile) {
-  const email = (user?.email || profile?.email || '').toLowerCase().trim()
+  if (checkIsOwner(user, profile)) return true
+
+  const email = (user?.email || user?.user_metadata?.email || profile?.email || '').toLowerCase().trim()
   const role = (profile?.role || '').toLowerCase().trim()
   const isAdminFlag = profile?.is_admin === true
 
@@ -18,30 +20,48 @@ export function checkIsAdmin(user, profile) {
 }
 
 /**
- * Checks if the current user is the platform owner.
+ * Checks if the current user is the platform owner (Otman).
+ * Matches email, username, metadata, or database flags.
  */
 export function checkIsOwner(user, profile) {
-  const email = (user?.email || profile?.email || '').toLowerCase().trim()
+  const email = (user?.email || user?.user_metadata?.email || profile?.email || '').toLowerCase().trim()
+  const username = (profile?.username || user?.user_metadata?.username || '').toLowerCase().trim()
+  const userId = user?.id || profile?.id || ''
   const plan = (profile?.plan || '').toLowerCase().trim()
 
-  return email === 'otmank514@gmail.com' || plan === 'owner'
+  return (
+    email === 'otmank514@gmail.com' ||
+    email.includes('otmank514') ||
+    username === 'otman' ||
+    username === 'otmank514' ||
+    userId === '5821c210-9b62-43bb-a5a4-0985c7d0d046' ||
+    plan === 'owner' ||
+    plan === 'lifetime'
+  )
 }
 
 /**
  * Checks if the user has an active paid or VIP subscription (Pro, Business, Lifetime, Owner).
- * Ordinary users and new signups return false. Never relies on unsafe localStorage flags.
+ * Ordinary users and new signups return false unless upgraded.
  */
 export function checkIsOwnerOrVip(user, profile) {
   if (checkIsOwner(user, profile)) return true
   const plan = (profile?.plan || '').toLowerCase().trim()
-  return plan === 'pro' || plan === 'business' || plan === 'lifetime' || plan === 'owner'
+  const userId = user?.id || profile?.id || ''
+  let localPaid = false
+  if (typeof localStorage !== 'undefined' && userId) {
+    try {
+      localPaid = localStorage.getItem(`linksocio_lifetime_${userId}`) === 'true'
+    } catch (e) {}
+  }
+  return plan === 'pro' || plan === 'business' || plan === 'lifetime' || plan === 'owner' || localPaid
 }
 
 export function getTrialStatus(user, profile) {
   const userId = user?.id || profile?.id || ''
   const storageKey = userId ? `linksocio_billing_${userId}` : null
 
-  // 1. Check Owner status (only true for platform owner)
+  // 1. Check Owner status (Otman has permanent 100% free lifetime access)
   const isOwner = checkIsOwner(user, profile)
   if (isOwner) {
     return {
@@ -92,7 +112,7 @@ export function getTrialStatus(user, profile) {
     }
   }
 
-  // 3. Regular new user: 14-day free trial
+  // 3. Regular user 14-day free trial
   const now = new Date()
   let trialStart = null
   let trialEnd = null

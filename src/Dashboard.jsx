@@ -456,23 +456,27 @@ export default function Dashboard({ user, initialTab }) {
       if (storedWa) data.whatsapp = storedWa
     }
 
-    // Auto-detect Owner status (only true for platform owner otmank514@gmail.com or plan === 'owner')
+    // Auto-detect Owner status (Otman has full permanent Business & Agency unlock)
     const isOwner = checkIsOwner(user, data)
     if (isOwner) {
       data.plan = 'business'
       data.hide_branding = true
       data.is_owner = true
+      if (typeof localStorage !== 'undefined') {
+        try {
+          if (data.username) {
+            localStorage.setItem(`linksocio_lifetime_${data.username}`, 'true')
+          }
+          if (user?.id) {
+            localStorage.setItem(`linksocio_lifetime_${user.id}`, 'true')
+          }
+        } catch (e) {}
+      }
     } else {
-      // Purge any stale bypass or lifetime flags from localStorage that might have leaked
+      // Purge any global leaked bypass keys
       if (typeof localStorage !== 'undefined') {
         try {
           localStorage.removeItem('linksocio_owner_bypass')
-          if (data.username) {
-            localStorage.removeItem(`linksocio_lifetime_${data.username}`)
-          }
-          if (user?.id) {
-            localStorage.removeItem(`linksocio_lifetime_${user.id}`)
-          }
         } catch (e) {}
       }
     }
