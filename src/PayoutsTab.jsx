@@ -695,66 +695,6 @@ export default function PayoutsTab({ user, profile, products = [] }) {
     setTimeout(() => setSaveSuccessMsg(''), 3000)
   }
 
-  // Instant 1-Click Connect for Stripe (Safe test/demo mode so user is never blocked)
-  async function handleInstantTestConnectStripe() {
-    setConnectingStripe(true)
-    setStripeConnectError(null)
-    try {
-      let acctId = null
-      try {
-        const res = await fetch('/api/stripe/connect/test-connect', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username, userId }),
-        })
-        const text = await res.text()
-        const data = JSON.parse(text)
-        acctId = data.accountId
-      } catch (innerErr) {
-        // Fallback generator so test mode NEVER fails even if offline
-      }
-
-      if (!acctId) {
-        const cleanUser = (username || 'creator').replace(/[^a-zA-Z0-9]/g, '')
-        acctId = `acct_live_${cleanUser || 'creator'}_${Date.now().toString(36)}`
-      }
-
-      const updated = {
-        ...settings,
-        stripeAccountId: acctId,
-        stripeConnected: true,
-        payoutMethod: 'stripe',
-      }
-      setSettings(updated)
-      setManualStripeId(acctId)
-      try {
-        localStorage.setItem('linksocio_manual_stripe_id', acctId)
-        localStorage.setItem('linksocio_saved_stripe_account_id', acctId)
-        localStorage.setItem('linksocio_pending_stripe_id', acctId)
-        localStorage.setItem('linksocio_stripe_connected', 'true')
-        localStorage.setItem(`linksocio_payout_settings_${username || userId || 'default'}`, JSON.stringify(updated))
-        localStorage.setItem('linksocio_payout_settings_default', JSON.stringify(updated))
-        localStorage.setItem('linksocio_payout_settings_otman', JSON.stringify(updated))
-      } catch (e) {}
-      try {
-        await authFetch('/api/payouts/settings', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username: username || 'otman', userId: userId || 'default', settings: updated }),
-        })
-      } catch (e) {}
-      try {
-        confetti({ particleCount: 70, spread: 80, origin: { y: 0.5 } })
-      } catch (e) {}
-      setSaveSuccessMsg(`🎉 ${t('payoutsTab.stripeLinkedSuccess', 'Stripe account linked successfully!')}`)
-      setTimeout(() => setSaveSuccessMsg(''), 4000)
-    } catch (e) {
-      setStripeConnectError(e.message || 'Stripe connection error')
-    } finally {
-      setConnectingStripe(false)
-    }
-  }
-
   useEffect(() => {
     // Check if returning from Stripe Connect onboarding
     if (typeof window !== 'undefined') {
@@ -932,55 +872,6 @@ export default function PayoutsTab({ user, profile, products = [] }) {
     }
   }
 
-  async function handleSimulateSale() {
-    const defaultTestVal = ['DH', 'SAR', 'AED'].includes(currSym) ? '99' : '49'
-    const samplePrice = prompt(`${t('payoutsTab.testSalePrompt', 'Enter test sale price')} (${currSym}):`, defaultTestVal)
-    if (!samplePrice) return
-
-    const formattedPrice = ['$', '£'].includes(currSym) ? `${currSym}${samplePrice}` : `${samplePrice} ${currSym}`
-
-    try {
-      const res = await authFetch('/api/payouts/order', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          username,
-          userId,
-          product: {
-            id: 'prod_' + Date.now(),
-            name: 'Digital Course / Ebook',
-            price: formattedPrice,
-            currency: currSym,
-            category: 'course',
-          },
-          buyer: {
-            name: 'International Buyer',
-            email: 'buyer@example.com',
-            phone: '+1 555 019 2834',
-          },
-          paymentMethod: settings.payoutMethod === 'stripe' ? 'card_stripe' : 'bank_iban',
-        }),
-      })
-
-      if (res.ok) {
-        const json = await res.json()
-        try {
-          confetti({ particleCount: 60, spread: 70, origin: { y: 0.6 } })
-        } catch (e) {}
-        loadData()
-        const b = json.breakdown || json.transaction || {}
-        const gross = b.grossAmount ?? samplePrice
-        const net = b.sellerNet91Percent ?? b.sellerNet ?? (samplePrice * 0.91)
-        const fee = b.platformFee9Percent ?? b.platformFee ?? (samplePrice * 0.09)
-        alert(
-          `🎉 ${t('payoutsTab.saleSimulated', 'Sale processed with 91% / 9% split!')}\n• Gross: ${formatMoney(gross, currSym)}\n• Your Net (91%): ${formatMoney(net, currSym)}\n• Platform Fee (9%): ${formatMoney(fee, currSym)}`
-        )
-      }
-    } catch (err) {
-      console.error(err)
-    }
-  }
-
   async function handleApprovePayout(payoutId) {
     if (!confirm(t('payoutsTab.confirmApprovePayout', 'Mark this payout transfer request as settled and transferred?'))) return
     try {
@@ -1060,27 +951,6 @@ export default function PayoutsTab({ user, profile, products = [] }) {
             </div>
 
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <button
-                type="button"
-                onClick={handleSimulateSale}
-                style={{
-                  background: 'rgba(255,255,255,0.08)',
-                  color: 'white',
-                  border: '1px solid rgba(255,255,255,0.2)',
-                  borderRadius: 12,
-                  padding: '9px 15px',
-                  fontSize: 12.5,
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 6,
-                  backdropFilter: 'blur(4px)',
-                }}
-              >
-                <span>🧪 Test Global Sale</span>
-              </button>
-
               <button
                 type="button"
                 onClick={() => setShowWithdrawModal(true)}
@@ -2204,24 +2074,6 @@ export default function PayoutsTab({ user, profile, products = [] }) {
                       <span>{connectingStripe ? `⏳ Connexion...` : `⚡ Stripe Connect Onboarding Officiel`}</span>
                       <span>➔</span>
                     </button>
-
-                    <button
-                      type="button"
-                      onClick={handleInstantTestConnectStripe}
-                      disabled={connectingStripe}
-                      style={{
-                        background: '#FFFFFF',
-                        color: '#4338CA',
-                        border: '1px solid #C7D2FE',
-                        borderRadius: 10,
-                        padding: '10px 16px',
-                        fontSize: 13,
-                        fontWeight: 700,
-                        cursor: 'pointer',
-                      }}
-                    >
-                      {t('payoutsTab.actions.instantTestStripe', '🧪 Connexion Immédiate (Mode Test / Démo)')}
-                    </button>
                   </div>
                 </div>
               )}
@@ -2531,29 +2383,6 @@ export default function PayoutsTab({ user, profile, products = [] }) {
                   <span>➔</span>
                 </button>
 
-                {/* 2. Instant 1-Click Test Connect for seamless prototyping without blocking */}
-                <button
-                  type="button"
-                  onClick={handleInstantTestConnectStripe}
-                  disabled={connectingStripe}
-                  style={{
-                    background: '#FFFFFF',
-                    color: '#4338CA',
-                    border: '1.5px dashed #A5B4FC',
-                    borderRadius: 12,
-                    padding: '11px 20px',
-                    fontSize: 13,
-                    fontWeight: 700,
-                    cursor: connectingStripe ? 'wait' : 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: 6,
-                  }}
-                >
-                  <span>🧪 {t('payoutsTab.actions.instantTestStripe', 'Instant 1-Click Connect (Test / Demo Mode)')}</span>
-                </button>
-
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
                   <div style={{ flex: 1, height: 1, background: '#CBD5E1' }} />
                   <span style={{ fontSize: 11, fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>{t('payoutsTab.orManualStripeId', 'OR MANUALLY ENTER YOUR STRIPE ACCOUNT ID')}</span>
@@ -2659,7 +2488,7 @@ export default function PayoutsTab({ user, profile, products = [] }) {
                     }}
                   >
                     <div style={{ fontWeight: 800, marginBottom: 2 }}>🔑 {t('payoutsTab.stripeKeyConfig', 'Stripe Key Configuration:')}</div>
-                    {t('payoutsTab.stripeKeyTip', 'Your STRIPE_SECRET_KEY is currently a publishable key (starting with pk_...). For live Stripe Connect onboarding, a secret key is required (starting with sk_test_... or sk_live_...). Meanwhile, you can use the "Instant 1-Click Connect" button above or configure your international bank wire / local bank account!')}
+                    {t('payoutsTab.stripeKeyTip', 'Your STRIPE_SECRET_KEY is currently a publishable key (starting with pk_...). For live Stripe Connect onboarding, a secret key is required (starting with sk_live_...). You can also configure your direct bank account or international wire for payouts.')}
                   </div>
                 )}
               </div>
@@ -2685,8 +2514,8 @@ export default function PayoutsTab({ user, profile, products = [] }) {
           {transactions.length === 0 ? (
             <div style={{ padding: '36px 0', textAlign: 'center', color: '#94A3B8' }}>
               <span style={{ fontSize: 32 }}>🛍️</span>
-              <p style={{ margin: '8px 0 0', fontSize: 13.5, fontWeight: 600 }}>No transactions yet.</p>
-              <p style={{ margin: '4px 0 0', fontSize: 12 }}>Click "Test Global Sale" above to simulate a checkout.</p>
+              <p style={{ margin: '8px 0 0', fontSize: 13.5, fontWeight: 600 }}>{t('payoutsTab.noTransactions', 'No transactions yet.')}</p>
+              <p style={{ margin: '4px 0 0', fontSize: 12 }}>{t('payoutsTab.salesWillAppear', 'Real customer orders from your store and booking links will appear here automatically.')}</p>
             </div>
           ) : (
             <div style={{ overflowX: 'auto' }}>

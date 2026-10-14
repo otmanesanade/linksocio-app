@@ -603,20 +603,12 @@ export default function BillingSettings({ user, profile, onSaved }) {
                   fontWeight: 800,
                   padding: '2px 8px',
                   borderRadius: 100,
-                  background: stripeStatus.configured
-                    ? stripeStatus.mode === 'live'
-                      ? '#DCFCE7'
-                      : '#E0E7FF'
-                    : '#FEF3C7',
-                  color: stripeStatus.configured
-                    ? stripeStatus.mode === 'live'
-                      ? '#15803D'
-                      : '#4338CA'
-                    : '#B45309',
+                  background: stripeStatus.configured ? '#DCFCE7' : '#FEF3C7',
+                  color: stripeStatus.configured ? '#15803D' : '#B45309',
                 }}
               >
                 {stripeStatus.configured
-                  ? `ONLINE (${stripeStatus.mode.toUpperCase()} MODE)`
+                  ? 'LIVE GATEWAY ACTIVE ✓'
                   : 'AWAITING API KEY'}
               </span>
             </div>
@@ -679,13 +671,13 @@ export default function BillingSettings({ user, profile, onSaved }) {
               Log into your <strong><a href="https://dashboard.stripe.com" target="_blank" rel="noreferrer" style={{ color: '#635BFF' }}>Stripe Dashboard</a></strong> (Spain).
             </li>
             <li>
-              In the top navigation, you can switch between <strong>Test mode</strong> (for safe testing) and <strong>Live mode</strong> (for real payments).
+              Make sure you are in <strong>Live mode</strong> in Stripe to accept real customer payments.
             </li>
             <li>
               Go to <strong>Developers</strong> ➡️ <strong>API keys</strong>.
             </li>
             <li>
-              Copy your <strong>Secret key</strong> (<code style={{ background: '#F1F5F9', padding: '2px 5px', borderRadius: 4 }}>sk_test_...</code> or <code style={{ background: '#F1F5F9', padding: '2px 5px', borderRadius: 4 }}>sk_live_...</code>).
+              Copy your live <strong>Secret key</strong> (<code style={{ background: '#F1F5F9', padding: '2px 5px', borderRadius: 4 }}>sk_live_...</code>).
             </li>
             <li>
               Add it as <code style={{ background: '#F1F5F9', padding: '2px 5px', borderRadius: 4 }}>STRIPE_SECRET_KEY</code> in project Settings / Environment variables.
@@ -1449,11 +1441,10 @@ export default function BillingSettings({ user, profile, onSaved }) {
                   </span>
                 </button>
 
-                {/* 2. Instant Test / Simulate Upgrade Option */}
-                <div style={{ display: 'flex', gap: 10 }}>
+                <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
                   <button
                     type="button"
-                    disabled={upgrading || stripeLoading}
+                    disabled={stripeLoading}
                     onClick={() => setSelectedPlanForUpgrade(null)}
                     style={{
                       flex: 1,
@@ -1468,25 +1459,6 @@ export default function BillingSettings({ user, profile, onSaved }) {
                     }}
                   >
                     Cancel
-                  </button>
-                  <button
-                    type="button"
-                    disabled={upgrading || stripeLoading}
-                    onClick={handleConfirmUpgrade}
-                    style={{
-                      flex: 1.6,
-                      background: 'linear-gradient(135deg, #14B8A6 0%, #0D9488 100%)',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: 12,
-                      padding: '11px',
-                      fontSize: 12.5,
-                      fontWeight: 800,
-                      cursor: upgrading ? 'default' : 'pointer',
-                      boxShadow: '0 2px 8px rgba(20, 184, 166, 0.25)',
-                    }}
-                  >
-                    {upgrading ? 'Processing...' : '⚡ Test Instant Activation'}
                   </button>
                 </div>
               </div>

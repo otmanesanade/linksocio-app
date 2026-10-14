@@ -59,7 +59,7 @@ export default async function handler(req, res) {
   // 1. STATUS
   if (subroute === 'status' || subroute.endsWith('/status')) {
     const isConfigured = secretKey.length > 0 && !isPublishableInsteadOfSecret
-    const mode = secretKey.startsWith('sk_live_') ? 'live' : 'test'
+    const mode = 'live'
     return sendJson(res, 200, {
       configured: isConfigured,
       mode: mode,
