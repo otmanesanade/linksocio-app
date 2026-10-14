@@ -1341,9 +1341,9 @@ export default function ShopTab({ user, profile, products = [], reloadProducts }
                                 gap: 4,
                                 cursor: 'pointer',
                               }}
-                              title="Test Download File"
+                              title="Aperçu / Télécharger le fichier"
                             >
-                              <span>📥 Test</span>
+                              <span>📥 Aperçu</span>
                             </button>
                           )}
                           <label

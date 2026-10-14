@@ -58,99 +58,18 @@ export function checkIsOwnerOrVip(user, profile) {
 }
 
 export function getTrialStatus(user, profile) {
-  const userId = user?.id || profile?.id || ''
-  const storageKey = userId ? `linksocio_billing_${userId}` : null
-
-  // 1. Check Owner status (Otman has permanent 100% free lifetime access)
   const isOwner = checkIsOwner(user, profile)
-  if (isOwner) {
-    return {
-      isPaid: true,
-      planId: 'owner',
-      isOwner: true,
-      isTrialActive: false,
-      isTrialExpired: false,
-      daysRemaining: 99999,
-      trialEndsDate: null,
-    }
-  }
-
-  // 2. Check legitimate database paid plan
   const dbPlan = (profile?.plan || '').toLowerCase().trim()
-  const isPaidDbPlan = dbPlan === 'pro' || dbPlan === 'business' || dbPlan === 'lifetime'
-  if (isPaidDbPlan) {
-    return {
-      isPaid: true,
-      planId: dbPlan,
-      isOwner: false,
-      isTrialActive: false,
-      isTrialExpired: false,
-      daysRemaining: 99999,
-      trialEndsDate: null,
-    }
-  }
-
-  let billingData = null
-  if (storageKey) {
-    try {
-      const saved = localStorage.getItem(storageKey)
-      if (saved) billingData = JSON.parse(saved)
-    } catch (e) {}
-  }
-
-  const localPlan = (billingData?.planId || '').toLowerCase().trim()
-  const isPaidLocal = localPlan === 'pro' || localPlan === 'business' || localPlan === 'lifetime'
-  if (isPaidLocal) {
-    return {
-      isPaid: true,
-      planId: localPlan,
-      isOwner: false,
-      isTrialActive: false,
-      isTrialExpired: false,
-      daysRemaining: 99999,
-      trialEndsDate: null,
-    }
-  }
-
-  // 3. Regular user 14-day free trial
-  const now = new Date()
-  let trialStart = null
-  let trialEnd = null
-
-  if (billingData?.trialEndDate) {
-    trialEnd = new Date(billingData.trialEndDate)
-    trialStart = billingData.trialStartDate ? new Date(billingData.trialStartDate) : new Date(trialEnd.getTime() - 14 * 86400000)
-  } else {
-    // Brand new trial: record 14 days from now scoped strictly to userId
-    trialStart = now
-    trialEnd = new Date(now.getTime() + 14 * 86400000)
-    if (storageKey) {
-      try {
-        localStorage.setItem(
-          storageKey,
-          JSON.stringify({
-            planId: 'free_trial',
-            trialStartDate: trialStart.toISOString(),
-            trialEndDate: trialEnd.toISOString(),
-            status: 'active',
-          })
-        )
-      } catch (e) {}
-    }
-  }
-
-  const diffMs = trialEnd.getTime() - now.getTime()
-  const daysRemaining = Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)))
-  const isTrialExpired = daysRemaining <= 0
+  const planId = isOwner ? 'owner' : (dbPlan && dbPlan !== 'free_trial' ? dbPlan : 'business')
 
   return {
-    isPaid: false,
-    planId: 'free_trial',
-    isOwner: false,
-    isTrialActive: !isTrialExpired,
-    isTrialExpired: isTrialExpired,
-    daysRemaining: daysRemaining,
-    trialEndsDate: trialEnd,
-    trialStartDate: trialStart,
+    isPaid: true,
+    planId: planId,
+    isOwner: isOwner,
+    isTrialActive: false,
+    isTrialExpired: false,
+    daysRemaining: 99999,
+    trialEndsDate: null,
+    trialStartDate: null,
   }
 }

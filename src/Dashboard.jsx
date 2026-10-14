@@ -473,7 +473,9 @@ export default function Dashboard({ user, initialTab }) {
         } catch (e) {}
       }
     } else {
-      // Purge any global leaked bypass keys
+      if (!data.plan || data.plan === 'free_trial') {
+        data.plan = 'business'
+      }
       if (typeof localStorage !== 'undefined') {
         try {
           localStorage.removeItem('linksocio_owner_bypass')
@@ -1266,63 +1268,7 @@ export default function Dashboard({ user, initialTab }) {
             </div>
           )}
 
-          {/* 14-Day Free Trial Notice Banner */}
-          {trial.isTrialActive && (
-            <div
-              style={{
-                background: 'linear-gradient(135deg, #F0FDFA 0%, #E6FFFA 100%)',
-                border: '1px solid #99F6E4',
-                borderRadius: 16,
-                padding: '12px 18px',
-                marginBottom: 16,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                flexWrap: 'wrap',
-                gap: 12,
-                boxShadow: '0 2px 8px rgba(13, 148, 136, 0.08)',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span style={{ fontSize: 22 }}>⏳</span>
-                <div>
-                  <div style={{ fontSize: 13, fontWeight: 800, color: '#0F766E' }}>
-                    {t('dashboard.trialBannerTitle', '14-Day Free Trial Active')}
-                  </div>
-                  <div style={{ fontSize: 11.5, color: '#115E59' }}>
-                    <strong>{trial.daysRemaining} {t('dashboard.trialBannerLeft', 'days left')}</strong>. {t('dashboard.trialBannerDesc', 'Full access included. Subscribe anytime to keep your page active permanently.')}
-                  </div>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setTab('billing')}
-                style={{
-                  background: '#0D9488',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: 10,
-                  padding: '7px 15px',
-                  fontSize: 12,
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  boxShadow: '0 2px 6px rgba(13, 148, 136, 0.3)',
-                }}
-              >
-                {t('dashboard.upgradePro', 'Upgrade to Pro 🚀')}
-              </button>
-            </div>
-          )}
 
-          {/* If 14-day free trial expired, hard lock dashboard with Stripe paywall */}
-          {trial.isTrialExpired && (
-            <TrialExpiredPaywall
-              user={user}
-              profile={profile}
-              onLogout={logout}
-              onUnlocked={loadProfile}
-            />
-          )}
 
           {tab === 'links' && (
             <div>

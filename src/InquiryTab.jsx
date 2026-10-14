@@ -895,7 +895,7 @@ export default function InquiryTab({ profile, onUpdated }) {
                   cursor: 'pointer',
                 }}
               >
-                + Add Sample Inquiry to Test
+                + Ajouter un message d'exemple
               </button>
             </div>
           )}

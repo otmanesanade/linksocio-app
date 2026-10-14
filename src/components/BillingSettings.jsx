@@ -256,9 +256,9 @@ export default function BillingSettings({ user, profile, onSaved }) {
     } catch (e) {}
   }
 
-  // Calculate Trial Remaining & VIP Owner status (strictly for platform owner)
+  // Calculate Plan Status & VIP Owner status
   const isOwnerVip = checkIsOwner(user, profile)
-  const activePlanId = isOwnerVip ? 'owner' : (profile?.plan || billingData.planId || 'free_trial')
+  const activePlanId = isOwnerVip ? 'owner' : ((profile?.plan && profile.plan !== 'free_trial') ? profile.plan : ((billingData.planId && billingData.planId !== 'free_trial') ? billingData.planId : 'business'))
 
   const now = new Date()
   const trialEnd = new Date(billingData.trialEndDate || now.getTime() + 10 * 86400000)
