@@ -9,6 +9,7 @@ import PrivacyPolicy from './PrivacyPolicy'
 import TermsOfService from './TermsOfService'
 import ForgotPassword from './ForgotPassword'
 import ResetPassword from './ResetPassword'
+import { checkIsAdmin } from './utils/trialHelper'
 
 export default function App() {
   const [user, setUser] = useState(null)
@@ -154,9 +155,10 @@ export default function App() {
   // Dashboard, Billing, Settings, Admin & Payouts/Stripe routes
   if (path === 'dashboard' || path === 'billing' || path === 'settings' || path === 'admin' || path === 'payouts' || path === 'stripe' || path === 'wallet') {
     if (user) {
+      const isAdminUser = checkIsAdmin(user)
       const initialTab =
         path === 'admin'
-          ? 'admin'
+          ? (isAdminUser ? 'admin' : 'links')
           : path === 'billing'
           ? 'billing'
           : path === 'settings'

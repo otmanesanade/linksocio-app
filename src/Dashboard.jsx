@@ -18,7 +18,7 @@ import AdminMasterDashboard from './components/AdminMasterDashboard'
 import { getNotificationSettings, playNotificationSound } from './notificationService'
 import { LivePagePreview } from './components/LivePagePreview'
 import confetti from 'canvas-confetti'
-import { getTrialStatus, checkIsOwnerOrVip } from './utils/trialHelper'
+import { getTrialStatus, checkIsOwner, checkIsAdmin, checkIsOwnerOrVip } from './utils/trialHelper'
 import TrialExpiredPaywall from './components/TrialExpiredPaywall'
 import { getStoredLinksMeta, fetchServerLinksMeta, getStoredSocials, fetchServerSocials } from './utils/socialPlatforms'
 import LanguageSwitcher from './components/LanguageSwitcher'
@@ -456,23 +456,25 @@ export default function Dashboard({ user, initialTab }) {
       if (storedWa) data.whatsapp = storedWa
     }
 
-    // Auto-detect Owner / VIP status and guarantee permanent Business & Agency unlock
-    const isOwnerVip = checkIsOwnerOrVip(user, data)
-    if (isOwnerVip) {
+    // Auto-detect Owner status (only true for platform owner otmank514@gmail.com or plan === 'owner')
+    const isOwner = checkIsOwner(user, data)
+    if (isOwner) {
       data.plan = 'business'
       data.hide_branding = true
       data.is_owner = true
-      try {
-        if (data.username) {
-          localStorage.setItem('linksocio_owner_bypass', 'true')
-          localStorage.setItem(`linksocio_lifetime_${data.username}`, 'true')
-          localStorage.setItem(`linksocio_hide_branding_${data.username}`, 'true')
-        }
-        if (user?.id) {
-          localStorage.setItem(`linksocio_lifetime_${user.id}`, 'true')
-          localStorage.setItem(`linksocio_hide_branding_${user.id}`, 'true')
-        }
-      } catch (e) {}
+    } else {
+      // Purge any stale bypass or lifetime flags from localStorage that might have leaked
+      if (typeof localStorage !== 'undefined') {
+        try {
+          localStorage.removeItem('linksocio_owner_bypass')
+          if (data.username) {
+            localStorage.removeItem(`linksocio_lifetime_${data.username}`)
+          }
+          if (user?.id) {
+            localStorage.removeItem(`linksocio_lifetime_${user.id}`)
+          }
+        } catch (e) {}
+      }
     }
 
     setProfile({ ...data, _ts: Date.now() })
@@ -620,11 +622,16 @@ export default function Dashboard({ user, initialTab }) {
   }
 
   async function logout() {
+    if (typeof localStorage !== 'undefined') {
+      try {
+        localStorage.removeItem('linksocio_owner_bypass')
+      } catch (e) {}
+    }
     await supabase.auth.signOut()
     window.location.reload()
   }
 
-  const isOwnerAdmin = checkIsOwnerOrVip(user, profile) || trial.isOwner
+  const isOwnerAdmin = checkIsAdmin(user, profile)
 
   const navItems = [
     ...(isOwnerAdmin ? [{ key: 'admin', label: '🛡️ Admin Master Hub', icon: '👑', isFeatured: true }] : []),
@@ -1216,23 +1223,25 @@ export default function Dashboard({ user, initialTab }) {
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <button
-                  type="button"
-                  onClick={() => setTab('admin')}
-                  style={{
-                    background: tab === 'admin' ? '#14B8A6' : '#0F172A',
-                    border: '1px solid #14B8A6',
-                    color: tab === 'admin' ? '#0F172A' : '#2DD4BF',
-                    borderRadius: 10,
-                    padding: '7px 14px',
-                    fontSize: 12,
-                    fontWeight: 800,
-                    cursor: 'pointer',
-                    boxShadow: '0 2px 8px rgba(20, 184, 166, 0.25)',
-                  }}
-                >
-                  🛡️ Admin Master Hub 👑
-                </button>
+                {isOwnerAdmin && (
+                  <button
+                    type="button"
+                    onClick={() => setTab('admin')}
+                    style={{
+                      background: tab === 'admin' ? '#14B8A6' : '#0F172A',
+                      border: '1px solid #14B8A6',
+                      color: tab === 'admin' ? '#0F172A' : '#2DD4BF',
+                      borderRadius: 10,
+                      padding: '7px 14px',
+                      fontSize: 12,
+                      fontWeight: 800,
+                      cursor: 'pointer',
+                      boxShadow: '0 2px 8px rgba(20, 184, 166, 0.25)',
+                    }}
+                  >
+                    🛡️ Admin Master Hub 👑
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => setTab('billing')}
@@ -1361,7 +1370,22 @@ export default function Dashboard({ user, initialTab }) {
             <SettingsTab user={user} profile={profile} onSaved={loadProfile} initialSubTab="profile" onNavigateToTab={(t) => setTab(t)} />
           )}
           {tab === 'admin' && (
-            <AdminMasterDashboard user={user} profile={profile} onNavigateToTab={(t) => setTab(t)} />
+            isOwnerAdmin ? (
+              <AdminMasterDashboard user={user} profile={profile} onNavigateToTab={(t) => setTab(t)} />
+            ) : (
+              <div style={{ background: 'white', borderRadius: 16, padding: 32, textAlign: 'center', border: '1px solid #E2E8F0', margin: 16 }}>
+                <div style={{ fontSize: 40, marginBottom: 12 }}>🔒</div>
+                <h3 style={{ fontSize: 18, fontWeight: 700, color: '#0F172A', marginBottom: 8 }}>{t('admin.accessDenied', 'Accès Réservé à l\'Administrateur')}</h3>
+                <p style={{ fontSize: 14, color: '#64748B', marginBottom: 20 }}>{t('admin.accessDeniedDesc', 'Vous n\'avez pas les autorisations nécessaires pour accéder au Hub d\'Administration.')}</p>
+                <button
+                  type="button"
+                  onClick={() => setTab('links')}
+                  style={{ background: '#14B8A6', color: 'white', border: 'none', padding: '10px 20px', borderRadius: 10, fontWeight: 700, cursor: 'pointer' }}
+                >
+                  {t('admin.backDashboard', 'Retour au tableau de bord')}
+                </button>
+              </div>
+            )
           )}
         </div>
 

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import confetti from 'canvas-confetti'
 import { supabase } from '../supabaseClient'
-import { checkIsOwnerOrVip } from '../utils/trialHelper'
+import { checkIsOwner, checkIsOwnerOrVip } from '../utils/trialHelper'
 import { useLanguage } from '../context/LanguageContext'
 
 export const PLANS = [
@@ -256,9 +256,9 @@ export default function BillingSettings({ user, profile, onSaved }) {
     } catch (e) {}
   }
 
-  // Calculate Trial Remaining & VIP Owner status
-  const isOwnerVip = checkIsOwnerOrVip(user, profile)
-  const activePlanId = isOwnerVip ? 'business' : (profile?.plan || billingData.planId || 'free_trial')
+  // Calculate Trial Remaining & VIP Owner status (strictly for platform owner)
+  const isOwnerVip = checkIsOwner(user, profile)
+  const activePlanId = isOwnerVip ? 'owner' : (profile?.plan || billingData.planId || 'free_trial')
 
   const now = new Date()
   const trialEnd = new Date(billingData.trialEndDate || now.getTime() + 10 * 86400000)

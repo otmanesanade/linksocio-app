@@ -1,36 +1,74 @@
-// Helper for calculating 14-day trial status and plan state
+// Helper for calculating 14-day trial status and role authorization
 
-export function checkIsOwnerOrVip(user, profile) {
-  const email = (user?.email || '').toLowerCase().trim()
-  const username = (profile?.username || '').toLowerCase().trim()
-  const userId = user?.id || profile?.id || ''
-
-  let localVip = false
-  if (typeof localStorage !== 'undefined') {
-    localVip =
-      localStorage.getItem('linksocio_owner_bypass') === 'true' ||
-      (userId && localStorage.getItem(`linksocio_lifetime_${userId}`) === 'true') ||
-      (username && localStorage.getItem(`linksocio_lifetime_${username}`) === 'true')
-  }
+/**
+ * Checks if the current authenticated user has administrator privileges.
+ * Must be verified against user email or database role. Never uses localStorage.
+ */
+export function checkIsAdmin(user, profile) {
+  const email = (user?.email || profile?.email || '').toLowerCase().trim()
+  const role = (profile?.role || '').toLowerCase().trim()
+  const isAdminFlag = profile?.is_admin === true
 
   return (
     email === 'otmank514@gmail.com' ||
-    email.includes('otmank514') ||
-    username === 'otman' ||
-    username === 'otmank514' ||
-    profile?.plan === 'owner' ||
-    profile?.plan === 'lifetime' ||
-    profile?.role === 'admin' ||
-    profile?.is_admin === true ||
-    localVip
+    role === 'admin' ||
+    role === 'superadmin' ||
+    isAdminFlag
   )
+}
+
+/**
+ * Checks if the current user is the platform owner.
+ */
+export function checkIsOwner(user, profile) {
+  const email = (user?.email || profile?.email || '').toLowerCase().trim()
+  const plan = (profile?.plan || '').toLowerCase().trim()
+
+  return email === 'otmank514@gmail.com' || plan === 'owner'
+}
+
+/**
+ * Checks if the user has an active paid or VIP subscription (Pro, Business, Lifetime, Owner).
+ * Ordinary users and new signups return false. Never relies on unsafe localStorage flags.
+ */
+export function checkIsOwnerOrVip(user, profile) {
+  if (checkIsOwner(user, profile)) return true
+  const plan = (profile?.plan || '').toLowerCase().trim()
+  return plan === 'pro' || plan === 'business' || plan === 'lifetime' || plan === 'owner'
 }
 
 export function getTrialStatus(user, profile) {
   const userId = user?.id || profile?.id || ''
   const storageKey = userId ? `linksocio_billing_${userId}` : null
 
-  const isOwnerVip = checkIsOwnerOrVip(user, profile)
+  // 1. Check Owner status (only true for platform owner)
+  const isOwner = checkIsOwner(user, profile)
+  if (isOwner) {
+    return {
+      isPaid: true,
+      planId: 'owner',
+      isOwner: true,
+      isTrialActive: false,
+      isTrialExpired: false,
+      daysRemaining: 99999,
+      trialEndsDate: null,
+    }
+  }
+
+  // 2. Check legitimate database paid plan
+  const dbPlan = (profile?.plan || '').toLowerCase().trim()
+  const isPaidDbPlan = dbPlan === 'pro' || dbPlan === 'business' || dbPlan === 'lifetime'
+  if (isPaidDbPlan) {
+    return {
+      isPaid: true,
+      planId: dbPlan,
+      isOwner: false,
+      isTrialActive: false,
+      isTrialExpired: false,
+      daysRemaining: 99999,
+      trialEndsDate: null,
+    }
+  }
 
   let billingData = null
   if (storageKey) {
@@ -40,14 +78,13 @@ export function getTrialStatus(user, profile) {
     } catch (e) {}
   }
 
-  const planId = profile?.plan || billingData?.planId || 'free_trial'
-  const isPaid = isOwnerVip || planId === 'pro' || planId === 'business' || planId === 'lifetime' || planId === 'owner'
-
-  if (isPaid) {
+  const localPlan = (billingData?.planId || '').toLowerCase().trim()
+  const isPaidLocal = localPlan === 'pro' || localPlan === 'business' || localPlan === 'lifetime'
+  if (isPaidLocal) {
     return {
       isPaid: true,
-      planId: isOwnerVip ? 'business' : planId,
-      isOwner: isOwnerVip,
+      planId: localPlan,
+      isOwner: false,
       isTrialActive: false,
       isTrialExpired: false,
       daysRemaining: 99999,
@@ -55,7 +92,7 @@ export function getTrialStatus(user, profile) {
     }
   }
 
-  // Determine trial dates
+  // 3. Regular new user: 14-day free trial
   const now = new Date()
   let trialStart = null
   let trialEnd = null
@@ -64,7 +101,7 @@ export function getTrialStatus(user, profile) {
     trialEnd = new Date(billingData.trialEndDate)
     trialStart = billingData.trialStartDate ? new Date(billingData.trialStartDate) : new Date(trialEnd.getTime() - 14 * 86400000)
   } else {
-    // Brand new or uninitialized session: record 14 days from now
+    // Brand new trial: record 14 days from now scoped strictly to userId
     trialStart = now
     trialEnd = new Date(now.getTime() + 14 * 86400000)
     if (storageKey) {
@@ -89,6 +126,7 @@ export function getTrialStatus(user, profile) {
   return {
     isPaid: false,
     planId: 'free_trial',
+    isOwner: false,
     isTrialActive: !isTrialExpired,
     isTrialExpired: isTrialExpired,
     daysRemaining: daysRemaining,
