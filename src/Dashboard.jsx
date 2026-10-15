@@ -202,8 +202,33 @@ function ProfileCard({ user, profile, onSaved }) {
 }
 
 export default function Dashboard({ user, initialTab }) {
-  const { t, isRTL } = useLanguage()
-  const [profile, setProfile] = useState(null)
+  const [profile, setProfile] = useState(() => {
+    try {
+      const isOwner = checkIsOwner(user, null)
+      if (typeof window !== 'undefined') {
+        const cached = localStorage.getItem('linksocio_cached_profile')
+        if (cached) {
+          const parsed = JSON.parse(cached)
+          if (parsed && (parsed.username || parsed.display_name)) {
+            return parsed
+          }
+        }
+      }
+      if (isOwner) {
+        return {
+          id: '33373cca-beb6-43c8-ac2f-8ad4e8f54b85',
+          username: 'otmank514',
+          display_name: 'otmane sanade',
+          theme_preset: 'studio_noir',
+          theme_color: '#14B8A6',
+          plan: 'business',
+          hide_branding: true,
+          is_owner: true,
+        }
+      }
+    } catch (e) {}
+    return null
+  })
   const [links, setLinks] = useState([])
   const [products, setProducts] = useState([])
   const [copied, setCopied] = useState(false)
@@ -404,23 +429,31 @@ export default function Dashboard({ user, initialTab }) {
   }
 
   async function loadProfile() {
-    let { data } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle()
+    try {
+      let { data } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle()
 
-    // 2. Owner / Otman account resolution: check if this user is Otman
-    const userEmail = (user?.email || '').toLowerCase().trim()
-    const isOtmanUser =
-      userEmail === 'otmank514@gmail.com' ||
-      userEmail.includes('otmank514') ||
-      userEmail.includes('otman') ||
-      user?.id === '5821c210-9b62-43bb-a5a4-0985c7d0d046' ||
-      user?.id === '33373cca-beb6-43c8-ac2f-8ad4e8f54b85'
+      // 2. Owner / Otman account resolution: check if this user is Otman
+      const userEmail = (user?.email || '').toLowerCase().trim()
+      const isOtmanUser =
+        userEmail === 'otmank514@gmail.com' ||
+        userEmail.includes('otmank514') ||
+        userEmail.includes('otman') ||
+        user?.id === '5821c210-9b62-43bb-a5a4-0985c7d0d046' ||
+        user?.id === '33373cca-beb6-43c8-ac2f-8ad4e8f54b85'
 
-    if (!data && isOtmanUser) {
-      const { data: ownerProf } = await supabase.from('profiles').select('*').eq('id', '33373cca-beb6-43c8-ac2f-8ad4e8f54b85').maybeSingle()
-      if (ownerProf) {
-        data = ownerProf
+      if ((!data || !data.display_name || !data.username || !data.theme_preset) && isOtmanUser) {
+        const { data: ownerProf } = await supabase.from('profiles').select('*').eq('id', '33373cca-beb6-43c8-ac2f-8ad4e8f54b85').maybeSingle()
+        if (ownerProf) {
+          data = {
+            ...(data || {}),
+            ...ownerProf,
+            display_name: ownerProf.display_name || data?.display_name || 'otmane sanade',
+            username: ownerProf.username || data?.username || 'otmank514',
+            theme_preset: ownerProf.theme_preset || data?.theme_preset || 'studio_noir',
+            avatar_url: ownerProf.avatar_url || data?.avatar_url,
+          }
+        }
       }
-    }
 
     // 3. Fallback lookup by username if still not found
     if (!data) {
@@ -530,6 +563,12 @@ export default function Dashboard({ user, initialTab }) {
       }
     }
 
+    if (typeof localStorage !== 'undefined' && data) {
+      try {
+        localStorage.setItem('linksocio_cached_profile', JSON.stringify(data))
+      } catch (e) {}
+    }
+
     setProfile({ ...data, _ts: Date.now() })
 
     const uName = data.username || user?.user_metadata?.username || ''
@@ -545,7 +584,10 @@ export default function Dashboard({ user, initialTab }) {
     // Immediately load links and products with this resolved profile ID
     loadLinks(data.id)
     loadProducts(data.id)
+  } catch (err) {
+    console.error('Failed to load profile:', err)
   }
+}
 
   async function loadLinks(overrideUserId) {
     const targetUserId = overrideUserId || profile?.id || user.id

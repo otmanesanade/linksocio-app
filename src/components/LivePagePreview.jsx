@@ -386,6 +386,12 @@ export function LivePagePreview({ profile, links = [], products = [], socials = 
   const color = theme.accent || '#14B8A6'
   const tint = theme.buttonBg || `${color}1A`
 
+  const cleanUsername = String(profile?.username || '').toLowerCase().trim().replace(/^@+/, '')
+  const isOwnerProfile = cleanUsername === 'otman' || cleanUsername === 'otmank514' || cleanUsername.includes('otman') || profile?.id === '33373cca-beb6-43c8-ac2f-8ad4e8f54b85' || profile?.id === '5821c210-9b62-43bb-a5a4-0985c7d0d046'
+  const resolvedDisplayName = profile?.display_name || profile?.username || (isOwnerProfile ? 'otmane sanade' : 'Your Name')
+  const resolvedUsername = profile?.username || (isOwnerProfile ? 'otmank514' : 'username')
+  const resolvedAvatar = profile?.avatar_url || (typeof window !== 'undefined' && profile?.username && localStorage.getItem(`linksocio_avatar_${profile.username}`)) || (isOwnerProfile && typeof window !== 'undefined' ? localStorage.getItem('linksocio_avatar_otmank514') : '')
+
   const headerCoverPref =
     profile?.header_cover_style ||
     (profile?.username && typeof window !== 'undefined' && localStorage.getItem(`linksocio_header_cover_${profile.username}`)) ||
@@ -393,7 +399,7 @@ export function LivePagePreview({ profile, links = [], products = [], socials = 
     'auto'
 
   const shouldShowCover = Boolean(
-    profile?.avatar_url &&
+    resolvedAvatar &&
     (headerCoverPref === 'always' || (headerCoverPref !== 'avatar_only' && theme?.hasHeaderCover))
   )
 
@@ -470,9 +476,6 @@ export function LivePagePreview({ profile, links = [], products = [], socials = 
   }
 
   // Ensure contact email from profile / server meta is represented in top social icons
-  const cleanUsername = String(profile?.username || '').toLowerCase().trim().replace(/^@+/, '')
-  const isOwnerProfile = cleanUsername === 'otman' || cleanUsername === 'otmank514' || cleanUsername.includes('otman') || profile?.id === '33373cca-beb6-43c8-ac2f-8ad4e8f54b85' || profile?.id === '5821c210-9b62-43bb-a5a4-0985c7d0d046'
-
   const resolvedEmail =
     profile?.contact_email ||
     profileMeta?.email ||
@@ -745,7 +748,7 @@ export function LivePagePreview({ profile, links = [], products = [], socials = 
           </button>
 
           {/* Top Big Cover extending down to Save Contact & WhatsApp (Avatar circle removed for cover themes) */}
-          {shouldShowCover && profile?.avatar_url ? (
+          {shouldShowCover && resolvedAvatar ? (
             <div
               style={{
                 margin: isEmbedded ? '-24px -18px 14px -18px' : '-36px -26px 18px -26px',
@@ -763,7 +766,7 @@ export function LivePagePreview({ profile, links = [], products = [], socials = 
             >
               {/* Cover Photo - Full bleed high resolution */}
               <img
-                src={profile.avatar_url}
+                src={resolvedAvatar}
                 alt="Profile Cover"
                 style={{
                   position: 'absolute',
@@ -831,7 +834,7 @@ export function LivePagePreview({ profile, links = [], products = [], socials = 
                     textShadow: '0 2px 10px rgba(0,0,0,0.7)',
                   }}
                 >
-                  {profile?.display_name || profile?.username || 'Your Name'}
+                  {resolvedDisplayName}
                 </h1>
 
                 <p
@@ -843,7 +846,7 @@ export function LivePagePreview({ profile, links = [], products = [], socials = 
                     textShadow: '0 1px 6px rgba(0,0,0,0.6)',
                   }}
                 >
-                  @{profile?.username || 'username'}
+                  @{resolvedUsername}
                 </p>
 
                 {profile?.bio && (
@@ -940,14 +943,14 @@ export function LivePagePreview({ profile, links = [], products = [], socials = 
                   transition: 'all 0.25s ease',
                 }}
               >
-                {profile?.avatar_url ? (
+                {resolvedAvatar ? (
                   <img
-                    src={profile.avatar_url}
-                    alt={profile?.display_name || profile?.username || 'Avatar'}
+                    src={resolvedAvatar}
+                    alt={resolvedDisplayName || 'Avatar'}
                     style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', transition: 'transform 0.3s ease' }}
                   />
                 ) : (
-                  profile?.display_name?.[0]?.toUpperCase() || profile?.username?.[0]?.toUpperCase() || '?'
+                  resolvedDisplayName?.[0]?.toUpperCase() || resolvedUsername?.[0]?.toUpperCase() || '?'
                 )}
               </div>
 
@@ -960,11 +963,11 @@ export function LivePagePreview({ profile, links = [], products = [], socials = 
                   letterSpacing: '-0.02em',
                 }}
               >
-                {profile?.display_name || profile?.username || 'Your Name'}
+                {resolvedDisplayName}
               </h1>
 
               <p style={{ margin: '2px 0 0', fontSize: isEmbedded ? 11 : 13, color: theme.subTextColor, fontWeight: 500 }}>
-                @{profile?.username || 'username'}
+                @{resolvedUsername}
               </p>
 
               {profile?.bio && (
