@@ -12,8 +12,9 @@ export default function SocialAuthButtons({ mode = 'login', onError, onStart }) 
       if (onStart) onStart('google')
       if (onError) onError('')
 
-      // Redirect URL back to LinkSocio dashboard after successful OAuth
-      const redirectTo = `${window.location.origin}/dashboard`
+      // Redirect URL back to LinkSocio root
+      const baseOrigin = window.location.origin
+      const redirectTo = baseOrigin.endsWith('/') ? baseOrigin : `${baseOrigin}/`
 
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',

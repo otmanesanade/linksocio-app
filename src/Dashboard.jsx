@@ -202,6 +202,7 @@ function ProfileCard({ user, profile, onSaved }) {
 }
 
 export default function Dashboard({ user, initialTab }) {
+  const { t, isRTL } = useLanguage()
   const [profile, setProfile] = useState(() => {
     try {
       const isOwner = checkIsOwner(user, null)
