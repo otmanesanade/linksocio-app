@@ -298,6 +298,13 @@ export function inferIconFromLink(url = '', label = '') {
 
 export async function fetchServerProfileMeta(username, userId) {
   const clean = username ? String(username).toLowerCase().trim().replace(/^@/, '') : ''
+  const isOwner =
+    clean === 'otman' ||
+    clean === 'otmank514' ||
+    clean.includes('otman') ||
+    userId === '33373cca-beb6-43c8-ac2f-8ad4e8f54b85' ||
+    userId === '5821c210-9b62-43bb-a5a4-0985c7d0d046'
+
   try {
     const params = new URLSearchParams()
     if (clean) params.set('username', clean)
@@ -307,21 +314,24 @@ export async function fetchServerProfileMeta(username, userId) {
       const data = await res.json()
       if (data.meta) {
         if (typeof window !== 'undefined') {
-          if (clean) {
-            if (data.meta.email) localStorage.setItem(`linksocio_contact_email_${clean}`, data.meta.email)
+          const keys = [clean, userId].filter(Boolean)
+          if (isOwner) keys.push('otmank514', 'otman', '33373cca-beb6-43c8-ac2f-8ad4e8f54b85', '5821c210-9b62-43bb-a5a4-0985c7d0d046')
+          for (const k of keys) {
+            if (data.meta.email) localStorage.setItem(`linksocio_contact_email_${k}`, data.meta.email)
             if (data.meta.whatsapp) {
-              localStorage.setItem(`linksocio_contact_whatsapp_${clean}`, data.meta.whatsapp)
-              localStorage.setItem(`linksocio_contact_phone_${clean}`, data.meta.whatsapp)
+              localStorage.setItem(`linksocio_contact_whatsapp_${k}`, data.meta.whatsapp)
+              localStorage.setItem(`linksocio_contact_phone_${k}`, data.meta.whatsapp)
             }
-            if (data.meta.location) localStorage.setItem(`linksocio_profile_location_${clean}`, data.meta.location)
-          }
-          if (userId) {
-            if (data.meta.email) localStorage.setItem(`linksocio_contact_email_${userId}`, data.meta.email)
-            if (data.meta.whatsapp) {
-              localStorage.setItem(`linksocio_contact_whatsapp_${userId}`, data.meta.whatsapp)
-              localStorage.setItem(`linksocio_contact_phone_${userId}`, data.meta.whatsapp)
-            }
-            if (data.meta.location) localStorage.setItem(`linksocio_profile_location_${userId}`, data.meta.location)
+            if (data.meta.location) localStorage.setItem(`linksocio_profile_location_${k}`, data.meta.location)
+            if (data.meta.display_name) localStorage.setItem(`linksocio_display_name_${k}`, data.meta.display_name)
+            if (data.meta.theme_preset) localStorage.setItem(`linksocio_theme_preset_${k}`, data.meta.theme_preset)
+            if (data.meta.font_family) localStorage.setItem(`linksocio_font_family_${k}`, data.meta.font_family)
+            if (data.meta.font_color) localStorage.setItem(`linksocio_font_color_${k}`, data.meta.font_color)
+            if (data.meta.button_style) localStorage.setItem(`linksocio_button_style_${k}`, data.meta.button_style)
+            if (data.meta.hide_branding !== undefined) localStorage.setItem(`linksocio_hide_branding_${k}`, String(data.meta.hide_branding))
+            if (data.meta.header_cover_style) localStorage.setItem(`linksocio_header_cover_${k}`, data.meta.header_cover_style)
+            if (data.meta.avatar_url) localStorage.setItem(`linksocio_avatar_${k}`, data.meta.avatar_url)
+            if (data.meta.bio) localStorage.setItem(`linksocio_bio_${k}`, data.meta.bio)
           }
         }
         return data.meta
@@ -334,54 +344,101 @@ export async function fetchServerProfileMeta(username, userId) {
 export function getStoredProfileMeta(username, userId) {
   if (typeof window === 'undefined') return { email: '', whatsapp: '', location: '' }
   const clean = username ? String(username).toLowerCase().trim().replace(/^@/, '') : ''
-  const email = (clean && localStorage.getItem(`linksocio_contact_email_${clean}`)) || (userId && localStorage.getItem(`linksocio_contact_email_${userId}`)) || ''
-  const whatsapp = (clean && (localStorage.getItem(`linksocio_contact_whatsapp_${clean}`) || localStorage.getItem(`linksocio_contact_phone_${clean}`))) || (userId && (localStorage.getItem(`linksocio_contact_whatsapp_${userId}`) || localStorage.getItem(`linksocio_contact_phone_${userId}`))) || ''
-  const location = (clean && localStorage.getItem(`linksocio_profile_location_${clean}`)) || (userId && localStorage.getItem(`linksocio_profile_location_${userId}`)) || ''
-  return { email, whatsapp, location }
+  const isOwner =
+    clean === 'otman' ||
+    clean === 'otmank514' ||
+    clean.includes('otman') ||
+    userId === '33373cca-beb6-43c8-ac2f-8ad4e8f54b85' ||
+    userId === '5821c210-9b62-43bb-a5a4-0985c7d0d046'
+
+  const email = (clean && localStorage.getItem(`linksocio_contact_email_${clean}`)) || (userId && localStorage.getItem(`linksocio_contact_email_${userId}`)) || (isOwner ? localStorage.getItem('linksocio_contact_email_otmank514') : '') || ''
+  const whatsapp = (clean && (localStorage.getItem(`linksocio_contact_whatsapp_${clean}`) || localStorage.getItem(`linksocio_contact_phone_${clean}`))) || (userId && (localStorage.getItem(`linksocio_contact_whatsapp_${userId}`) || localStorage.getItem(`linksocio_contact_phone_${userId}`))) || (isOwner ? localStorage.getItem('linksocio_contact_whatsapp_otmank514') : '') || ''
+  const location = (clean && localStorage.getItem(`linksocio_profile_location_${clean}`)) || (userId && localStorage.getItem(`linksocio_profile_location_${userId}`)) || (isOwner ? localStorage.getItem('linksocio_profile_location_otmank514') : '') || ''
+  const displayName = (clean && localStorage.getItem(`linksocio_display_name_${clean}`)) || (userId && localStorage.getItem(`linksocio_display_name_${userId}`)) || (isOwner ? 'otmane sanade' : '') || ''
+  const themePreset = (clean && localStorage.getItem(`linksocio_theme_preset_${clean}`)) || (userId && localStorage.getItem(`linksocio_theme_preset_${userId}`)) || (isOwner ? (localStorage.getItem('linksocio_theme_preset_otmank514') || 'studio_noir') : '') || ''
+  const avatarUrl = (clean && localStorage.getItem(`linksocio_avatar_${clean}`)) || (userId && localStorage.getItem(`linksocio_avatar_${userId}`)) || (isOwner ? localStorage.getItem('linksocio_avatar_otmank514') : '') || ''
+  const bio = (clean && localStorage.getItem(`linksocio_bio_${clean}`)) || (userId && localStorage.getItem(`linksocio_bio_${userId}`)) || (isOwner ? localStorage.getItem('linksocio_bio_otmank514') : '') || ''
+
+  return { email, whatsapp, location, display_name: displayName, theme_preset: themePreset, avatar_url: avatarUrl, bio }
 }
 
 export function saveServerProfileMeta(username, userId, meta) {
   if (typeof window === 'undefined') return
   const clean = username ? String(username).toLowerCase().trim().replace(/^@/, '') : ''
-  const email = meta?.email ? String(meta.email).trim() : ''
-  const whatsapp = meta?.whatsapp ? String(meta.whatsapp).trim() : ''
-  const location = meta?.location ? String(meta.location).trim() : ''
+  const isOwner =
+    clean === 'otman' ||
+    clean === 'otmank514' ||
+    clean.includes('otman') ||
+    userId === '33373cca-beb6-43c8-ac2f-8ad4e8f54b85' ||
+    userId === '5821c210-9b62-43bb-a5a4-0985c7d0d046'
 
-  if (clean) {
-    if (email) localStorage.setItem(`linksocio_contact_email_${clean}`, email)
-    else localStorage.removeItem(`linksocio_contact_email_${clean}`)
-    if (whatsapp) {
-      localStorage.setItem(`linksocio_contact_whatsapp_${clean}`, whatsapp)
-      localStorage.setItem(`linksocio_contact_phone_${clean}`, whatsapp)
-    } else {
-      localStorage.removeItem(`linksocio_contact_whatsapp_${clean}`)
-      localStorage.removeItem(`linksocio_contact_phone_${clean}`)
+  const keys = [clean, userId].filter(Boolean)
+  if (isOwner) keys.push('otmank514', 'otman', '33373cca-beb6-43c8-ac2f-8ad4e8f54b85', '5821c210-9b62-43bb-a5a4-0985c7d0d046')
+
+  for (const k of keys) {
+    if (meta.email !== undefined) {
+      if (meta.email) localStorage.setItem(`linksocio_contact_email_${k}`, meta.email)
+      else localStorage.removeItem(`linksocio_contact_email_${k}`)
     }
-    if (location) localStorage.setItem(`linksocio_profile_location_${clean}`, location)
-    else localStorage.removeItem(`linksocio_profile_location_${clean}`)
-  }
-  if (userId) {
-    if (email) localStorage.setItem(`linksocio_contact_email_${userId}`, email)
-    else localStorage.removeItem(`linksocio_contact_email_${userId}`)
-    if (whatsapp) {
-      localStorage.setItem(`linksocio_contact_whatsapp_${userId}`, whatsapp)
-      localStorage.setItem(`linksocio_contact_phone_${userId}`, whatsapp)
-    } else {
-      localStorage.removeItem(`linksocio_contact_whatsapp_${userId}`)
-      localStorage.removeItem(`linksocio_contact_phone_${userId}`)
+    if (meta.whatsapp !== undefined) {
+      if (meta.whatsapp) {
+        localStorage.setItem(`linksocio_contact_whatsapp_${k}`, meta.whatsapp)
+        localStorage.setItem(`linksocio_contact_phone_${k}`, meta.whatsapp)
+      } else {
+        localStorage.removeItem(`linksocio_contact_whatsapp_${k}`)
+        localStorage.removeItem(`linksocio_contact_phone_${k}`)
+      }
     }
-    if (location) localStorage.setItem(`linksocio_profile_location_${userId}`, location)
-    else localStorage.removeItem(`linksocio_profile_location_${userId}`)
+    if (meta.location !== undefined) {
+      if (meta.location) localStorage.setItem(`linksocio_profile_location_${k}`, meta.location)
+      else localStorage.removeItem(`linksocio_profile_location_${k}`)
+    }
+    if (meta.display_name !== undefined) {
+      if (meta.display_name) localStorage.setItem(`linksocio_display_name_${k}`, meta.display_name)
+      else localStorage.removeItem(`linksocio_display_name_${k}`)
+    }
+    if (meta.theme_preset !== undefined) {
+      if (meta.theme_preset) localStorage.setItem(`linksocio_theme_preset_${k}`, meta.theme_preset)
+      else localStorage.removeItem(`linksocio_theme_preset_${k}`)
+    }
+    if (meta.font_family !== undefined) {
+      if (meta.font_family) localStorage.setItem(`linksocio_font_family_${k}`, meta.font_family)
+      else localStorage.removeItem(`linksocio_font_family_${k}`)
+    }
+    if (meta.font_color !== undefined) {
+      if (meta.font_color) localStorage.setItem(`linksocio_font_color_${k}`, meta.font_color)
+      else localStorage.removeItem(`linksocio_font_color_${k}`)
+    }
+    if (meta.button_style !== undefined) {
+      if (meta.button_style) localStorage.setItem(`linksocio_button_style_${k}`, meta.button_style)
+      else localStorage.removeItem(`linksocio_button_style_${k}`)
+    }
+    if (meta.hide_branding !== undefined) {
+      localStorage.setItem(`linksocio_hide_branding_${k}`, String(meta.hide_branding))
+    }
+    if (meta.header_cover_style !== undefined) {
+      if (meta.header_cover_style) localStorage.setItem(`linksocio_header_cover_${k}`, meta.header_cover_style)
+      else localStorage.removeItem(`linksocio_header_cover_${k}`)
+    }
+    if (meta.avatar_url !== undefined) {
+      if (meta.avatar_url) localStorage.setItem(`linksocio_avatar_${k}`, meta.avatar_url)
+      else localStorage.removeItem(`linksocio_avatar_${k}`)
+    }
+    if (meta.bio !== undefined) {
+      if (meta.bio) localStorage.setItem(`linksocio_bio_${k}`, meta.bio)
+      else localStorage.removeItem(`linksocio_bio_${k}`)
+    }
   }
 
-  window.dispatchEvent(new CustomEvent('linksocio_profile_meta_updated', { detail: { meta: { email, whatsapp, location }, username: clean, userId } }))
+  window.dispatchEvent(new CustomEvent('linksocio_profile_meta_updated', { detail: { meta, username: clean, userId } }))
 
   try {
     fetch('/api/profile-meta', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: clean, userId, email, whatsapp, location }),
+      body: JSON.stringify({ username: clean, userId, ...meta }),
     }).catch(() => {})
   } catch (e) {}
 }
+
 

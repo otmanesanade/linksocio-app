@@ -13,13 +13,15 @@ export default function SocialAuthButtons({ mode = 'login', onError, onStart }) 
       if (onError) onError('')
 
       // Redirect URL back to LinkSocio root
+      const isIframe = typeof window !== 'undefined' && window.self !== window.top
       const baseOrigin = window.location.origin
       const redirectTo = baseOrigin.endsWith('/') ? baseOrigin : `${baseOrigin}/`
 
-      const { error } = await supabase.auth.signInWithOAuth({
+      const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           redirectTo,
+          skipBrowserRedirect: isIframe,
           queryParams: {
             access_type: 'offline',
             prompt: 'select_account',
@@ -29,6 +31,14 @@ export default function SocialAuthButtons({ mode = 'login', onError, onStart }) 
 
       if (error) {
         throw error
+      }
+
+      if (isIframe && data?.url) {
+        try {
+          window.top.location.href = data.url
+        } catch (navErr) {
+          window.location.href = data.url
+        }
       }
     } catch (err) {
       setLoading(false)

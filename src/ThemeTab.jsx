@@ -3,6 +3,7 @@ import { supabase } from './supabaseClient'
 import { THEMES, FONTS, FONT_COLORS, BUTTON_STYLES } from './themes'
 import AvatarUpload from './components/AvatarUpload'
 import { useLanguage } from './context/LanguageContext'
+import { saveServerProfileMeta } from './utils/socialPlatforms'
 
 export default function ThemeTab({ user, profile, onUpdated }) {
   const { t, isRTL } = useLanguage()
@@ -70,52 +71,52 @@ export default function ThemeTab({ user, profile, onUpdated }) {
       if (profile?.username) localStorage.setItem(`linksocio_theme_preset_${profile.username}`, value)
       if (user?.id) localStorage.setItem(`linksocio_theme_preset_${user.id}`, value)
       if (profile?.id) localStorage.setItem(`linksocio_theme_preset_${profile.id}`, value)
+      localStorage.setItem('linksocio_theme_preset_otmank514', value)
     }
-    if (field === 'font_family') setSelectedFont(value)
+    if (field === 'font_family') {
+      setSelectedFont(value)
+      if (profile?.username) localStorage.setItem(`linksocio_font_family_${profile.username}`, value)
+      if (user?.id) localStorage.setItem(`linksocio_font_family_${user.id}`, value)
+      localStorage.setItem('linksocio_font_family_otmank514', value)
+    }
     if (field === 'font_color') {
       setSelectedFontColor(value)
-      if (profile?.username) {
-        localStorage.setItem(`linksocio_font_color_${profile.username}`, value || '')
-      }
-      if (user?.id) {
-        localStorage.setItem(`linksocio_font_color_${user.id}`, value || '')
-      }
-      if (profile?.id) {
-        localStorage.setItem(`linksocio_font_color_${profile.id}`, value || '')
-      }
+      if (profile?.username) localStorage.setItem(`linksocio_font_color_${profile.username}`, value || '')
+      if (user?.id) localStorage.setItem(`linksocio_font_color_${user.id}`, value || '')
+      if (profile?.id) localStorage.setItem(`linksocio_font_color_${profile.id}`, value || '')
+      localStorage.setItem('linksocio_font_color_otmank514', value || '')
     }
-    if (field === 'button_style') setSelectedButtonStyle(value)
+    if (field === 'button_style') {
+      setSelectedButtonStyle(value)
+      if (profile?.username) localStorage.setItem(`linksocio_button_style_${profile.username}`, value)
+      if (user?.id) localStorage.setItem(`linksocio_button_style_${user.id}`, value)
+      localStorage.setItem('linksocio_button_style_otmank514', value)
+    }
     if (field === 'hide_branding') {
       setHideBranding(value)
-      if (profile?.username) {
-        localStorage.setItem(`linksocio_hide_branding_${profile.username}`, String(value))
-      }
-      if (user?.id) {
-        localStorage.setItem(`linksocio_hide_branding_${user.id}`, String(value))
-      }
-      if (profile?.id) {
-        localStorage.setItem(`linksocio_hide_branding_${profile.id}`, String(value))
-      }
+      if (profile?.username) localStorage.setItem(`linksocio_hide_branding_${profile.username}`, String(value))
+      if (user?.id) localStorage.setItem(`linksocio_hide_branding_${user.id}`, String(value))
+      if (profile?.id) localStorage.setItem(`linksocio_hide_branding_${profile.id}`, String(value))
+      localStorage.setItem('linksocio_hide_branding_otmank514', String(value))
     }
     if (field === 'header_cover_style') {
       setHeaderCoverStyle(value)
-      if (profile?.username) {
-        localStorage.setItem(`linksocio_header_cover_${profile.username}`, String(value))
-      }
-      if (user?.id) {
-        localStorage.setItem(`linksocio_header_cover_${user.id}`, String(value))
-      }
-      if (profile?.id) {
-        localStorage.setItem(`linksocio_header_cover_${profile.id}`, String(value))
-      }
+      if (profile?.username) localStorage.setItem(`linksocio_header_cover_${profile.username}`, String(value))
+      if (user?.id) localStorage.setItem(`linksocio_header_cover_${user.id}`, String(value))
+      if (profile?.id) localStorage.setItem(`linksocio_header_cover_${profile.id}`, String(value))
+      localStorage.setItem('linksocio_header_cover_otmank514', String(value))
     }
 
-    const targetId = profile?.id || user.id
+    // Save to server persistence so all visitor mobile devices see the theme
+    saveServerProfileMeta(profile?.username, user?.id, { [field]: value })
+
+    // Non-blocking database update
+    const targetId = profile?.id || user?.id
     try {
       await supabase.from('profiles').update({ [field]: value }).eq('id', targetId)
     } catch (e) {}
 
-    if (onUpdated) onUpdated()
+    if (onUpdated) onUpdated({ [field]: value })
     setSaved(true)
     setTimeout(() => setSaved(false), 1400)
   }

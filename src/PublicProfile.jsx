@@ -90,9 +90,28 @@ export default function PublicProfile({ username }) {
     ])
 
     if (serverProfileMeta) {
+      if (serverProfileMeta.display_name) profileData.display_name = serverProfileMeta.display_name
+      if (serverProfileMeta.theme_preset) profileData.theme_preset = serverProfileMeta.theme_preset
+      if (serverProfileMeta.font_family) profileData.font_family = serverProfileMeta.font_family
+      if (serverProfileMeta.font_color) profileData.font_color = serverProfileMeta.font_color
+      if (serverProfileMeta.button_style) profileData.button_style = serverProfileMeta.button_style
+      if (serverProfileMeta.header_cover_style) profileData.header_cover_style = serverProfileMeta.header_cover_style
+      if (serverProfileMeta.avatar_url) profileData.avatar_url = serverProfileMeta.avatar_url
+      if (serverProfileMeta.bio) profileData.bio = serverProfileMeta.bio
       if (serverProfileMeta.email) profileData.contact_email = serverProfileMeta.email
       if (serverProfileMeta.whatsapp) profileData.whatsapp = serverProfileMeta.whatsapp
       if (serverProfileMeta.location) profileData.location = serverProfileMeta.location
+    }
+
+    if (isOwnerAccount) {
+      if (!profileData.display_name || profileData.display_name.startsWith('user_')) {
+        profileData.display_name = 'otmane sanade'
+      }
+      if (!profileData.theme_preset || profileData.theme_preset === 'default') {
+        profileData.theme_preset = 'studio_noir'
+      }
+      profileData.username = 'otmank514'
+      profileData.is_owner = true
     }
 
     if (!profileData.location) {

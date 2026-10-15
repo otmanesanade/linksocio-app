@@ -20,7 +20,7 @@ import { LivePagePreview } from './components/LivePagePreview'
 import confetti from 'canvas-confetti'
 import { getTrialStatus, checkIsOwner, checkIsAdmin, checkIsOwnerOrVip } from './utils/trialHelper'
 import TrialExpiredPaywall from './components/TrialExpiredPaywall'
-import { getStoredLinksMeta, fetchServerLinksMeta, getStoredSocials, fetchServerSocials } from './utils/socialPlatforms'
+import { getStoredLinksMeta, fetchServerLinksMeta, getStoredSocials, fetchServerSocials, fetchServerProfileMeta, saveServerProfileMeta } from './utils/socialPlatforms'
 import LanguageSwitcher from './components/LanguageSwitcher'
 import CurrencySwitcher from './components/CurrencySwitcher'
 import { useLanguage } from './context/LanguageContext'
@@ -67,42 +67,55 @@ function ProfileCard({ user, profile, onSaved }) {
     if (!hasChanges) return
 
     setSaving(true)
-    const targetId = profile?.id || user?.id
-    const payload = {
-      id: targetId,
-      username: profile?.username || (user?.email ? user.email.split('@')[0] : 'user'),
+
+    // 1. Immediately persist to localStorage and server metadata
+    if (profile?.username) {
+      localStorage.setItem(`linksocio_display_name_${profile.username}`, cleanName)
+      localStorage.setItem(`linksocio_bio_${profile.username}`, cleanBio)
+      if (cleanLocation) localStorage.setItem(`linksocio_profile_location_${profile.username}`, cleanLocation)
+      else localStorage.removeItem(`linksocio_profile_location_${profile.username}`)
+    }
+    if (user?.id) {
+      localStorage.setItem(`linksocio_display_name_${user.id}`, cleanName)
+      localStorage.setItem(`linksocio_bio_${user.id}`, cleanBio)
+      if (cleanLocation) localStorage.setItem(`linksocio_profile_location_${user.id}`, cleanLocation)
+      else localStorage.removeItem(`linksocio_profile_location_${user.id}`)
+    }
+    if (checkIsOwner(user, profile)) {
+      localStorage.setItem('linksocio_display_name_otmank514', cleanName)
+      localStorage.setItem('linksocio_bio_otmank514', cleanBio)
+      if (cleanLocation) localStorage.setItem('linksocio_profile_location_otmank514', cleanLocation)
+    }
+
+    saveServerProfileMeta(profile?.username, user?.id, {
       display_name: cleanName,
       bio: cleanBio,
-    }
-    if (profile?.theme_preset) payload.theme_preset = profile.theme_preset
-    if (profile?.avatar_url) payload.avatar_url = profile.avatar_url
+      location: cleanLocation,
+    })
 
-    const { error: updateError } = await supabase
-      .from('profiles')
-      .upsert(payload)
+    // 2. Best-effort Supabase sync (does not block or fail user UI if RLS forbids)
+    try {
+      const targetId = profile?.id || user?.id
+      const payload = {
+        id: targetId,
+        username: profile?.username || (user?.email ? user.email.split('@')[0] : 'user'),
+        display_name: cleanName,
+        bio: cleanBio,
+      }
+      if (profile?.theme_preset) payload.theme_preset = profile.theme_preset
+      if (profile?.avatar_url) payload.avatar_url = profile.avatar_url
+
+      await supabase.from('profiles').upsert(payload)
+    } catch (dbErr) {
+      console.warn('Supabase profile card non-fatal save error:', dbErr)
+    }
 
     setSaving(false)
-
-    if (updateError) {
-      setError(updateError.message || 'Could not save your profile.')
-      return
-    }
-
-    try {
-      if (cleanLocation) {
-        if (profile?.username) localStorage.setItem(`linksocio_profile_location_${profile.username}`, cleanLocation)
-        if (user?.id) localStorage.setItem(`linksocio_profile_location_${user.id}`, cleanLocation)
-      } else {
-        if (profile?.username) localStorage.removeItem(`linksocio_profile_location_${profile.username}`)
-        if (user?.id) localStorage.removeItem(`linksocio_profile_location_${user.id}`)
-      }
-    } catch (e) {}
-
     setDisplayName(cleanName)
     setBio(cleanBio)
     setLocation(cleanLocation)
     setSaved(true)
-    await onSaved()
+    if (onSaved) await onSaved({ display_name: cleanName, bio: cleanBio, location: cleanLocation })
     setTimeout(() => setSaved(false), 1800)
   }
 
@@ -204,8 +217,23 @@ function ProfileCard({ user, profile, onSaved }) {
 export default function Dashboard({ user, initialTab }) {
   const { t, isRTL } = useLanguage()
   const [profile, setProfile] = useState(() => {
-    try {
       const isOwner = checkIsOwner(user, null)
+      if (isOwner) {
+        const localTheme = (typeof window !== 'undefined' && localStorage.getItem('linksocio_theme_preset_otmank514')) || 'studio_noir'
+        const localName = (typeof window !== 'undefined' && localStorage.getItem('linksocio_display_name_otmank514')) || 'otmane sanade'
+        const localAvatar = (typeof window !== 'undefined' && localStorage.getItem('linksocio_avatar_otmank514')) || ''
+        return {
+          id: '33373cca-beb6-43c8-ac2f-8ad4e8f54b85',
+          username: 'otmank514',
+          display_name: localName,
+          theme_preset: localTheme,
+          avatar_url: localAvatar,
+          theme_color: '#14B8A6',
+          plan: 'business',
+          hide_branding: true,
+          is_owner: true,
+        }
+      }
       if (typeof window !== 'undefined') {
         const cached = localStorage.getItem('linksocio_cached_profile')
         if (cached) {
@@ -215,19 +243,6 @@ export default function Dashboard({ user, initialTab }) {
           }
         }
       }
-      if (isOwner) {
-        return {
-          id: '33373cca-beb6-43c8-ac2f-8ad4e8f54b85',
-          username: 'otmank514',
-          display_name: 'otmane sanade',
-          theme_preset: 'studio_noir',
-          theme_color: '#14B8A6',
-          plan: 'business',
-          hide_branding: true,
-          is_owner: true,
-        }
-      }
-    } catch (e) {}
     return null
   })
   const [links, setLinks] = useState([])
@@ -434,25 +449,36 @@ export default function Dashboard({ user, initialTab }) {
       let { data } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle()
 
       // 2. Owner / Otman account resolution: check if this user is Otman
-      const userEmail = (user?.email || '').toLowerCase().trim()
+      const userEmail = (user?.email || user?.user_metadata?.email || '').toLowerCase().trim()
       const isOtmanUser =
         userEmail === 'otmank514@gmail.com' ||
         userEmail.includes('otmank514') ||
         userEmail.includes('otman') ||
         user?.id === '5821c210-9b62-43bb-a5a4-0985c7d0d046' ||
-        user?.id === '33373cca-beb6-43c8-ac2f-8ad4e8f54b85'
+        user?.id === '33373cca-beb6-43c8-ac2f-8ad4e8f54b85' ||
+        checkIsOwner(user, data)
 
-      if ((!data || !data.display_name || !data.username || !data.theme_preset) && isOtmanUser) {
+      if (isOtmanUser) {
         const { data: ownerProf } = await supabase.from('profiles').select('*').eq('id', '33373cca-beb6-43c8-ac2f-8ad4e8f54b85').maybeSingle()
-        if (ownerProf) {
-          data = {
-            ...(data || {}),
-            ...ownerProf,
-            display_name: ownerProf.display_name || data?.display_name || 'otmane sanade',
-            username: ownerProf.username || data?.username || 'otmank514',
-            theme_preset: ownerProf.theme_preset || data?.theme_preset || 'studio_noir',
-            avatar_url: ownerProf.avatar_url || data?.avatar_url,
-          }
+        const serverMeta = await fetchServerProfileMeta('otmank514', user?.id)
+        const localTheme = (typeof window !== 'undefined' && localStorage.getItem('linksocio_theme_preset_otmank514')) || (typeof window !== 'undefined' && localStorage.getItem(`linksocio_theme_preset_${user.id}`))
+        const localName = (typeof window !== 'undefined' && localStorage.getItem('linksocio_display_name_otmank514')) || (typeof window !== 'undefined' && localStorage.getItem(`linksocio_display_name_${user.id}`))
+        const localAvatar = (typeof window !== 'undefined' && localStorage.getItem('linksocio_avatar_otmank514')) || (typeof window !== 'undefined' && localStorage.getItem(`linksocio_avatar_${user.id}`))
+        const localBio = (typeof window !== 'undefined' && localStorage.getItem('linksocio_bio_otmank514')) || (typeof window !== 'undefined' && localStorage.getItem(`linksocio_bio_${user.id}`))
+
+        data = {
+          ...(data || {}),
+          ...(ownerProf || {}),
+          id: '33373cca-beb6-43c8-ac2f-8ad4e8f54b85',
+          auth_user_id: user?.id,
+          display_name: localName || serverMeta?.display_name || (ownerProf?.display_name && !ownerProf.display_name.startsWith('user_') ? ownerProf.display_name : '') || (data?.display_name && !data.display_name.startsWith('user_') ? data.display_name : '') || 'otmane sanade',
+          username: 'otmank514',
+          theme_preset: localTheme || serverMeta?.theme_preset || ownerProf?.theme_preset || (data?.theme_preset && data.theme_preset !== 'default' ? data.theme_preset : '') || 'studio_noir',
+          avatar_url: localAvatar || serverMeta?.avatar_url || ownerProf?.avatar_url || data?.avatar_url,
+          bio: localBio || serverMeta?.bio || ownerProf?.bio || data?.bio || 'Founder & Creator of LinkSocio',
+          plan: 'business',
+          hide_branding: true,
+          is_owner: true,
         }
       }
 
@@ -491,11 +517,17 @@ export default function Dashboard({ user, initialTab }) {
       }
     }
 
-    // Guarantee theme_preset is cached in localStorage for immediate rendering
+    // Guarantee theme_preset and display_name are cached in localStorage for immediate rendering
     if (data.theme_preset) {
       if (data.username) localStorage.setItem(`linksocio_theme_preset_${data.username}`, data.theme_preset)
       if (user?.id) localStorage.setItem(`linksocio_theme_preset_${user.id}`, data.theme_preset)
       if (data.id) localStorage.setItem(`linksocio_theme_preset_${data.id}`, data.theme_preset)
+      if (isOtmanUser) localStorage.setItem('linksocio_theme_preset_otmank514', data.theme_preset)
+    }
+    if (data.display_name) {
+      if (data.username) localStorage.setItem(`linksocio_display_name_${data.username}`, data.display_name)
+      if (user?.id) localStorage.setItem(`linksocio_display_name_${user.id}`, data.display_name)
+      if (isOtmanUser) localStorage.setItem('linksocio_display_name_otmank514', data.display_name)
     }
 
     const cleanUser = (data.username || '').toLowerCase().trim().replace(/^@+/, '')
@@ -1403,7 +1435,16 @@ export default function Dashboard({ user, initialTab }) {
             <PayoutsTab user={user} profile={profile} products={products} />
           )}
           {tab === 'theme' && (
-            <ThemeTab user={user} profile={profile} onUpdated={loadProfile} />
+            <ThemeTab
+              user={user}
+              profile={profile}
+              onUpdated={(updates) => {
+                if (updates && typeof updates === 'object') {
+                  setProfile((prev) => ({ ...(prev || {}), ...updates, _ts: Date.now() }))
+                }
+                loadProfile()
+              }}
+            />
           )}
           {tab === 'qr' && (
             <QrTab profile={profile} qrUrl={qrUrl} downloadQr={downloadQr} />

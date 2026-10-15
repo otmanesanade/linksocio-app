@@ -2,6 +2,7 @@ import { useState, useRef } from 'react'
 import { supabase } from '../supabaseClient'
 import confetti from 'canvas-confetti'
 import { useLanguage } from '../context/LanguageContext'
+import { saveServerProfileMeta } from '../utils/socialPlatforms'
 
 // Compress & crop image to square canvas (700px for high-definition cover backgrounds and avatars)
 async function compressImage(file, maxSize = 700) {
@@ -112,14 +113,22 @@ export default function AvatarUpload({ user, profile, onUpdated }) {
         console.warn('Storage upload fallback to direct avatar URL:', storageErr)
       }
 
-      // 3. Update profile record
-      const { error: dbError } = await supabase
-        .from('profiles')
-        .update({ avatar_url: finalAvatarUrl })
-        .eq('id', user?.id || profile?.id)
+      // 3. Persist avatar immediately to localStorage & server metadata
+      if (profile?.username) localStorage.setItem(`linksocio_avatar_${profile.username}`, finalAvatarUrl)
+      if (user?.id) localStorage.setItem(`linksocio_avatar_${user.id}`, finalAvatarUrl)
+      if (profile?.id) localStorage.setItem(`linksocio_avatar_${profile.id}`, finalAvatarUrl)
+      localStorage.setItem('linksocio_avatar_otmank514', finalAvatarUrl)
+      saveServerProfileMeta(profile?.username, user?.id, { avatar_url: finalAvatarUrl })
 
-      if (dbError) {
-        throw dbError
+      // 4. Update profile record in Supabase (if authenticated)
+      try {
+        const targetId = user?.id || profile?.id
+        await supabase
+          .from('profiles')
+          .update({ avatar_url: finalAvatarUrl })
+          .eq('id', targetId)
+      } catch (dbErr) {
+        console.warn('Supabase avatar update non-fatal error:', dbErr)
       }
 
       setSuccessMsg(t('avatar.successUpdate', 'Profile picture updated successfully!'))
@@ -127,7 +136,7 @@ export default function AvatarUpload({ user, profile, onUpdated }) {
         confetti({ particleCount: 35, spread: 50, origin: { y: 0.6 } })
       } catch (e) {}
 
-      if (onUpdated) await onUpdated()
+      if (onUpdated) await onUpdated({ avatar_url: finalAvatarUrl })
       setTimeout(() => setSuccessMsg(''), 3000)
     } catch (err) {
       console.error('Avatar update failed:', err)
