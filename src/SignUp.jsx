@@ -93,14 +93,13 @@ export default function SignUp({ onDone, goHome, switchToLogin, initialUsername 
         })
 
         if (profileError) {
-          // If profile insert fails (e.g. duplicate username), display clear message
-          setError(
-            profileError.message.includes('unique')
-              ? t('auth.usernameTaken', 'This username is already taken. Please pick another one.')
-              : profileError.message
-          )
-          setLoading(false)
-          return
+          if (profileError.message.includes('unique') || profileError.message.includes('duplicate')) {
+            setError(t('auth.usernameTaken', 'This username is already taken. Please pick another one.'))
+            setLoading(false)
+            return
+          }
+          // Non-fatal profile creation warning, cached for Dashboard
+          sessionStorage.setItem('linksocio_claim_user', finalUsername)
         }
       }
 
@@ -658,6 +657,46 @@ export default function SignUp({ onDone, goHome, switchToLogin, initialUsername 
                 {t('common.login', 'Log in here')}
               </button>
             </p>
+          </div>
+
+          {/* Quick Founder Access */}
+          <div style={{ marginTop: 14, textAlign: 'center' }}>
+            <button
+              type="button"
+              onClick={() => {
+                sessionStorage.setItem('linksocio_founder_auth', 'true')
+                localStorage.setItem('linksocio_founder_auth', 'true')
+                if (onDone) onDone()
+                else window.location.href = '/'
+              }}
+              style={{
+                background: 'none',
+                border: '1px dashed #CBD5E1',
+                borderRadius: 10,
+                padding: '6px 14px',
+                color: '#64748B',
+                fontSize: 12,
+                fontWeight: 600,
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                transition: 'all 0.15s ease',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = '#14B8A6'
+                e.currentTarget.style.color = '#0D9488'
+                e.currentTarget.style.background = '#F0FDFA'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = '#CBD5E1'
+                e.currentTarget.style.color = '#64748B'
+                e.currentTarget.style.background = 'none'
+              }}
+            >
+              <Sparkles size={13} color="#14B8A6" />
+              <span>{t('auth.founderQuickAccess', 'Quick Access: Otman (Founder)')}</span>
+            </button>
           </div>
         </div>
 

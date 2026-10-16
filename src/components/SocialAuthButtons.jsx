@@ -16,8 +16,10 @@ export default function SocialAuthButtons({ mode = 'login', onError, onStart }) 
       if (onError) onError('')
 
       const isIframe = typeof window !== 'undefined' && window.self !== window.top
-      const baseOrigin = window.location.origin
-      const redirectTo = baseOrigin.endsWith('/') ? baseOrigin : `${baseOrigin}/`
+      const rawOrigin = window.location.origin
+      // Always route OAuth redirect to the running dev server so it never hits the unrouted ais-pre 404 page
+      const safeOrigin = rawOrigin.replace('ais-pre-', 'ais-dev-')
+      const redirectTo = safeOrigin.endsWith('/') ? safeOrigin : `${safeOrigin}/`
 
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
