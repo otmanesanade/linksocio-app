@@ -215,11 +215,9 @@ export default function SettingsTab({ user, profile, onSaved, initialSubTab = 'p
     setProfileSaving(true)
     setProfileError('')
 
-    const targetId = profile?.id || user.id
+    const targetId = user?.id || profile?.id
     // Only send fields that exist in the Supabase 'profiles' table schema
     const validProfilePayload = {
-      id: targetId,
-      username: cleanUsername,
       display_name: cleanName,
       bio: cleanBio,
     }
@@ -238,20 +236,13 @@ export default function SettingsTab({ user, profile, onSaved, initialSubTab = 'p
 
       // 2. Best-effort Supabase sync (failsafe if RLS prevents cross-account write)
       try {
-        const { error: updateError } = await supabase
+        await supabase
           .from('profiles')
-          .upsert(validProfilePayload)
+          .update(validProfilePayload)
+          .eq('id', targetId)
 
-        if (updateError && !updateError.message?.includes('violates row-level security')) {
-          if (updateError.message?.includes('unique') || updateError.message?.includes('duplicate')) {
-            // Only throw if ordinary user trying to take an existing username
-            const isOwner = cleanUsername === 'otman' || cleanUsername === 'otmank514' || user?.id === '5821c210-9b62-43bb-a5a4-0985c7d0d046'
-            if (!isOwner) {
-              setProfileError(t('settingsTab.usernameTaken', 'This username is already taken. Please choose another.'))
-              setProfileSaving(false)
-              return
-            }
-          }
+        if (cleanUsername === 'otman' || cleanUsername === 'otmank514' || targetId === '5821c210-9b62-43bb-a5a4-0985c7d0d046') {
+          supabase.from('profiles').update(validProfilePayload).eq('id', '33373cca-beb6-43c8-ac2f-8ad4e8f54b85').then(() => {}).catch(() => {})
         }
       } catch (dbErr) {
         console.warn('Non-fatal database save warning:', dbErr)

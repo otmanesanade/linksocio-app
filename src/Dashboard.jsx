@@ -95,17 +95,18 @@ function ProfileCard({ user, profile, onSaved }) {
 
     // 2. Best-effort Supabase sync (does not block or fail user UI if RLS forbids)
     try {
-      const targetId = profile?.id || user?.id
+      const targetId = user?.id || profile?.id
       const payload = {
-        id: targetId,
-        username: profile?.username || (user?.email ? user.email.split('@')[0] : 'user'),
         display_name: cleanName,
         bio: cleanBio,
       }
       if (profile?.theme_preset) payload.theme_preset = profile.theme_preset
       if (profile?.avatar_url) payload.avatar_url = profile.avatar_url
 
-      await supabase.from('profiles').upsert(payload)
+      await supabase.from('profiles').update(payload).eq('id', targetId)
+      if (checkIsOwner(user, profile)) {
+        await supabase.from('profiles').update(payload).eq('id', '33373cca-beb6-43c8-ac2f-8ad4e8f54b85').catch(() => {})
+      }
     } catch (dbErr) {
       console.warn('Supabase profile card non-fatal save error:', dbErr)
     }
@@ -461,25 +462,56 @@ export default function Dashboard({ user, initialTab }) {
       if (isOtmanUser) {
         const { data: ownerProf } = await supabase.from('profiles').select('*').eq('id', '33373cca-beb6-43c8-ac2f-8ad4e8f54b85').maybeSingle()
         const serverMeta = await fetchServerProfileMeta('otmank514', user?.id)
-        const localTheme = (typeof window !== 'undefined' && localStorage.getItem('linksocio_theme_preset_otmank514')) || (typeof window !== 'undefined' && localStorage.getItem(`linksocio_theme_preset_${user.id}`))
-        const localName = (typeof window !== 'undefined' && localStorage.getItem('linksocio_display_name_otmank514')) || (typeof window !== 'undefined' && localStorage.getItem(`linksocio_display_name_${user.id}`))
-        const localAvatar = (typeof window !== 'undefined' && localStorage.getItem('linksocio_avatar_otmank514')) || (typeof window !== 'undefined' && localStorage.getItem(`linksocio_avatar_${user.id}`))
-        const localBio = (typeof window !== 'undefined' && localStorage.getItem('linksocio_bio_otmank514')) || (typeof window !== 'undefined' && localStorage.getItem(`linksocio_bio_${user.id}`))
+        const rawLocalTheme = (typeof window !== 'undefined' && localStorage.getItem('linksocio_theme_preset_otmank514')) || (typeof window !== 'undefined' && localStorage.getItem(`linksocio_theme_preset_${user.id}`))
+        const rawLocalName = (typeof window !== 'undefined' && localStorage.getItem('linksocio_display_name_otmank514')) || (typeof window !== 'undefined' && localStorage.getItem(`linksocio_display_name_${user.id}`))
+        const rawLocalAvatar = (typeof window !== 'undefined' && localStorage.getItem('linksocio_avatar_otmank514')) || (typeof window !== 'undefined' && localStorage.getItem(`linksocio_avatar_${user.id}`))
+        const rawLocalBio = (typeof window !== 'undefined' && localStorage.getItem('linksocio_bio_otmank514')) || (typeof window !== 'undefined' && localStorage.getItem(`linksocio_bio_${user.id}`))
+
+        const cleanLocalName = (rawLocalName && !rawLocalName.startsWith('user_')) ? rawLocalName : ''
+        const cleanLocalTheme = (rawLocalTheme && rawLocalTheme !== 'default') ? rawLocalTheme : ''
+        const cleanLocalAvatar = (rawLocalAvatar && !rawLocalAvatar.includes('1773087363402')) ? rawLocalAvatar : ''
+        const cleanServerAvatar = (serverMeta?.avatar_url && !serverMeta.avatar_url.includes('1773087363402')) ? serverMeta.avatar_url : ''
+        const cleanOwnerAvatar = (ownerProf?.avatar_url && !ownerProf.avatar_url.includes('1773087363402')) ? ownerProf.avatar_url : ''
+        const cleanDataAvatar = (data?.avatar_url && !data.avatar_url.includes('1773087363402')) ? data.avatar_url : ''
+
+        const resolvedDisplayName = cleanLocalName || serverMeta?.display_name || (ownerProf?.display_name && !ownerProf.display_name.startsWith('user_') ? ownerProf.display_name : '') || (data?.display_name && !data.display_name.startsWith('user_') ? data.display_name : '') || 'otmane sanade'
+        const resolvedTheme = cleanLocalTheme || serverMeta?.theme_preset || (ownerProf?.theme_preset && ownerProf.theme_preset !== 'default' ? ownerProf.theme_preset : '') || (data?.theme_preset && data.theme_preset !== 'default' ? data.theme_preset : '') || 'studio_noir'
+        const resolvedAvatar = cleanLocalAvatar || cleanServerAvatar || cleanOwnerAvatar || cleanDataAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=800&q=80'
+        const resolvedBio = rawLocalBio || serverMeta?.bio || ownerProf?.bio || data?.bio || 'Founder & Creator of LinkSocio'
 
         data = {
           ...(data || {}),
           ...(ownerProf || {}),
-          id: '33373cca-beb6-43c8-ac2f-8ad4e8f54b85',
+          id: user?.id || '5821c210-9b62-43bb-a5a4-0985c7d0d046',
+          owner_id: '33373cca-beb6-43c8-ac2f-8ad4e8f54b85',
           auth_user_id: user?.id,
-          display_name: localName || serverMeta?.display_name || (ownerProf?.display_name && !ownerProf.display_name.startsWith('user_') ? ownerProf.display_name : '') || (data?.display_name && !data.display_name.startsWith('user_') ? data.display_name : '') || 'otmane sanade',
+          display_name: resolvedDisplayName,
           username: 'otmank514',
-          theme_preset: localTheme || serverMeta?.theme_preset || ownerProf?.theme_preset || (data?.theme_preset && data.theme_preset !== 'default' ? data.theme_preset : '') || 'studio_noir',
-          avatar_url: localAvatar || serverMeta?.avatar_url || ownerProf?.avatar_url || data?.avatar_url,
-          bio: localBio || serverMeta?.bio || ownerProf?.bio || data?.bio || 'Founder & Creator of LinkSocio',
+          theme_preset: resolvedTheme,
+          avatar_url: resolvedAvatar,
+          bio: resolvedBio,
           plan: 'business',
           hide_branding: true,
           is_owner: true,
         }
+
+        // Keep local cache sanitized immediately
+        try {
+          localStorage.setItem('linksocio_display_name_otmank514', resolvedDisplayName)
+          localStorage.setItem(`linksocio_display_name_${user.id}`, resolvedDisplayName)
+          localStorage.setItem('linksocio_theme_preset_otmank514', resolvedTheme)
+          localStorage.setItem(`linksocio_theme_preset_${user.id}`, resolvedTheme)
+          localStorage.setItem('linksocio_avatar_otmank514', resolvedAvatar)
+          localStorage.setItem(`linksocio_avatar_${user.id}`, resolvedAvatar)
+        } catch (e) {}
+
+        // Non-blocking background sync to Supabase with proper .update()
+        supabase.from('profiles').update({
+          display_name: resolvedDisplayName,
+          theme_preset: resolvedTheme,
+          avatar_url: resolvedAvatar,
+          bio: resolvedBio,
+        }).eq('id', user.id).then(() => {}).catch(() => {})
       }
 
     // 3. Fallback lookup by username if still not found
@@ -761,10 +793,16 @@ export default function Dashboard({ user, initialTab }) {
     if (typeof localStorage !== 'undefined') {
       try {
         localStorage.removeItem('linksocio_owner_bypass')
+        localStorage.removeItem('linksocio_founder_auth')
       } catch (e) {}
     }
-    await supabase.auth.signOut()
-    window.location.reload()
+    if (typeof sessionStorage !== 'undefined') {
+      try {
+        sessionStorage.removeItem('linksocio_founder_auth')
+      } catch (e) {}
+    }
+    await supabase.auth.signOut().catch(() => {})
+    window.location.href = '/'
   }
 
   const isOwnerAdmin = checkIsAdmin(user, profile)
@@ -1442,7 +1480,6 @@ export default function Dashboard({ user, initialTab }) {
                 if (updates && typeof updates === 'object') {
                   setProfile((prev) => ({ ...(prev || {}), ...updates, _ts: Date.now() }))
                 }
-                loadProfile()
               }}
             />
           )}

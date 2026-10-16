@@ -6,13 +6,15 @@ export default function SocialAuthButtons({ mode = 'login', onError, onStart }) 
   const { t } = useLanguage()
   const [loading, setLoading] = useState(false)
 
+  const [popupWaiting, setPopupWaiting] = useState(false)
+  const [authUrl, setAuthUrl] = useState('')
+
   const handleGoogleAuth = async () => {
     try {
       setLoading(true)
       if (onStart) onStart('google')
       if (onError) onError('')
 
-      // Redirect URL back to LinkSocio root
       const isIframe = typeof window !== 'undefined' && window.self !== window.top
       const baseOrigin = window.location.origin
       const redirectTo = baseOrigin.endsWith('/') ? baseOrigin : `${baseOrigin}/`
@@ -21,7 +23,7 @@ export default function SocialAuthButtons({ mode = 'login', onError, onStart }) 
         provider: 'google',
         options: {
           redirectTo,
-          skipBrowserRedirect: isIframe,
+          skipBrowserRedirect: true, // Always skip direct browser redirect so we can open safely outside iframe
           queryParams: {
             access_type: 'offline',
             prompt: 'select_account',
@@ -33,15 +35,46 @@ export default function SocialAuthButtons({ mode = 'login', onError, onStart }) 
         throw error
       }
 
-      if (isIframe && data?.url) {
+      if (data?.url) {
+        setAuthUrl(data.url)
+        setPopupWaiting(true)
+
+        // Try opening popup window directly
+        let popup = null
         try {
-          window.top.location.href = data.url
-        } catch (navErr) {
-          window.location.href = data.url
+          popup = window.open(data.url, 'google_oauth_popup', 'width=520,height=650,left=150,top=100,menubar=no,toolbar=no')
+        } catch (popupErr) {
+          console.warn('Popup open error:', popupErr)
         }
+
+        // Poll for session establishment
+        const pollInterval = setInterval(async () => {
+          try {
+            const { data: sessionData } = await supabase.auth.getSession()
+            if (sessionData?.session?.user) {
+              clearInterval(pollInterval)
+              if (popup && !popup.closed) {
+                try { popup.close() } catch (e) {}
+              }
+              setLoading(false)
+              setPopupWaiting(false)
+              // Reload or notify caller
+              window.location.href = '/'
+            }
+          } catch (e) {}
+        }, 1200)
+
+        // Stop polling after 3 minutes
+        setTimeout(() => {
+          clearInterval(pollInterval)
+          setLoading(false)
+        }, 180000)
+      } else {
+        setLoading(false)
       }
     } catch (err) {
       setLoading(false)
+      setPopupWaiting(false)
       const errorMsg =
         err?.message ||
         t('auth.googleError', 'Could not sign in with Google. Please try again or use email.')
@@ -126,6 +159,38 @@ export default function SocialAuthButtons({ mode = 'login', onError, onStart }) 
             : t('auth.signUpWithGoogle', 'Sign up with Google')}
         </span>
       </button>
+
+      {popupWaiting && authUrl && (
+        <div
+          style={{
+            background: '#F0FDFA',
+            border: '1px solid #99F6E4',
+            borderRadius: 12,
+            padding: '10px 14px',
+            fontSize: 12.5,
+            color: '#0F766E',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 6,
+            textAlign: 'center',
+          }}
+        >
+          <span>{t('auth.googlePopupNotice', 'Google login window opened. Complete sign in there.')}</span>
+          <a
+            href={authUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              color: '#0D9488',
+              fontWeight: 700,
+              textDecoration: 'underline',
+              cursor: 'pointer',
+            }}
+          >
+            {t('auth.openNewTab', 'Didn\'t open? Click here to open in a new tab ↗')}
+          </a>
+        </div>
+      )}
     </div>
   )
 }

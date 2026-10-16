@@ -638,7 +638,7 @@ function apiPlugin() {
               button_style: metaU.button_style || metaId.button_style || metaAlias.button_style || 'rounded',
               hide_branding: metaU.hide_branding !== undefined ? metaU.hide_branding : metaId.hide_branding !== undefined ? metaId.hide_branding : (isOwner ? true : false),
               header_cover_style: metaU.header_cover_style || metaId.header_cover_style || metaAlias.header_cover_style || 'auto',
-              avatar_url: metaU.avatar_url || metaId.avatar_url || metaAlias.avatar_url || (isOwner ? 'https://nknauhsucrnrhmtldick.supabase.co/storage/v1/object/public/avatars/user_33373cca-beb6-43c8-ac2f-8ad4e8f54b85_1773087363402.png' : ''),
+              avatar_url: metaU.avatar_url || metaId.avatar_url || metaAlias.avatar_url || (isOwner ? 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=800&q=80' : ''),
               bio: metaU.bio || metaId.bio || metaAlias.bio || (isOwner ? 'Founder & Creator of LinkSocio' : ''),
               email: metaU.email || metaId.email || metaAlias.email || (isOwner ? 'OtmanK514@gmail.com' : ''),
               whatsapp: metaU.whatsapp || metaId.whatsapp || metaAlias.whatsapp || (isOwner ? '+34642887658' : ''),

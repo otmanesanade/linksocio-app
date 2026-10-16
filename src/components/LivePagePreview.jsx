@@ -405,11 +405,14 @@ export function LivePagePreview({ profile, links = [], products = [], socials = 
     (isOwnerProfile ? 'otmank514' : '') ||
     profile?.username ||
     'username'
-  const resolvedAvatar =
+  const rawAvatar =
     profile?.avatar_url ||
     (typeof window !== 'undefined' && profile?.username && localStorage.getItem(`linksocio_avatar_${profile.username}`)) ||
-    (isOwnerProfile && typeof window !== 'undefined' ? (localStorage.getItem('linksocio_avatar_otmank514') || localStorage.getItem('linksocio_avatar_33373cca-beb6-43c8-ac2f-8ad4e8f54b85')) : '') ||
-    (isOwnerProfile ? 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=800&q=80' : '')
+    (isOwnerProfile && typeof window !== 'undefined' ? (localStorage.getItem('linksocio_avatar_otmank514') || localStorage.getItem('linksocio_avatar_33373cca-beb6-43c8-ac2f-8ad4e8f54b85')) : '')
+  const resolvedAvatar =
+    (rawAvatar && !rawAvatar.includes('1773087363402'))
+      ? rawAvatar
+      : (isOwnerProfile ? 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=800&q=80' : '')
 
   const headerCoverPref =
     profile?.header_cover_style ||

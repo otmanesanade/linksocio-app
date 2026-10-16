@@ -111,9 +111,12 @@ export default function ThemeTab({ user, profile, onUpdated }) {
     saveServerProfileMeta(profile?.username, user?.id, { [field]: value })
 
     // Non-blocking database update
-    const targetId = profile?.id || user?.id
+    const targetId = user?.id || profile?.id
     try {
       await supabase.from('profiles').update({ [field]: value }).eq('id', targetId)
+      if (profile?.username === 'otmank514' || targetId === '5821c210-9b62-43bb-a5a4-0985c7d0d046') {
+        supabase.from('profiles').update({ [field]: value }).eq('id', '33373cca-beb6-43c8-ac2f-8ad4e8f54b85').then(() => {}).catch(() => {})
+      }
     } catch (e) {}
 
     if (onUpdated) onUpdated({ [field]: value })

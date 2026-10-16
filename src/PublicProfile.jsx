@@ -110,6 +110,9 @@ export default function PublicProfile({ username }) {
       if (!profileData.theme_preset || profileData.theme_preset === 'default') {
         profileData.theme_preset = 'studio_noir'
       }
+      if (!profileData.avatar_url || profileData.avatar_url.includes('1773087363402')) {
+        profileData.avatar_url = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=800&q=80'
+      }
       profileData.username = 'otmank514'
       profileData.is_owner = true
     }
