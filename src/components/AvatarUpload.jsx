@@ -113,11 +113,10 @@ export default function AvatarUpload({ user, profile, onUpdated }) {
         console.warn('Storage upload fallback to direct avatar URL:', storageErr)
       }
 
-      // 3. Persist avatar immediately to localStorage & server metadata
+      // 3. Persist avatar immediately to localStorage & server metadata for current user only
       if (profile?.username) localStorage.setItem(`linksocio_avatar_${profile.username}`, finalAvatarUrl)
       if (user?.id) localStorage.setItem(`linksocio_avatar_${user.id}`, finalAvatarUrl)
       if (profile?.id) localStorage.setItem(`linksocio_avatar_${profile.id}`, finalAvatarUrl)
-      localStorage.setItem('linksocio_avatar_otmank514', finalAvatarUrl)
       saveServerProfileMeta(profile?.username, user?.id, { avatar_url: finalAvatarUrl })
 
       // 4. Update profile record in Supabase (if authenticated)

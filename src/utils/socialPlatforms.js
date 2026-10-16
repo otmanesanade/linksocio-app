@@ -298,12 +298,6 @@ export function inferIconFromLink(url = '', label = '') {
 
 export async function fetchServerProfileMeta(username, userId) {
   const clean = username ? String(username).toLowerCase().trim().replace(/^@/, '') : ''
-  const isOwner =
-    clean === 'otman' ||
-    clean === 'otmank514' ||
-    clean.includes('otman') ||
-    userId === '33373cca-beb6-43c8-ac2f-8ad4e8f54b85' ||
-    userId === '5821c210-9b62-43bb-a5a4-0985c7d0d046'
 
   try {
     const params = new URLSearchParams()
@@ -315,7 +309,6 @@ export async function fetchServerProfileMeta(username, userId) {
       if (data.meta) {
         if (typeof window !== 'undefined') {
           const keys = [clean, userId].filter(Boolean)
-          if (isOwner) keys.push('otmank514', 'otman', '33373cca-beb6-43c8-ac2f-8ad4e8f54b85', '5821c210-9b62-43bb-a5a4-0985c7d0d046')
           for (const k of keys) {
             if (data.meta.email) localStorage.setItem(`linksocio_contact_email_${k}`, data.meta.email)
             if (data.meta.whatsapp) {
@@ -344,20 +337,14 @@ export async function fetchServerProfileMeta(username, userId) {
 export function getStoredProfileMeta(username, userId) {
   if (typeof window === 'undefined') return { email: '', whatsapp: '', location: '' }
   const clean = username ? String(username).toLowerCase().trim().replace(/^@/, '') : ''
-  const isOwner =
-    clean === 'otman' ||
-    clean === 'otmank514' ||
-    clean.includes('otman') ||
-    userId === '33373cca-beb6-43c8-ac2f-8ad4e8f54b85' ||
-    userId === '5821c210-9b62-43bb-a5a4-0985c7d0d046'
 
-  const email = (clean && localStorage.getItem(`linksocio_contact_email_${clean}`)) || (userId && localStorage.getItem(`linksocio_contact_email_${userId}`)) || (isOwner ? localStorage.getItem('linksocio_contact_email_otmank514') : '') || ''
-  const whatsapp = (clean && (localStorage.getItem(`linksocio_contact_whatsapp_${clean}`) || localStorage.getItem(`linksocio_contact_phone_${clean}`))) || (userId && (localStorage.getItem(`linksocio_contact_whatsapp_${userId}`) || localStorage.getItem(`linksocio_contact_phone_${userId}`))) || (isOwner ? localStorage.getItem('linksocio_contact_whatsapp_otmank514') : '') || ''
-  const location = (clean && localStorage.getItem(`linksocio_profile_location_${clean}`)) || (userId && localStorage.getItem(`linksocio_profile_location_${userId}`)) || (isOwner ? localStorage.getItem('linksocio_profile_location_otmank514') : '') || ''
-  const displayName = (clean && localStorage.getItem(`linksocio_display_name_${clean}`)) || (userId && localStorage.getItem(`linksocio_display_name_${userId}`)) || (isOwner ? 'otmane sanade' : '') || ''
-  const themePreset = (clean && localStorage.getItem(`linksocio_theme_preset_${clean}`)) || (userId && localStorage.getItem(`linksocio_theme_preset_${userId}`)) || (isOwner ? (localStorage.getItem('linksocio_theme_preset_otmank514') || 'studio_noir') : '') || ''
-  const avatarUrl = (clean && localStorage.getItem(`linksocio_avatar_${clean}`)) || (userId && localStorage.getItem(`linksocio_avatar_${userId}`)) || (isOwner ? localStorage.getItem('linksocio_avatar_otmank514') : '') || ''
-  const bio = (clean && localStorage.getItem(`linksocio_bio_${clean}`)) || (userId && localStorage.getItem(`linksocio_bio_${userId}`)) || (isOwner ? localStorage.getItem('linksocio_bio_otmank514') : '') || ''
+  const email = (clean && localStorage.getItem(`linksocio_contact_email_${clean}`)) || (userId && localStorage.getItem(`linksocio_contact_email_${userId}`)) || ''
+  const whatsapp = (clean && (localStorage.getItem(`linksocio_contact_whatsapp_${clean}`) || localStorage.getItem(`linksocio_contact_phone_${clean}`))) || (userId && (localStorage.getItem(`linksocio_contact_whatsapp_${userId}`) || localStorage.getItem(`linksocio_contact_phone_${userId}`))) || ''
+  const location = (clean && localStorage.getItem(`linksocio_profile_location_${clean}`)) || (userId && localStorage.getItem(`linksocio_profile_location_${userId}`)) || ''
+  const displayName = (clean && localStorage.getItem(`linksocio_display_name_${clean}`)) || (userId && localStorage.getItem(`linksocio_display_name_${userId}`)) || ''
+  const themePreset = (clean && localStorage.getItem(`linksocio_theme_preset_${clean}`)) || (userId && localStorage.getItem(`linksocio_theme_preset_${userId}`)) || ''
+  const avatarUrl = (clean && localStorage.getItem(`linksocio_avatar_${clean}`)) || (userId && localStorage.getItem(`linksocio_avatar_${userId}`)) || ''
+  const bio = (clean && localStorage.getItem(`linksocio_bio_${clean}`)) || (userId && localStorage.getItem(`linksocio_bio_${userId}`)) || ''
 
   return { email, whatsapp, location, display_name: displayName, theme_preset: themePreset, avatar_url: avatarUrl, bio }
 }
@@ -365,15 +352,8 @@ export function getStoredProfileMeta(username, userId) {
 export function saveServerProfileMeta(username, userId, meta) {
   if (typeof window === 'undefined') return
   const clean = username ? String(username).toLowerCase().trim().replace(/^@/, '') : ''
-  const isOwner =
-    clean === 'otman' ||
-    clean === 'otmank514' ||
-    clean.includes('otman') ||
-    userId === '33373cca-beb6-43c8-ac2f-8ad4e8f54b85' ||
-    userId === '5821c210-9b62-43bb-a5a4-0985c7d0d046'
 
   const keys = [clean, userId].filter(Boolean)
-  if (isOwner) keys.push('otmank514', 'otman', '33373cca-beb6-43c8-ac2f-8ad4e8f54b85', '5821c210-9b62-43bb-a5a4-0985c7d0d046')
 
   for (const k of keys) {
     if (meta.email !== undefined) {

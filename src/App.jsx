@@ -33,25 +33,21 @@ export default function App() {
       if (isMounted) setChecking(false)
     }, 1200)
 
+    // Clean up any old mock auth flags from previous mock runs
+    if (typeof localStorage !== 'undefined') {
+      try {
+        localStorage.removeItem('linksocio_founder_auth')
+        localStorage.removeItem('linksocio_google_user')
+        sessionStorage.removeItem('linksocio_founder_auth')
+        sessionStorage.removeItem('linksocio_google_user')
+      } catch (e) {}
+    }
+
     try {
       supabase.auth.getSession()
         .then(({ data }) => {
           if (isMounted) {
-            let activeUser = data?.session?.user || null
-            if (!activeUser && typeof window !== 'undefined') {
-              if (sessionStorage.getItem('linksocio_founder_auth') === 'true' || localStorage.getItem('linksocio_founder_auth') === 'true') {
-                activeUser = {
-                  id: '5821c210-9b62-43bb-a5a4-0985c7d0d046',
-                  email: 'OtmanK514@gmail.com',
-                  user_metadata: { full_name: 'otmane sanade', name: 'otmane sanade', email: 'OtmanK514@gmail.com' },
-                }
-              } else if (localStorage.getItem('linksocio_google_user')) {
-                try {
-                  activeUser = JSON.parse(localStorage.getItem('linksocio_google_user'))
-                } catch (e) {}
-              }
-            }
-            setUser(activeUser)
+            setUser(data?.session?.user || null)
             setChecking(false)
           }
         })
@@ -71,21 +67,7 @@ export default function App() {
     try {
       const { data } = supabase.auth.onAuthStateChange((_event, session) => {
         if (isMounted) {
-          let activeUser = session?.user || null
-          if (!activeUser && typeof window !== 'undefined') {
-            if (sessionStorage.getItem('linksocio_founder_auth') === 'true' || localStorage.getItem('linksocio_founder_auth') === 'true') {
-              activeUser = {
-                id: '5821c210-9b62-43bb-a5a4-0985c7d0d046',
-                email: 'OtmanK514@gmail.com',
-                user_metadata: { full_name: 'otmane sanade', name: 'otmane sanade', email: 'OtmanK514@gmail.com' },
-              }
-            } else if (localStorage.getItem('linksocio_google_user')) {
-              try {
-                activeUser = JSON.parse(localStorage.getItem('linksocio_google_user'))
-              } catch (e) {}
-            }
-          }
-          setUser(activeUser)
+          setUser(session?.user || null)
           setChecking(false)
         }
       })
