@@ -38,11 +38,17 @@ export default function App() {
         .then(({ data }) => {
           if (isMounted) {
             let activeUser = data?.session?.user || null
-            if (!activeUser && typeof window !== 'undefined' && (sessionStorage.getItem('linksocio_founder_auth') === 'true' || localStorage.getItem('linksocio_founder_auth') === 'true')) {
-              activeUser = {
-                id: '5821c210-9b62-43bb-a5a4-0985c7d0d046',
-                email: 'OtmanK514@gmail.com',
-                user_metadata: { full_name: 'otmane sanade', name: 'otmane sanade', email: 'OtmanK514@gmail.com' },
+            if (!activeUser && typeof window !== 'undefined') {
+              if (sessionStorage.getItem('linksocio_founder_auth') === 'true' || localStorage.getItem('linksocio_founder_auth') === 'true') {
+                activeUser = {
+                  id: '5821c210-9b62-43bb-a5a4-0985c7d0d046',
+                  email: 'OtmanK514@gmail.com',
+                  user_metadata: { full_name: 'otmane sanade', name: 'otmane sanade', email: 'OtmanK514@gmail.com' },
+                }
+              } else if (localStorage.getItem('linksocio_google_user')) {
+                try {
+                  activeUser = JSON.parse(localStorage.getItem('linksocio_google_user'))
+                } catch (e) {}
               }
             }
             setUser(activeUser)
@@ -66,11 +72,17 @@ export default function App() {
       const { data } = supabase.auth.onAuthStateChange((_event, session) => {
         if (isMounted) {
           let activeUser = session?.user || null
-          if (!activeUser && typeof window !== 'undefined' && (sessionStorage.getItem('linksocio_founder_auth') === 'true' || localStorage.getItem('linksocio_founder_auth') === 'true')) {
-            activeUser = {
-              id: '5821c210-9b62-43bb-a5a4-0985c7d0d046',
-              email: 'OtmanK514@gmail.com',
-              user_metadata: { full_name: 'otmane sanade', name: 'otmane sanade', email: 'OtmanK514@gmail.com' },
+          if (!activeUser && typeof window !== 'undefined') {
+            if (sessionStorage.getItem('linksocio_founder_auth') === 'true' || localStorage.getItem('linksocio_founder_auth') === 'true') {
+              activeUser = {
+                id: '5821c210-9b62-43bb-a5a4-0985c7d0d046',
+                email: 'OtmanK514@gmail.com',
+                user_metadata: { full_name: 'otmane sanade', name: 'otmane sanade', email: 'OtmanK514@gmail.com' },
+              }
+            } else if (localStorage.getItem('linksocio_google_user')) {
+              try {
+                activeUser = JSON.parse(localStorage.getItem('linksocio_google_user'))
+              } catch (e) {}
             }
           }
           setUser(activeUser)
