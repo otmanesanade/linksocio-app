@@ -81,7 +81,7 @@ function ProfileCard({ user, profile, onSaved }) {
       if (cleanLocation) localStorage.setItem(`linksocio_profile_location_${user.id}`, cleanLocation)
       else localStorage.removeItem(`linksocio_profile_location_${user.id}`)
     }
-    if (checkIsOwner(user, profile)) {
+    if (profile?.username === 'otmank514') {
       localStorage.setItem('linksocio_display_name_otmank514', cleanName)
       localStorage.setItem('linksocio_bio_otmank514', cleanBio)
       if (cleanLocation) localStorage.setItem('linksocio_profile_location_otmank514', cleanLocation)
@@ -104,7 +104,7 @@ function ProfileCard({ user, profile, onSaved }) {
       if (profile?.avatar_url) payload.avatar_url = profile.avatar_url
 
       await supabase.from('profiles').update(payload).eq('id', targetId)
-      if (checkIsOwner(user, profile)) {
+      if (profile?.username === 'otmank514') {
         await supabase.from('profiles').update(payload).eq('id', '33373cca-beb6-43c8-ac2f-8ad4e8f54b85').catch(() => {})
       }
     } catch (dbErr) {
@@ -218,33 +218,25 @@ function ProfileCard({ user, profile, onSaved }) {
 export default function Dashboard({ user, initialTab }) {
   const { t, isRTL } = useLanguage()
   const [profile, setProfile] = useState(() => {
-      const isOwner = checkIsOwner(user, null)
-      if (isOwner) {
-        const localTheme = (typeof window !== 'undefined' && localStorage.getItem('linksocio_theme_preset_otmank514')) || 'studio_noir'
-        const localName = (typeof window !== 'undefined' && localStorage.getItem('linksocio_display_name_otmank514')) || 'otmane sanade'
-        const localAvatar = (typeof window !== 'undefined' && localStorage.getItem('linksocio_avatar_otmank514')) || ''
-        return {
-          id: '33373cca-beb6-43c8-ac2f-8ad4e8f54b85',
-          username: 'otmank514',
-          display_name: localName,
-          theme_preset: localTheme,
-          avatar_url: localAvatar,
-          theme_color: '#14B8A6',
-          plan: 'business',
-          hide_branding: true,
-          is_owner: true,
-        }
-      }
-      if (typeof window !== 'undefined') {
-        const cached = localStorage.getItem('linksocio_cached_profile')
-        if (cached) {
+    if (typeof window !== 'undefined') {
+      const cached = localStorage.getItem(`linksocio_cached_profile_${user?.id}`) || localStorage.getItem('linksocio_cached_profile')
+      if (cached) {
+        try {
           const parsed = JSON.parse(cached)
-          if (parsed && (parsed.username || parsed.display_name)) {
+          if (parsed && (parsed.id === user?.id || !parsed.id)) {
             return parsed
           }
-        }
+        } catch (e) {}
       }
-    return null
+    }
+    return {
+      id: user?.id,
+      username: user?.user_metadata?.username || (user?.email ? user.email.split('@')[0] : 'user'),
+      display_name: user?.user_metadata?.full_name || user?.user_metadata?.name || '',
+      theme_preset: 'default',
+      plan: 'business',
+      hide_branding: false,
+    }
   })
   const [links, setLinks] = useState([])
   const [products, setProducts] = useState([])
@@ -449,118 +441,81 @@ export default function Dashboard({ user, initialTab }) {
     try {
       let { data } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle()
 
-      // 2. Owner / Otman account resolution: check if this user is Otman
-      const userEmail = (user?.email || user?.user_metadata?.email || '').toLowerCase().trim()
-      const isOtmanUser =
-        userEmail === 'otmank514@gmail.com' ||
-        userEmail.includes('otmank514') ||
-        userEmail.includes('otman') ||
-        user?.id === '5821c210-9b62-43bb-a5a4-0985c7d0d046' ||
-        user?.id === '33373cca-beb6-43c8-ac2f-8ad4e8f54b85' ||
-        checkIsOwner(user, data)
+      // Fallback lookup by username if no row by user.id exists yet
+      if (!data) {
+        const userEmail = (user?.email || user?.user_metadata?.email || '').toLowerCase().trim()
+        const claimedUser = (sessionStorage.getItem('linksocio_claim_user') || '').toLowerCase().trim().replace(/[^a-z0-9_-]/g, '')
+        const emailPrefix = (userEmail ? userEmail.split('@')[0] : '').replace(/[^a-z0-9_-]/g, '')
+        const candidate = claimedUser || emailPrefix
+        if (candidate) {
+          const { data: byUser } = await supabase.from('profiles').select('*').ilike('username', candidate).limit(1).maybeSingle()
+          if (byUser) {
+            data = byUser
+          }
+        }
+      }
 
-      if (isOtmanUser) {
-        const { data: ownerProf } = await supabase.from('profiles').select('*').eq('id', '33373cca-beb6-43c8-ac2f-8ad4e8f54b85').maybeSingle()
-        const serverMeta = await fetchServerProfileMeta('otmank514', user?.id)
-        const rawLocalTheme = (typeof window !== 'undefined' && localStorage.getItem('linksocio_theme_preset_otmank514')) || (typeof window !== 'undefined' && localStorage.getItem(`linksocio_theme_preset_${user.id}`))
-        const rawLocalName = (typeof window !== 'undefined' && localStorage.getItem('linksocio_display_name_otmank514')) || (typeof window !== 'undefined' && localStorage.getItem(`linksocio_display_name_${user.id}`))
-        const rawLocalAvatar = (typeof window !== 'undefined' && localStorage.getItem('linksocio_avatar_otmank514')) || (typeof window !== 'undefined' && localStorage.getItem(`linksocio_avatar_${user.id}`))
-        const rawLocalBio = (typeof window !== 'undefined' && localStorage.getItem('linksocio_bio_otmank514')) || (typeof window !== 'undefined' && localStorage.getItem(`linksocio_bio_${user.id}`))
+      if (!data) {
+        const metaName = user?.user_metadata?.full_name || user?.user_metadata?.name || ''
+        const emailPrefix = (user?.email ? user.email.split('@')[0] : 'user').toLowerCase().replace(/[^a-z0-9_-]/g, '')
+        const claimedUser = (sessionStorage.getItem('linksocio_claim_user') || '').toLowerCase().trim().replace(/[^a-z0-9_-]/g, '')
+        const fallbackUser = claimedUser || emailPrefix || `user_${user.id.slice(0, 6)}`
 
-        const cleanLocalName = (rawLocalName && !rawLocalName.startsWith('user_')) ? rawLocalName : ''
-        const cleanLocalTheme = (rawLocalTheme && rawLocalTheme !== 'default') ? rawLocalTheme : ''
-        const cleanLocalAvatar = (rawLocalAvatar && !rawLocalAvatar.includes('1773087363402')) ? rawLocalAvatar : ''
-        const cleanServerAvatar = (serverMeta?.avatar_url && !serverMeta.avatar_url.includes('1773087363402')) ? serverMeta.avatar_url : ''
-        const cleanOwnerAvatar = (ownerProf?.avatar_url && !ownerProf.avatar_url.includes('1773087363402')) ? ownerProf.avatar_url : ''
-        const cleanDataAvatar = (data?.avatar_url && !data.avatar_url.includes('1773087363402')) ? data.avatar_url : ''
-
-        const resolvedDisplayName = cleanLocalName || serverMeta?.display_name || (ownerProf?.display_name && !ownerProf.display_name.startsWith('user_') ? ownerProf.display_name : '') || (data?.display_name && !data.display_name.startsWith('user_') ? data.display_name : '') || 'otmane sanade'
-        const resolvedTheme = cleanLocalTheme || serverMeta?.theme_preset || (ownerProf?.theme_preset && ownerProf.theme_preset !== 'default' ? ownerProf.theme_preset : '') || (data?.theme_preset && data.theme_preset !== 'default' ? data.theme_preset : '') || 'studio_noir'
-        const resolvedAvatar = cleanLocalAvatar || cleanServerAvatar || cleanOwnerAvatar || cleanDataAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=800&q=80'
-        const resolvedBio = rawLocalBio || serverMeta?.bio || ownerProf?.bio || data?.bio || 'Founder & Creator of LinkSocio'
-
-        data = {
-          ...(data || {}),
-          ...(ownerProf || {}),
-          id: user?.id || '5821c210-9b62-43bb-a5a4-0985c7d0d046',
-          owner_id: '33373cca-beb6-43c8-ac2f-8ad4e8f54b85',
-          auth_user_id: user?.id,
-          display_name: resolvedDisplayName,
-          username: 'otmank514',
-          theme_preset: resolvedTheme,
-          avatar_url: resolvedAvatar,
-          bio: resolvedBio,
+        const newProf = {
+          id: user.id,
+          username: fallbackUser,
+          display_name: metaName || fallbackUser,
+          theme_preset: 'default',
           plan: 'business',
-          hide_branding: true,
-          is_owner: true,
+          theme_color: '#14B8A6',
         }
-
-        // Keep local cache sanitized immediately
         try {
-          localStorage.setItem('linksocio_display_name_otmank514', resolvedDisplayName)
-          localStorage.setItem(`linksocio_display_name_${user.id}`, resolvedDisplayName)
-          localStorage.setItem('linksocio_theme_preset_otmank514', resolvedTheme)
-          localStorage.setItem(`linksocio_theme_preset_${user.id}`, resolvedTheme)
-          localStorage.setItem('linksocio_avatar_otmank514', resolvedAvatar)
-          localStorage.setItem(`linksocio_avatar_${user.id}`, resolvedAvatar)
-        } catch (e) {}
-
-        // Non-blocking background sync to Supabase with proper .update()
-        supabase.from('profiles').update({
-          display_name: resolvedDisplayName,
-          theme_preset: resolvedTheme,
-          avatar_url: resolvedAvatar,
-          bio: resolvedBio,
-        }).eq('id', user.id).then(() => {}).catch(() => {})
-      }
-
-    // 3. Fallback lookup by username if still not found
-    if (!data) {
-      const claimedUser = (sessionStorage.getItem('linksocio_claim_user') || '').toLowerCase().trim().replace(/[^a-z0-9_-]/g, '')
-      const emailPrefix = (userEmail ? userEmail.split('@')[0] : '').replace(/[^a-z0-9_-]/g, '')
-      const candidate = claimedUser || emailPrefix
-      if (candidate) {
-        const { data: byUser } = await supabase.from('profiles').select('*').ilike('username', candidate).limit(1).maybeSingle()
-        if (byUser) {
-          data = byUser
+          const { data: created } = await supabase.from('profiles').upsert(newProf).select().maybeSingle()
+          data = created || newProf
+        } catch (e) {
+          data = newProf
         }
       }
-    }
 
-    if (!data) {
-      // Determine best username and display name from user metadata (Google/Apple) or email
-      const metaName = user?.user_metadata?.full_name || user?.user_metadata?.name || ''
-      const emailPrefix = (user?.email ? user.email.split('@')[0] : 'user').toLowerCase().replace(/[^a-z0-9_-]/g, '')
-      const claimedUser = (sessionStorage.getItem('linksocio_claim_user') || '').toLowerCase().trim().replace(/[^a-z0-9_-]/g, '')
-      const fallbackUser = claimedUser || emailPrefix || `user_${user.id.slice(0, 6)}`
-
-      const newProf = {
-        id: user.id,
-        username: fallbackUser,
-        display_name: metaName || fallbackUser,
-        theme_preset: isOtmanUser ? 'studio_noir' : 'default',
-        theme_color: '#14B8A6',
+      // Check if this account is the owner/founder account
+      const isOwner = checkIsOwner(user, data)
+      if (isOwner) {
+        data.plan = 'business'
+        data.hide_branding = true
+        data.is_owner = true
       }
-      try {
-        const { data: created } = await supabase.from('profiles').upsert(newProf).select().maybeSingle()
-        data = created || newProf
-      } catch (e) {
-        data = newProf
-      }
-    }
 
-    // Guarantee theme_preset and display_name are cached in localStorage for immediate rendering
-    if (data.theme_preset) {
-      if (data.username) localStorage.setItem(`linksocio_theme_preset_${data.username}`, data.theme_preset)
-      if (user?.id) localStorage.setItem(`linksocio_theme_preset_${user.id}`, data.theme_preset)
-      if (data.id) localStorage.setItem(`linksocio_theme_preset_${data.id}`, data.theme_preset)
-      if (isOtmanUser) localStorage.setItem('linksocio_theme_preset_otmank514', data.theme_preset)
-    }
-    if (data.display_name) {
-      if (data.username) localStorage.setItem(`linksocio_display_name_${data.username}`, data.display_name)
-      if (user?.id) localStorage.setItem(`linksocio_display_name_${user.id}`, data.display_name)
-      if (isOtmanUser) localStorage.setItem('linksocio_display_name_otmank514', data.display_name)
-    }
+      // Read local custom preferences for THIS specific account only
+      const uName = data.username || ''
+      const uId = data.id || user.id
+      const rawLocalTheme = (uName && localStorage.getItem(`linksocio_theme_preset_${uName}`)) || (uId && localStorage.getItem(`linksocio_theme_preset_${uId}`))
+      const rawLocalName = (uName && localStorage.getItem(`linksocio_display_name_${uName}`)) || (uId && localStorage.getItem(`linksocio_display_name_${uId}`))
+      const rawLocalAvatar = (uName && localStorage.getItem(`linksocio_avatar_${uName}`)) || (uId && localStorage.getItem(`linksocio_avatar_${uId}`))
+      const rawLocalBio = (uName && localStorage.getItem(`linksocio_bio_${uName}`)) || (uId && localStorage.getItem(`linksocio_bio_${uId}`))
+
+      if (rawLocalTheme && (!data.theme_preset || data.theme_preset === 'default')) {
+        data.theme_preset = rawLocalTheme
+      }
+      if (rawLocalName && (!data.display_name || data.display_name.startsWith('user_'))) {
+        data.display_name = rawLocalName
+      }
+      if (rawLocalAvatar && !data.avatar_url) {
+        data.avatar_url = rawLocalAvatar
+      }
+      if (rawLocalBio && !data.bio) {
+        data.bio = rawLocalBio
+      }
+
+      // Cache isolated to user ID
+      if (data.theme_preset) {
+        if (data.username) localStorage.setItem(`linksocio_theme_preset_${data.username}`, data.theme_preset)
+        if (user?.id) localStorage.setItem(`linksocio_theme_preset_${user.id}`, data.theme_preset)
+        if (data.id) localStorage.setItem(`linksocio_theme_preset_${data.id}`, data.theme_preset)
+      }
+      if (data.display_name) {
+        if (data.username) localStorage.setItem(`linksocio_display_name_${data.username}`, data.display_name)
+        if (user?.id) localStorage.setItem(`linksocio_display_name_${user.id}`, data.display_name)
+      }
 
     const cleanUser = (data.username || '').toLowerCase().trim().replace(/^@+/, '')
     const [serverInquiry, serverBooking] = await Promise.all([
@@ -598,8 +553,6 @@ export default function Dashboard({ user, initialTab }) {
       if (storedWa) data.whatsapp = storedWa
     }
 
-    // Auto-detect Owner status (Otman has full permanent Business & Agency unlock)
-    const isOwner = checkIsOwner(user, data)
     if (isOwner) {
       data.plan = 'business'
       data.hide_branding = true
@@ -630,14 +583,12 @@ export default function Dashboard({ user, initialTab }) {
 
     if (typeof localStorage !== 'undefined' && data) {
       try {
-        localStorage.setItem('linksocio_cached_profile', JSON.stringify(data))
+        localStorage.setItem(`linksocio_cached_profile_${user?.id}`, JSON.stringify(data))
       } catch (e) {}
     }
 
     setProfile({ ...data, _ts: Date.now() })
 
-    const uName = data.username || user?.user_metadata?.username || ''
-    const uId = data.id || user?.id || ''
     const localSoc = getStoredSocials(uName, uId)
     if (localSoc && localSoc.length > 0) setSocials(localSoc)
     fetchServerSocials(uName, uId).then((sList) => {
@@ -656,11 +607,10 @@ export default function Dashboard({ user, initialTab }) {
 
   async function loadLinks(overrideUserId) {
     const targetUserId = overrideUserId || profile?.id || user.id
-    const userIds = Array.from(new Set([user.id, targetUserId, '33373cca-beb6-43c8-ac2f-8ad4e8f54b85'].filter(Boolean)))
     const { data } = await supabase
       .from('links')
       .select('*')
-      .in('user_id', userIds)
+      .eq('user_id', targetUserId)
       .order('position', { ascending: true })
     const username = profile?.username || user?.user_metadata?.username || ''
     const meta = getStoredLinksMeta(username, user.id)
@@ -698,12 +648,11 @@ export default function Dashboard({ user, initialTab }) {
   async function loadProducts(overrideUserId) {
     let combined = []
     const targetUserId = overrideUserId || profile?.id || user.id
-    const userIds = Array.from(new Set([user.id, targetUserId, '33373cca-beb6-43c8-ac2f-8ad4e8f54b85'].filter(Boolean)))
     try {
       const { data } = await supabase
         .from('products')
         .select('*')
-        .in('user_id', userIds)
+        .eq('user_id', targetUserId)
         .order('position', { ascending: true })
       if (data && Array.isArray(data)) combined = [...data]
     } catch (e) {}

@@ -55,8 +55,8 @@ export default function PublicProfile({ username }) {
       profileData = fallback.data
     }
 
-    // Alias resolution for otman -> otmank514 / primary account
-    if (!profileData && (cleanUser.toLowerCase() === 'otman' || cleanUser.toLowerCase() === 'otmank514' || cleanUser.toLowerCase() === 'otmane' || cleanUser.toLowerCase().includes('otman'))) {
+    // Alias resolution for otman -> otmank514 primary account
+    if (!profileData && (cleanUser.toLowerCase() === 'otman' || cleanUser.toLowerCase() === 'otmank514')) {
       const { data: aliasData } = await supabase
         .from('profiles')
         .select('*')

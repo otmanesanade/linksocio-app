@@ -241,7 +241,7 @@ export default function SettingsTab({ user, profile, onSaved, initialSubTab = 'p
           .update(validProfilePayload)
           .eq('id', targetId)
 
-        if (cleanUsername === 'otman' || cleanUsername === 'otmank514' || targetId === '5821c210-9b62-43bb-a5a4-0985c7d0d046') {
+        if (cleanUsername === 'otmank514' && targetId === '33373cca-beb6-43c8-ac2f-8ad4e8f54b85') {
           supabase.from('profiles').update(validProfilePayload).eq('id', '33373cca-beb6-43c8-ac2f-8ad4e8f54b85').then(() => {}).catch(() => {})
         }
       } catch (dbErr) {

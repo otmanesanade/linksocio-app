@@ -350,20 +350,16 @@ export function LivePagePreview({ profile, links = [], products = [], socials = 
   }, [products])
 
   const cleanUsername = String(profile?.username || '').toLowerCase().trim().replace(/^@+/, '')
-  const isOwnerProfile =
+  const isFounderAccount =
     cleanUsername === 'otman' ||
     cleanUsername === 'otmank514' ||
-    cleanUsername.includes('otman') ||
-    profile?.id === '33373cca-beb6-43c8-ac2f-8ad4e8f54b85' ||
-    profile?.id === '5821c210-9b62-43bb-a5a4-0985c7d0d046' ||
-    profile?.is_owner === true
+    profile?.id === '33373cca-beb6-43c8-ac2f-8ad4e8f54b85'
 
   const themeKey =
     (profile?.theme_preset && profile.theme_preset !== 'default' ? profile.theme_preset : '') ||
     (profile?.username && typeof window !== 'undefined' && localStorage.getItem(`linksocio_theme_preset_${profile.username}`)) ||
     (profile?.id && typeof window !== 'undefined' && localStorage.getItem(`linksocio_theme_preset_${profile.id}`)) ||
-    (typeof window !== 'undefined' && (localStorage.getItem('linksocio_theme_preset_otmank514') || localStorage.getItem('linksocio_theme_preset_33373cca-beb6-43c8-ac2f-8ad4e8f54b85'))) ||
-    (isOwnerProfile ? 'studio_noir' : (profile?.theme_preset || 'default'))
+    (profile?.theme_preset || 'default')
   const rawTheme = getTheme(themeKey)
   const fontKey =
     profile?.font_family ||
@@ -397,22 +393,16 @@ export function LivePagePreview({ profile, links = [], products = [], socials = 
 
   const resolvedDisplayName =
     (profile?.display_name && !profile.display_name.startsWith('user_') ? profile.display_name : '') ||
-    (isOwnerProfile ? 'otmane sanade' : '') ||
-    (profile?.username && !profile.username.startsWith('user_') ? profile.username : '') ||
-    (isOwnerProfile ? 'otmane sanade' : 'Your Name')
-  const resolvedUsername =
-    (profile?.username && !profile.username.startsWith('user_') ? profile.username : '') ||
-    (isOwnerProfile ? 'otmank514' : '') ||
+    profile?.display_name ||
     profile?.username ||
-    'username'
+    'Your Name'
+  const resolvedUsername = profile?.username || 'username'
   const rawAvatar =
     profile?.avatar_url ||
     (typeof window !== 'undefined' && profile?.username && localStorage.getItem(`linksocio_avatar_${profile.username}`)) ||
-    (isOwnerProfile && typeof window !== 'undefined' ? (localStorage.getItem('linksocio_avatar_otmank514') || localStorage.getItem('linksocio_avatar_33373cca-beb6-43c8-ac2f-8ad4e8f54b85')) : '')
-  const resolvedAvatar =
-    (rawAvatar && !rawAvatar.includes('1773087363402'))
-      ? rawAvatar
-      : (isOwnerProfile ? 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=800&q=80' : '')
+    (typeof window !== 'undefined' && profile?.id && localStorage.getItem(`linksocio_avatar_${profile.id}`)) ||
+    ''
+  const resolvedAvatar = (rawAvatar && !rawAvatar.includes('1773087363402')) ? rawAvatar : ''
 
   const headerCoverPref =
     profile?.header_cover_style ||

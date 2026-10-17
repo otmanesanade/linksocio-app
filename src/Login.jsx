@@ -57,17 +57,6 @@ export default function Login({ onDone, goHome, switchToSignUp, switchToForgot }
     }
   }
 
-  const handleFounderQuickLogin = () => {
-    try {
-      sessionStorage.setItem('linksocio_founder_auth', 'true')
-      localStorage.setItem('linksocio_founder_auth', 'true')
-      if (onDone) onDone()
-      else window.location.href = '/'
-    } catch (e) {
-      window.location.href = '/'
-    }
-  }
-
   return (
     <div
       dir={isRTL ? 'rtl' : 'ltr'}
@@ -522,41 +511,6 @@ export default function Login({ onDone, goHome, switchToSignUp, switchToForgot }
                 {t('auth.createAccount', 'Create your page free')}
               </button>
             </p>
-          </div>
-
-          {/* Quick Founder Access */}
-          <div style={{ marginTop: 14, textAlign: 'center' }}>
-            <button
-              type="button"
-              onClick={handleFounderQuickLogin}
-              style={{
-                background: 'none',
-                border: '1px dashed #CBD5E1',
-                borderRadius: 10,
-                padding: '6px 14px',
-                color: '#64748B',
-                fontSize: 12,
-                fontWeight: 600,
-                cursor: 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 6,
-                transition: 'all 0.15s ease',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = '#14B8A6'
-                e.currentTarget.style.color = '#0D9488'
-                e.currentTarget.style.background = '#F0FDFA'
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = '#CBD5E1'
-                e.currentTarget.style.color = '#64748B'
-                e.currentTarget.style.background = 'none'
-              }}
-            >
-              <Sparkles size={13} color="#14B8A6" />
-              <span>{t('auth.founderQuickAccess', 'Quick Access: Otman (Founder)')}</span>
-            </button>
           </div>
         </div>
 
