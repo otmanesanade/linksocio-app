@@ -44,21 +44,9 @@ export default function SocialAuthButtons({ mode = 'login', onError, onStart }) 
         if (error) throw error
 
         if (data?.url) {
-          let navigatedTop = false
-          try {
-            if (window.top && window.top.location) {
-              window.top.location.href = data.url
-              navigatedTop = true
-            }
-          } catch (e) {
-            navigatedTop = false
-          }
-
-          if (!navigatedTop) {
-            const popup = window.open(data.url, 'google_oauth_popup', 'width=520,height=650,left=150,top=100')
-            if (!popup || popup.closed || typeof popup.closed === 'undefined') {
-              window.open(data.url, '_blank')
-            }
+          const popup = window.open(data.url, 'google_oauth_popup', 'width=520,height=650,left=150,top=100')
+          if (!popup || popup.closed || typeof popup.closed === 'undefined') {
+            window.open(data.url, '_blank')
           }
         }
       } else {

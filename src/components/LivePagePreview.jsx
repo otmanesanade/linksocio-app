@@ -354,6 +354,7 @@ export function LivePagePreview({ profile, links = [], products = [], socials = 
     cleanUsername === 'otman' ||
     cleanUsername === 'otmank514' ||
     profile?.id === '33373cca-beb6-43c8-ac2f-8ad4e8f54b85'
+  const isOwnerProfile = isFounderAccount
 
   const themeKey =
     (profile?.theme_preset && profile.theme_preset !== 'default' ? profile.theme_preset : '') ||
