@@ -615,34 +615,22 @@ function apiPlugin() {
 
             const metaU = (username && store[username]) || {}
             const metaId = (userId && store[userId]) || {}
-            let metaAlias = {}
-            if (username === 'otman' && store['otmank514']) metaAlias = store['otmank514']
-            if (username === 'otmank514' && store['otman']) metaAlias = store['otman']
-            if ((userId === '5821c210-9b62-43bb-a5a4-0985c7d0d046' || userId === '33373cca-beb6-43c8-ac2f-8ad4e8f54b85') && store['otmank514']) {
-              metaAlias = { ...metaAlias, ...store['otmank514'] }
-            }
-
-            const isOwner =
-              username === 'otman' ||
-              username === 'otmank514' ||
-              username.includes('otman') ||
-              userId === '33373cca-beb6-43c8-ac2f-8ad4e8f54b85' ||
-              userId === '5821c210-9b62-43bb-a5a4-0985c7d0d046'
+            const isOtmanFounder = (username === 'otmank514' || username === 'otman') && userId === '33373cca-beb6-43c8-ac2f-8ad4e8f54b85'
 
             const mergedMeta = {
-              display_name: metaU.display_name || metaId.display_name || metaAlias.display_name || (isOwner ? 'otmane sanade' : ''),
-              username: metaU.username || metaId.username || metaAlias.username || (isOwner ? 'otmank514' : username),
-              theme_preset: metaU.theme_preset || metaId.theme_preset || metaAlias.theme_preset || (isOwner ? 'studio_noir' : 'default'),
-              font_family: metaU.font_family || metaId.font_family || metaAlias.font_family || 'default',
-              font_color: metaU.font_color || metaId.font_color || metaAlias.font_color || '',
-              button_style: metaU.button_style || metaId.button_style || metaAlias.button_style || 'rounded',
-              hide_branding: metaU.hide_branding !== undefined ? metaU.hide_branding : metaId.hide_branding !== undefined ? metaId.hide_branding : (isOwner ? true : false),
-              header_cover_style: metaU.header_cover_style || metaId.header_cover_style || metaAlias.header_cover_style || 'auto',
-              avatar_url: metaU.avatar_url || metaId.avatar_url || metaAlias.avatar_url || (isOwner ? 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=800&q=80' : ''),
-              bio: metaU.bio || metaId.bio || metaAlias.bio || (isOwner ? 'Founder & Creator of LinkSocio' : ''),
-              email: metaU.email || metaId.email || metaAlias.email || (isOwner ? 'OtmanK514@gmail.com' : ''),
-              whatsapp: metaU.whatsapp || metaId.whatsapp || metaAlias.whatsapp || (isOwner ? '+34642887658' : ''),
-              location: metaU.location || metaId.location || metaAlias.location || (isOwner ? 'Madrid, Spain' : ''),
+              display_name: metaU.display_name || metaId.display_name || (isOtmanFounder ? 'otmane sanade' : ''),
+              username: metaU.username || metaId.username || username || '',
+              theme_preset: metaU.theme_preset || metaId.theme_preset || 'default',
+              font_family: metaU.font_family || metaId.font_family || 'default',
+              font_color: metaU.font_color || metaId.font_color || '',
+              button_style: metaU.button_style || metaId.button_style || 'rounded',
+              hide_branding: metaU.hide_branding !== undefined ? metaU.hide_branding : metaId.hide_branding !== undefined ? metaId.hide_branding : false,
+              header_cover_style: metaU.header_cover_style || metaId.header_cover_style || 'auto',
+              avatar_url: metaU.avatar_url || metaId.avatar_url || '',
+              bio: metaU.bio || metaId.bio || '',
+              email: metaU.email || metaId.email || '',
+              whatsapp: metaU.whatsapp || metaId.whatsapp || '',
+              location: metaU.location || metaId.location || '',
             }
 
             res.statusCode = 200
@@ -660,13 +648,6 @@ function apiPlugin() {
                 const username = (payload.username || '').toLowerCase().trim().replace(/^@/, '')
                 const userId = (payload.userId || '').trim()
 
-                const isOwner =
-                  username === 'otman' ||
-                  username === 'otmank514' ||
-                  username.includes('otman') ||
-                  userId === '33373cca-beb6-43c8-ac2f-8ad4e8f54b85' ||
-                  userId === '5821c210-9b62-43bb-a5a4-0985c7d0d046'
-
                 const existing = (username && store[username]) || (userId && store[userId]) || {}
                 const updatedMeta = {
                   ...existing,
@@ -674,7 +655,7 @@ function apiPlugin() {
                 }
 
                 if (payload.display_name !== undefined) updatedMeta.display_name = String(payload.display_name).trim()
-                if (payload.username !== undefined && !isOwner) updatedMeta.username = String(payload.username).trim()
+                if (payload.username !== undefined) updatedMeta.username = String(payload.username).trim()
                 if (payload.theme_preset !== undefined) updatedMeta.theme_preset = String(payload.theme_preset).trim()
                 if (payload.font_family !== undefined) updatedMeta.font_family = String(payload.font_family).trim()
                 if (payload.font_color !== undefined) updatedMeta.font_color = String(payload.font_color).trim()
@@ -687,18 +668,8 @@ function apiPlugin() {
                 if (payload.whatsapp !== undefined) updatedMeta.whatsapp = String(payload.whatsapp).trim()
                 if (payload.location !== undefined) updatedMeta.location = String(payload.location).trim()
 
-                if (isOwner) {
-                  if (!updatedMeta.display_name) updatedMeta.display_name = 'otmane sanade'
-                  updatedMeta.username = 'otmank514'
-                  if (!updatedMeta.theme_preset) updatedMeta.theme_preset = 'studio_noir'
-                  store['otmank514'] = updatedMeta
-                  store['otman'] = updatedMeta
-                  store['33373cca-beb6-43c8-ac2f-8ad4e8f54b85'] = updatedMeta
-                  store['5821c210-9b62-43bb-a5a4-0985c7d0d046'] = updatedMeta
-                } else {
-                  if (username) store[username] = updatedMeta
-                  if (userId) store[userId] = updatedMeta
-                }
+                if (username) store[username] = updatedMeta
+                if (userId) store[userId] = updatedMeta
 
                 writeJson(PROFILE_META_PATH, store)
 

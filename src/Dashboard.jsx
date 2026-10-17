@@ -218,16 +218,17 @@ function ProfileCard({ user, profile, onSaved }) {
 export default function Dashboard({ user, initialTab }) {
   const { t, isRTL } = useLanguage()
   const [profile, setProfile] = useState(() => {
-    if (typeof window !== 'undefined') {
-      const cached = localStorage.getItem(`linksocio_cached_profile_${user?.id}`) || localStorage.getItem('linksocio_cached_profile')
-      if (cached) {
-        try {
+    if (typeof window !== 'undefined' && user?.id) {
+      try {
+        localStorage.removeItem('linksocio_cached_profile')
+        const cached = localStorage.getItem(`linksocio_cached_profile_${user.id}`)
+        if (cached) {
           const parsed = JSON.parse(cached)
-          if (parsed && (parsed.id === user?.id || !parsed.id)) {
+          if (parsed && parsed.id === user.id) {
             return parsed
           }
-        } catch (e) {}
-      }
+        }
+      } catch (e) {}
     }
     return {
       id: user?.id,
@@ -441,25 +442,14 @@ export default function Dashboard({ user, initialTab }) {
     try {
       let { data } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle()
 
-      // Fallback lookup by username if no row by user.id exists yet
-      if (!data) {
-        const userEmail = (user?.email || user?.user_metadata?.email || '').toLowerCase().trim()
-        const claimedUser = (sessionStorage.getItem('linksocio_claim_user') || '').toLowerCase().trim().replace(/[^a-z0-9_-]/g, '')
-        const emailPrefix = (userEmail ? userEmail.split('@')[0] : '').replace(/[^a-z0-9_-]/g, '')
-        const candidate = claimedUser || emailPrefix
-        if (candidate) {
-          const { data: byUser } = await supabase.from('profiles').select('*').ilike('username', candidate).limit(1).maybeSingle()
-          if (byUser) {
-            data = byUser
-          }
-        }
-      }
-
       if (!data) {
         const metaName = user?.user_metadata?.full_name || user?.user_metadata?.name || ''
-        const emailPrefix = (user?.email ? user.email.split('@')[0] : 'user').toLowerCase().replace(/[^a-z0-9_-]/g, '')
         const claimedUser = (sessionStorage.getItem('linksocio_claim_user') || '').toLowerCase().trim().replace(/[^a-z0-9_-]/g, '')
-        const fallbackUser = claimedUser || emailPrefix || `user_${user.id.slice(0, 6)}`
+        try { sessionStorage.removeItem('linksocio_claim_user') } catch (e) {}
+        const emailPrefix = (user?.email ? user.email.split('@')[0] : 'user').toLowerCase().replace(/[^a-z0-9_-]/g, '')
+        const fallbackUser = (claimedUser && claimedUser !== 'otmank514')
+          ? claimedUser
+          : (emailPrefix && emailPrefix !== 'otmank514' ? emailPrefix : `user_${user.id.slice(0, 6)}`)
 
         const newProf = {
           id: user.id,
