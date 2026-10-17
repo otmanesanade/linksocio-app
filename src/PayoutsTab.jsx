@@ -237,13 +237,12 @@ export default function PayoutsTab({ user, profile, products = [] }) {
       const primaryKey = `linksocio_payout_settings_${username || userId || 'default'}`
       localStorage.setItem(primaryKey, JSON.stringify(updated))
       localStorage.setItem('linksocio_payout_settings_default', JSON.stringify(updated))
-      localStorage.setItem('linksocio_payout_settings_otman', JSON.stringify(updated))
     } catch (e) {}
     authFetch('/api/payouts/settings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        username: username || 'otman',
+        username: username || userId || 'creator',
         userId: userId || 'default',
         settings: updated,
       }),
@@ -266,7 +265,6 @@ export default function PayoutsTab({ user, profile, products = [] }) {
       const primaryKey = `linksocio_payout_settings_${username || userId || 'default'}`
       localStorage.setItem(primaryKey, JSON.stringify(updated))
       localStorage.setItem('linksocio_payout_settings_default', JSON.stringify(updated))
-      localStorage.setItem('linksocio_payout_settings_otman', JSON.stringify(updated))
       window.dispatchEvent(
         new CustomEvent('linksocio:currency_changed', {
           detail: { code: cObj.code, symbol: cObj.symbol },
@@ -277,7 +275,7 @@ export default function PayoutsTab({ user, profile, products = [] }) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        username: username || 'otman',
+        username: username || userId || 'creator',
         userId: userId || 'default',
         settings: updated,
       }),
@@ -474,7 +472,7 @@ export default function PayoutsTab({ user, profile, products = [] }) {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({
-                    username: username || 'otman',
+                    username: username || userId || 'creator',
                     userId: userId || 'default',
                     settings: merged,
                   }),
@@ -707,7 +705,6 @@ export default function PayoutsTab({ user, profile, products = [] }) {
     try {
       localStorage.setItem(`linksocio_payout_settings_${username || userId || 'default'}`, JSON.stringify(updated))
       localStorage.setItem('linksocio_payout_settings_default', JSON.stringify(updated))
-      localStorage.setItem('linksocio_payout_settings_otman', JSON.stringify(updated))
       localStorage.removeItem('linksocio_manual_stripe_id')
       localStorage.removeItem('linksocio_saved_stripe_account_id')
       localStorage.removeItem('linksocio_pending_stripe_id')
@@ -716,7 +713,7 @@ export default function PayoutsTab({ user, profile, products = [] }) {
     authFetch('/api/payouts/settings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: username || 'otman', userId: userId || 'default', settings: updated }),
+      body: JSON.stringify({ username: username || userId || 'creator', userId: userId || 'default', settings: updated }),
     })
     setSaveSuccessMsg(t('payoutsTab.stripeUnlinkedMsg', 'Stripe account unlinked.'))
     setTimeout(() => setSaveSuccessMsg(''), 3000)
@@ -742,12 +739,11 @@ export default function PayoutsTab({ user, profile, products = [] }) {
           localStorage.setItem('linksocio_stripe_connected', 'true')
           localStorage.setItem(`linksocio_payout_settings_${username || userId || 'default'}`, JSON.stringify(updated))
           localStorage.setItem('linksocio_payout_settings_default', JSON.stringify(updated))
-          localStorage.setItem('linksocio_payout_settings_otman', JSON.stringify(updated))
         } catch (e) {}
         authFetch('/api/payouts/settings', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username: username || 'otman', userId: userId || 'default', settings: updated }),
+          body: JSON.stringify({ username: username || userId || 'creator', userId: userId || 'default', settings: updated }),
         }).then(() => {
           try {
             confetti({ particleCount: 70, spread: 80, origin: { y: 0.5 } })
@@ -776,12 +772,11 @@ export default function PayoutsTab({ user, profile, products = [] }) {
         localStorage.setItem('linksocio_stripe_connected', 'true')
         localStorage.setItem(`linksocio_payout_settings_${username || userId || 'default'}`, JSON.stringify(updated))
         localStorage.setItem('linksocio_payout_settings_default', JSON.stringify(updated))
-        localStorage.setItem('linksocio_payout_settings_otman', JSON.stringify(updated))
       } catch (e) {}
       await authFetch('/api/payouts/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: username || 'otman', userId: userId || 'default', settings: updated }),
+        body: JSON.stringify({ username: username || userId || 'creator', userId: userId || 'default', settings: updated }),
       })
       try {
         confetti({ particleCount: 70, spread: 80, origin: { y: 0.5 } })

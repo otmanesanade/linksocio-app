@@ -114,7 +114,7 @@ export default function CurrencySwitcher({
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        username: profile?.username || user?.user_metadata?.username || 'otman',
+        username: profile?.username || user?.user_metadata?.username || user?.id || 'creator',
         userId: profile?.id || user?.id || 'default',
         settings: {
           selectedCurrency: c.code,

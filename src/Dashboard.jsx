@@ -81,19 +81,13 @@ function ProfileCard({ user, profile, onSaved }) {
       if (cleanLocation) localStorage.setItem(`linksocio_profile_location_${user.id}`, cleanLocation)
       else localStorage.removeItem(`linksocio_profile_location_${user.id}`)
     }
-    if (profile?.username === 'otmank514') {
-      localStorage.setItem('linksocio_display_name_otmank514', cleanName)
-      localStorage.setItem('linksocio_bio_otmank514', cleanBio)
-      if (cleanLocation) localStorage.setItem('linksocio_profile_location_otmank514', cleanLocation)
-    }
-
     saveServerProfileMeta(profile?.username, user?.id, {
       display_name: cleanName,
       bio: cleanBio,
       location: cleanLocation,
     })
 
-    // 2. Best-effort Supabase sync (does not block or fail user UI if RLS forbids)
+    // 2. Best-effort Supabase sync (updates or upserts user's own profile row)
     try {
       const targetId = user?.id || profile?.id
       const payload = {
@@ -103,9 +97,9 @@ function ProfileCard({ user, profile, onSaved }) {
       if (profile?.theme_preset) payload.theme_preset = profile.theme_preset
       if (profile?.avatar_url) payload.avatar_url = profile.avatar_url
 
-      await supabase.from('profiles').update(payload).eq('id', targetId)
-      if (profile?.username === 'otmank514') {
-        await supabase.from('profiles').update(payload).eq('id', '33373cca-beb6-43c8-ac2f-8ad4e8f54b85').catch(() => {})
+      const { error: updErr, count } = await supabase.from('profiles').update(payload).eq('id', targetId)
+      if (updErr || count === 0) {
+        await supabase.from('profiles').upsert({ id: targetId, username: profile?.username || `user_${targetId.slice(0, 6)}`, ...payload }).catch(() => {})
       }
     } catch (dbErr) {
       console.warn('Supabase profile card non-fatal save error:', dbErr)
@@ -447,9 +441,12 @@ export default function Dashboard({ user, initialTab }) {
         const claimedUser = (sessionStorage.getItem('linksocio_claim_user') || '').toLowerCase().trim().replace(/[^a-z0-9_-]/g, '')
         try { sessionStorage.removeItem('linksocio_claim_user') } catch (e) {}
         const emailPrefix = (user?.email ? user.email.split('@')[0] : 'user').toLowerCase().replace(/[^a-z0-9_-]/g, '')
-        const fallbackUser = (claimedUser && claimedUser !== 'otmank514')
+        let fallbackUser = (claimedUser && claimedUser !== 'otmank514')
           ? claimedUser
           : (emailPrefix && emailPrefix !== 'otmank514' ? emailPrefix : `user_${user.id.slice(0, 6)}`)
+        if (fallbackUser === 'otmank514' && user.id !== '33373cca-beb6-43c8-ac2f-8ad4e8f54b85') {
+          fallbackUser = `user_${user.id.slice(0, 6)}`
+        }
 
         const newProf = {
           id: user.id,
@@ -460,8 +457,14 @@ export default function Dashboard({ user, initialTab }) {
           theme_color: '#14B8A6',
         }
         try {
-          const { data: created } = await supabase.from('profiles').upsert(newProf).select().maybeSingle()
-          data = created || newProf
+          const { data: created, error: createErr } = await supabase.from('profiles').upsert(newProf).select().maybeSingle()
+          if (createErr && (createErr.message.includes('unique') || createErr.message.includes('duplicate'))) {
+            newProf.username = `${fallbackUser}_${user.id.slice(0, 4)}`
+            const { data: retryCreated } = await supabase.from('profiles').upsert(newProf).select().maybeSingle()
+            data = retryCreated || newProf
+          } else {
+            data = created || newProf
+          }
         } catch (e) {
           data = newProf
         }
@@ -483,17 +486,17 @@ export default function Dashboard({ user, initialTab }) {
       const rawLocalAvatar = (uName && localStorage.getItem(`linksocio_avatar_${uName}`)) || (uId && localStorage.getItem(`linksocio_avatar_${uId}`))
       const rawLocalBio = (uName && localStorage.getItem(`linksocio_bio_${uName}`)) || (uId && localStorage.getItem(`linksocio_bio_${uId}`))
 
-      if (rawLocalTheme && (!data.theme_preset || data.theme_preset === 'default')) {
+      if (rawLocalTheme && rawLocalTheme !== 'default') {
         data.theme_preset = rawLocalTheme
       }
-      if (rawLocalName && (!data.display_name || data.display_name.startsWith('user_'))) {
-        data.display_name = rawLocalName
+      if (rawLocalName && rawLocalName.trim()) {
+        data.display_name = rawLocalName.trim()
       }
-      if (rawLocalAvatar && !data.avatar_url) {
-        data.avatar_url = rawLocalAvatar
+      if (rawLocalAvatar && rawLocalAvatar.trim()) {
+        data.avatar_url = rawLocalAvatar.trim()
       }
-      if (rawLocalBio && !data.bio) {
-        data.bio = rawLocalBio
+      if (rawLocalBio && rawLocalBio.trim()) {
+        data.bio = rawLocalBio.trim()
       }
 
       // Cache isolated to user ID

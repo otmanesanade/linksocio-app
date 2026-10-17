@@ -78,7 +78,7 @@ export default function PublicProfile({ username }) {
 
     // Fetch server inquiry, booking, restaurant menu, socials, links & profile metadata in parallel safely
     const cleanU = (username || profileData.username || '').toLowerCase().trim().replace(/^@+/, '')
-    const isOwnerAccount = cleanU === 'otman' || cleanU === 'otmank514' || profileData.id === '33373cca-beb6-43c8-ac2f-8ad4e8f54b85'
+    const isOwnerAccount = profileData.id === '33373cca-beb6-43c8-ac2f-8ad4e8f54b85' || String(profileData.email || '').toLowerCase().trim() === 'otmank514@gmail.com'
 
     const [inquirySettings, bookingSettings, restaurantMenu, serverSocials, serverLinksMeta, serverProfileMeta] = await Promise.all([
       fetchServerInquirySettings(cleanU, profileData.id).catch(() => null),
@@ -110,10 +110,6 @@ export default function PublicProfile({ username }) {
       if (!profileData.theme_preset || profileData.theme_preset === 'default') {
         profileData.theme_preset = 'studio_noir'
       }
-      if (!profileData.avatar_url || profileData.avatar_url.includes('1773087363402')) {
-        profileData.avatar_url = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=800&q=80'
-      }
-      profileData.username = 'otmank514'
       profileData.is_owner = true
     }
 
@@ -202,7 +198,7 @@ export default function PublicProfile({ username }) {
 
     setProfile(profileData)
 
-    const targetIds = Array.from(new Set([profileData.id, isOwnerAccount ? '33373cca-beb6-43c8-ac2f-8ad4e8f54b85' : null].filter(Boolean)))
+    const targetIds = [profileData.id]
     const [{ data: linksData }, { data: productsData }] = await Promise.all([
       supabase
         .from('links')

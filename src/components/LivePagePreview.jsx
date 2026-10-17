@@ -351,9 +351,8 @@ export function LivePagePreview({ profile, links = [], products = [], socials = 
 
   const cleanUsername = String(profile?.username || '').toLowerCase().trim().replace(/^@+/, '')
   const isFounderAccount =
-    cleanUsername === 'otman' ||
-    cleanUsername === 'otmank514' ||
-    profile?.id === '33373cca-beb6-43c8-ac2f-8ad4e8f54b85'
+    profile?.id === '33373cca-beb6-43c8-ac2f-8ad4e8f54b85' ||
+    (cleanUsername === 'otmank514' && (profile?.id === '33373cca-beb6-43c8-ac2f-8ad4e8f54b85' || profile?.email === 'otmank514@gmail.com'))
   const isOwnerProfile = isFounderAccount
 
   const themeKey =
@@ -493,7 +492,7 @@ export function LivePagePreview({ profile, links = [], products = [], socials = 
     profile?.contact_email ||
     profileMeta?.email ||
     profile?.email ||
-    (isOwnerProfile ? 'OtmanK514@gmail.com' : '') ||
+    (profile?.id === '33373cca-beb6-43c8-ac2f-8ad4e8f54b85' ? 'OtmanK514@gmail.com' : '') ||
     (typeof window !== 'undefined' && profile?.username && localStorage.getItem(`linksocio_contact_email_${profile.username}`)) ||
     (typeof window !== 'undefined' && profile?.id && localStorage.getItem(`linksocio_contact_email_${profile.id}`))
 

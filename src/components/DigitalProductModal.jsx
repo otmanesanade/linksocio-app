@@ -141,7 +141,8 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
     } catch (e) {}
 
     // 2. Fetch from backend API
-    const q = `?username=${encodeURIComponent(username || profile?.username || 'otman')}&userId=${encodeURIComponent(userId || profile?.id || '')}`
+    const targetUsername = username || profile?.username || ''
+    const q = `?username=${encodeURIComponent(targetUsername)}&userId=${encodeURIComponent(userId || profile?.id || '')}`
     fetch(`/api/payouts/settings${q}`)
       .then((r) => r.json())
       .then((data) => {

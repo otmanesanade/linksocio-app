@@ -70,7 +70,6 @@ export default function SettingsTab({ user, profile, onSaved, initialSubTab = 'p
         }
         localStorage.setItem(cacheKey, JSON.stringify(updated))
         localStorage.setItem('linksocio_payout_settings_default', JSON.stringify(updated))
-        localStorage.setItem('linksocio_payout_settings_otman', JSON.stringify(updated))
         window.dispatchEvent(
           new CustomEvent('linksocio:currency_changed', {
             detail: { code: currObj.code, symbol: currObj.symbol },
@@ -83,7 +82,7 @@ export default function SettingsTab({ user, profile, onSaved, initialSubTab = 'p
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        username: profile?.username || user?.user_metadata?.username || 'otman',
+        username: profile?.username || user?.user_metadata?.username || user?.id || 'creator',
         userId: profile?.id || user?.id || 'default',
         settings: {
           selectedCurrency: currObj.code,
@@ -216,10 +215,11 @@ export default function SettingsTab({ user, profile, onSaved, initialSubTab = 'p
     setProfileError('')
 
     const targetId = user?.id || profile?.id
-    // Only send fields that exist in the Supabase 'profiles' table schema
+    // Send valid fields that exist in the Supabase 'profiles' table schema
     const validProfilePayload = {
       display_name: cleanName,
       bio: cleanBio,
+      username: cleanUsername,
     }
     if (profile?.theme_preset) validProfilePayload.theme_preset = profile.theme_preset
     if (profile?.avatar_url) validProfilePayload.avatar_url = profile.avatar_url
@@ -232,17 +232,21 @@ export default function SettingsTab({ user, profile, onSaved, initialSubTab = 'p
         email: cleanEmail,
         whatsapp: cleanWhatsapp,
         location: cleanLocation,
+        username: cleanUsername,
       })
 
-      // 2. Best-effort Supabase sync (failsafe if RLS prevents cross-account write)
+      // 2. Best-effort Supabase sync (updates or upserts user's own profile row)
       try {
-        await supabase
+        const { error: updErr, count } = await supabase
           .from('profiles')
           .update(validProfilePayload)
           .eq('id', targetId)
 
-        if (cleanUsername === 'otmank514' && targetId === '33373cca-beb6-43c8-ac2f-8ad4e8f54b85') {
-          supabase.from('profiles').update(validProfilePayload).eq('id', '33373cca-beb6-43c8-ac2f-8ad4e8f54b85').then(() => {}).catch(() => {})
+        if (updErr || count === 0) {
+          await supabase
+            .from('profiles')
+            .upsert({ id: targetId, ...validProfilePayload })
+            .catch(() => {})
         }
       } catch (dbErr) {
         console.warn('Non-fatal database save warning:', dbErr)
