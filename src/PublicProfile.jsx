@@ -55,8 +55,8 @@ export default function PublicProfile({ username }) {
       profileData = fallback.data
     }
 
-    // Alias resolution for otman -> otmank514 primary account
-    if (!profileData && (cleanUser.toLowerCase() === 'otman' || cleanUser.toLowerCase() === 'otmank514')) {
+    // Alias resolution strictly for otmank514 primary account
+    if (!profileData && cleanUser.toLowerCase() === 'otmank514') {
       const { data: aliasData } = await supabase
         .from('profiles')
         .select('*')
@@ -121,20 +121,18 @@ export default function PublicProfile({ username }) {
 
     if (!profileData.whatsapp) {
       const storedWa = (profileData.username && localStorage.getItem(`linksocio_contact_whatsapp_${profileData.username}`)) ||
-                        (profileData.id && localStorage.getItem(`linksocio_contact_whatsapp_${profileData.id}`)) ||
-                        (isOwnerAccount ? '+34642887658' : '')
+                        (profileData.id && localStorage.getItem(`linksocio_contact_whatsapp_${profileData.id}`))
       if (storedWa) profileData.whatsapp = storedWa
     }
 
     if (!profileData.contact_email) {
       const storedEmail = (profileData.username && localStorage.getItem(`linksocio_contact_email_${profileData.username}`)) ||
-                          (profileData.id && localStorage.getItem(`linksocio_contact_email_${profileData.id}`)) ||
-                          (isOwnerAccount ? 'OtmanK514@gmail.com' : '')
+                          (profileData.id && localStorage.getItem(`linksocio_contact_email_${profileData.id}`))
       if (storedEmail) profileData.contact_email = storedEmail
     }
 
     let finalSocials = Array.isArray(serverSocials) && serverSocials.length > 0 ? [...serverSocials] : []
-    const contactEmail = profileData.contact_email || profileData.email || (isOwnerAccount ? 'OtmanK514@gmail.com' : '')
+    const contactEmail = profileData.contact_email || profileData.email || ''
     if (contactEmail && !finalSocials.some((s) => s.platformId === 'email' || (s.url && s.url.toLowerCase().includes(contactEmail.toLowerCase())))) {
       finalSocials.push({
         platformId: 'email',

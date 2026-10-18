@@ -189,9 +189,8 @@ export default function PayoutsTab({ user, profile, products = [] }) {
         const u = profile?.username || user?.user_metadata?.username || ''
         const uid = profile?.id || user?.id || ''
         const cached =
-          localStorage.getItem(`linksocio_payout_settings_${u}`) ||
-          localStorage.getItem(`linksocio_payout_settings_${uid}`) ||
-          localStorage.getItem('linksocio_payout_settings_otman') ||
+          (u && localStorage.getItem(`linksocio_payout_settings_${u}`)) ||
+          (uid && localStorage.getItem(`linksocio_payout_settings_${uid}`)) ||
           localStorage.getItem('linksocio_payout_settings_default')
         const standaloneStripeId =
           localStorage.getItem('linksocio_manual_stripe_id') ||
@@ -383,9 +382,8 @@ export default function PayoutsTab({ user, profile, products = [] }) {
             const u = username || profile?.username || 'default'
             const uid = userId || profile?.id || ''
             const cached =
-              localStorage.getItem(`linksocio_payout_settings_${u}`) ||
-              localStorage.getItem(`linksocio_payout_settings_${uid}`) ||
-              localStorage.getItem('linksocio_payout_settings_otman') ||
+              (u && localStorage.getItem(`linksocio_payout_settings_${u}`)) ||
+              (uid && localStorage.getItem(`linksocio_payout_settings_${uid}`)) ||
               localStorage.getItem('linksocio_payout_settings_default')
             let parsed = {}
             if (cached) {
@@ -458,8 +456,8 @@ export default function PayoutsTab({ user, profile, products = [] }) {
             // Sync cache back with the merged authoritative data
             const primaryKey = `linksocio_payout_settings_${username || userId || 'default'}`
             localStorage.setItem(primaryKey, JSON.stringify(merged))
-            localStorage.setItem('linksocio_payout_settings_default', JSON.stringify(merged))
-            localStorage.setItem('linksocio_payout_settings_otman', JSON.stringify(merged))
+            if (username && username !== 'default') localStorage.setItem(`linksocio_payout_settings_${username}`, JSON.stringify(merged))
+            if (userId && userId !== 'default') localStorage.setItem(`linksocio_payout_settings_${userId}`, JSON.stringify(merged))
             if (finalStripeId) {
               localStorage.setItem('linksocio_saved_stripe_account_id', finalStripeId)
               localStorage.setItem('linksocio_manual_stripe_id', finalStripeId)
@@ -492,9 +490,8 @@ export default function PayoutsTab({ user, profile, products = [] }) {
           const u = username || profile?.username || 'default'
           const uid = userId || profile?.id || ''
           const cached =
-            localStorage.getItem(`linksocio_payout_settings_${u}`) ||
-            localStorage.getItem(`linksocio_payout_settings_${uid}`) ||
-            localStorage.getItem('linksocio_payout_settings_otman') ||
+            (u && localStorage.getItem(`linksocio_payout_settings_${u}`)) ||
+            (uid && localStorage.getItem(`linksocio_payout_settings_${uid}`)) ||
             localStorage.getItem('linksocio_payout_settings_default')
           if (cached) {
             const parsed = JSON.parse(cached)

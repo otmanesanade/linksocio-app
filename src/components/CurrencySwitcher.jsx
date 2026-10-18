@@ -98,7 +98,6 @@ export default function CurrencySwitcher({
         }
         localStorage.setItem(cacheKey, JSON.stringify(updated))
         localStorage.setItem('linksocio_payout_settings_default', JSON.stringify(updated))
-        localStorage.setItem('linksocio_payout_settings_otman', JSON.stringify(updated))
 
         // Notify entire app of currency change
         window.dispatchEvent(

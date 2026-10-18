@@ -1541,7 +1541,7 @@ export default function BillingSettings({ user, profile, onSaved }) {
                   required
                   value={cardForm.cardholder}
                   onChange={(e) => setCardForm({ ...cardForm, cardholder: e.target.value })}
-                  placeholder="e.g. Otman K."
+                  placeholder="e.g. Alex Rivera"
                   style={{
                     width: '100%',
                     padding: '10px 14px',

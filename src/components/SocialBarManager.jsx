@@ -100,7 +100,7 @@ export default function SocialBarManager({ profile, user, onSocialsChanged }) {
       // Clean out placeholder fake numbers if real ones exist
       const waItem = combined.find((s) => s.platformId === 'whatsapp')
       if (waItem && waItem.url && waItem.url.includes('212600000000')) {
-        const hasRealWa = profile?.whatsapp || (userId === '33373cca-beb6-43c8-ac2f-8ad4e8f54b85' ? '+34642887658' : '')
+        const hasRealWa = profile?.whatsapp || ''
         if (hasRealWa) {
           waItem.url = `https://wa.me/${hasRealWa.replace(/[^0-9]/g, '')}`
           waItem.rawHandle = hasRealWa

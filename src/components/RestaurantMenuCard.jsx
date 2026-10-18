@@ -885,7 +885,7 @@ export function RestaurantMenuCard({ profile, theme, isEmbedded }) {
                 type="text"
                 value={customerName}
                 onChange={(e) => setCustomerName(e.target.value)}
-                placeholder="e.g. Otman"
+                placeholder="e.g. Sara"
                 style={{ width: '100%', padding: '7px 10px', border: '1px solid #E2E8F0', borderRadius: 8, fontSize: 12.5 }}
               />
             </div>

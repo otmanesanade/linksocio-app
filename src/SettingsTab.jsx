@@ -283,7 +283,17 @@ export default function SettingsTab({ user, profile, onSaved, initialSubTab = 'p
       }
 
       setProfileSaved(true)
-      await onSaved()
+      if (onSaved) {
+        await onSaved({
+          display_name: cleanName,
+          bio: cleanBio,
+          username: cleanUsername,
+          location: cleanLocation,
+          whatsapp: cleanWhatsapp,
+          email: cleanEmail,
+          contact_email: cleanEmail,
+        })
+      }
       setTimeout(() => setProfileSaved(false), 2000)
     } catch (err) {
       setProfileError(t('settingsTab.profileSaveError', 'Error saving changes. Please try again.'))
@@ -484,7 +494,7 @@ export default function SettingsTab({ user, profile, onSaved, initialSubTab = 'p
                 value={displayName}
                 maxLength={50}
                 onChange={(e) => { setDisplayName(e.target.value); setProfileError('') }}
-                placeholder="e.g. Otman | Digital Creator"
+                placeholder="e.g. Alex Rivera | Studio & Design"
                 style={inputStyle}
               />
             </div>
@@ -558,7 +568,7 @@ export default function SettingsTab({ user, profile, onSaved, initialSubTab = 'p
                   type="email"
                   value={email}
                   onChange={(e) => { setEmail(e.target.value); setProfileError('') }}
-                  placeholder="e.g. OtmanK514@gmail.com"
+                  placeholder="e.g. contact@yourbrand.com"
                   style={inputStyle}
                 />
               </div>

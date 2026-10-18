@@ -728,7 +728,7 @@ export default function NotificationTab({ profile, onUpdated, onNavigateToTab })
                 type="email"
                 value={settings.notification_email || ''}
                 onChange={(e) => setSettings({ ...settings, notification_email: e.target.value })}
-                placeholder="e.g. OtmanK514@gmail.com"
+                placeholder="e.g. contact@yourdomain.com"
                 style={{
                   width: '100%',
                   padding: '11px 14px',
@@ -784,7 +784,7 @@ export default function NotificationTab({ profile, onUpdated, onNavigateToTab })
                         type="text"
                         value={settings.smtp_user || ''}
                         onChange={(e) => setSettings({ ...settings, smtp_user: e.target.value })}
-                        placeholder="OtmanK514@gmail.com"
+                        placeholder="your.email@gmail.com"
                         style={{
                           width: '100%',
                           padding: '9px 12px',
@@ -1054,7 +1054,7 @@ export default function NotificationTab({ profile, onUpdated, onNavigateToTab })
                 date: '2026-09-05',
                 time_slot: '10:30 AM',
                 service_platform: 'Google Meet',
-                host_name: profile?.display_name || profile?.username || 'Otman',
+                host_name: profile?.display_name || profile?.username || 'Host',
                 notes: 'Looking forward to reviewing branding project.',
                 message: 'Hello, what are your agency consulting rates?',
               })}

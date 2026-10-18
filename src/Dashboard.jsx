@@ -137,7 +137,7 @@ function ProfileCard({ user, profile, onSaved }) {
             id="profile-display-name"
             value={displayName}
             onChange={(e) => { setDisplayName(e.target.value); setError('') }}
-            placeholder={t('dashboard.displayNamePlaceholder', 'e.g. Otman | Creative Agency')}
+            placeholder={t('dashboard.displayNamePlaceholder', 'e.g. Sarah | Creative Studio')}
             maxLength={50}
             style={{ ...inputStyle, marginTop: 4, borderColor: nameTooLong ? '#EF4444' : '#E7EDEC' }}
           />
@@ -432,7 +432,7 @@ export default function Dashboard({ user, initialTab }) {
     } catch (e) {}
   }
 
-  async function loadProfile() {
+  async function loadProfile(overrideProfile) {
     try {
       let { data } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle()
 
@@ -441,10 +441,10 @@ export default function Dashboard({ user, initialTab }) {
         const claimedUser = (sessionStorage.getItem('linksocio_claim_user') || '').toLowerCase().trim().replace(/[^a-z0-9_-]/g, '')
         try { sessionStorage.removeItem('linksocio_claim_user') } catch (e) {}
         const emailPrefix = (user?.email ? user.email.split('@')[0] : 'user').toLowerCase().replace(/[^a-z0-9_-]/g, '')
-        let fallbackUser = (claimedUser && claimedUser !== 'otmank514')
+        let fallbackUser = (claimedUser && claimedUser !== 'otmank514' && claimedUser !== 'otman')
           ? claimedUser
-          : (emailPrefix && emailPrefix !== 'otmank514' ? emailPrefix : `user_${user.id.slice(0, 6)}`)
-        if (fallbackUser === 'otmank514' && user.id !== '33373cca-beb6-43c8-ac2f-8ad4e8f54b85') {
+          : (emailPrefix && emailPrefix !== 'otmank514' && emailPrefix !== 'otman' ? emailPrefix : `user_${user.id.slice(0, 6)}`)
+        if ((fallbackUser === 'otmank514' || fallbackUser === 'otman') && user.id !== '33373cca-beb6-43c8-ac2f-8ad4e8f54b85') {
           fallbackUser = `user_${user.id.slice(0, 6)}`
         }
 
@@ -511,10 +511,36 @@ export default function Dashboard({ user, initialTab }) {
       }
 
     const cleanUser = (data.username || '').toLowerCase().trim().replace(/^@+/, '')
-    const [serverInquiry, serverBooking] = await Promise.all([
+    const [serverInquiry, serverBooking, serverMeta] = await Promise.all([
       fetchServerInquirySettings(cleanUser, data.id),
       fetchServerBookingSettings(cleanUser, data.id),
+      fetchServerProfileMeta(cleanUser, data.id || user.id),
     ])
+
+    if (serverMeta) {
+      if (serverMeta.display_name && (!data.display_name || data.display_name.startsWith('user_'))) {
+        data.display_name = serverMeta.display_name
+      }
+      if (serverMeta.bio && !data.bio) {
+        data.bio = serverMeta.bio
+      }
+      if (serverMeta.location) {
+        data.location = serverMeta.location
+      }
+      if (serverMeta.whatsapp) {
+        data.whatsapp = serverMeta.whatsapp
+      }
+      if (serverMeta.email) {
+        data.contact_email = serverMeta.email
+        data.email = serverMeta.email
+      }
+      if (serverMeta.theme_preset && serverMeta.theme_preset !== 'default') {
+        data.theme_preset = serverMeta.theme_preset
+      }
+      if (serverMeta.avatar_url && !data.avatar_url) {
+        data.avatar_url = serverMeta.avatar_url
+      }
+    }
 
     if (serverInquiry) {
       data._inquirySettings = serverInquiry
@@ -544,6 +570,10 @@ export default function Dashboard({ user, initialTab }) {
       const storedWa = (data.username && localStorage.getItem(`linksocio_contact_whatsapp_${data.username}`)) ||
                        (user?.id && localStorage.getItem(`linksocio_contact_whatsapp_${user.id}`))
       if (storedWa) data.whatsapp = storedWa
+    }
+
+    if (overrideProfile && typeof overrideProfile === 'object') {
+      data = { ...data, ...overrideProfile }
     }
 
     if (isOwner) {

@@ -3,7 +3,7 @@ export const SOCIAL_PLATFORMS = [
     id: 'instagram',
     name: 'Instagram',
     prefix: 'https://instagram.com/',
-    placeholder: 'username (e.g. otman)',
+    placeholder: 'your username (e.g. alex)',
     brandColor: '#E1306C',
     iconKey: 'Instagram',
     formatUrl: (val) => {
@@ -29,7 +29,7 @@ export const SOCIAL_PLATFORMS = [
     id: 'tiktok',
     name: 'TikTok',
     prefix: 'https://tiktok.com/@',
-    placeholder: 'username (e.g. otman)',
+    placeholder: 'your username (e.g. alex)',
     brandColor: '#000000',
     iconKey: 'TikTok',
     formatUrl: (val) => {
@@ -42,7 +42,7 @@ export const SOCIAL_PLATFORMS = [
     id: 'twitter',
     name: 'X (Twitter)',
     prefix: 'https://x.com/',
-    placeholder: 'username (e.g. otman)',
+    placeholder: 'your username (e.g. alex)',
     brandColor: '#000000',
     iconKey: 'Twitter',
     formatUrl: (val) => {
@@ -82,7 +82,7 @@ export const SOCIAL_PLATFORMS = [
     id: 'telegram',
     name: 'Telegram',
     prefix: 'https://t.me/',
-    placeholder: 'username or channel (e.g. otman)',
+    placeholder: 'username or channel (e.g. alex)',
     brandColor: '#229ED9',
     iconKey: 'Telegram',
     formatUrl: (val) => {
@@ -147,7 +147,7 @@ export const SOCIAL_PLATFORMS = [
     id: 'github',
     name: 'GitHub',
     prefix: 'https://github.com/',
-    placeholder: 'username (e.g. otman)',
+    placeholder: 'your username (e.g. alex)',
     brandColor: '#181717',
     iconKey: 'GitHub',
     formatUrl: (val) => {

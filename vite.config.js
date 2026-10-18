@@ -547,14 +547,10 @@ function apiPlugin() {
               }
             }
 
-            // Sync aliases for otman / otmank514
-            const isOwner = username === 'otman' || username === 'otmank514' || userId === '33373cca-beb6-43c8-ac2f-8ad4e8f54b85'
-            if (username === 'otman' && Array.isArray(store['otmank514'])) {
+            // Sync aliases strictly for founder account
+            const isOwner = (username === 'otmank514' || username === 'otman') && userId === '33373cca-beb6-43c8-ac2f-8ad4e8f54b85'
+            if (isOwner && Array.isArray(store['otmank514'])) {
               for (const item of store['otmank514']) {
-                if (!merged.some((m) => m.platformId === item.platformId)) merged.push(item)
-              }
-            } else if (username === 'otmank514' && Array.isArray(store['otman'])) {
-              for (const item of store['otman']) {
                 if (!merged.some((m) => m.platformId === item.platformId)) merged.push(item)
               }
             }
@@ -1281,7 +1277,7 @@ function apiPlugin() {
             const userId = (urlObj.searchParams.get('userId') || '').trim()
 
             let productsList = (username && productsStore[username]) || (userId && productsStore[userId]) || []
-            if ((!productsList || productsList.length === 0) && (username === 'otman' || username === 'otmank514')) {
+            if ((!productsList || productsList.length === 0) && (username === 'otmank514' || username === 'otman') && userId === '33373cca-beb6-43c8-ac2f-8ad4e8f54b85') {
               productsList = productsStore['otman'] || productsStore['otmank514'] || []
             }
             if (!Array.isArray(productsList)) productsList = []

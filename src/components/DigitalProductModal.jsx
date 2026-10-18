@@ -127,9 +127,8 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
         const u = username || profile?.username || 'default'
         const uid = userId || profile?.id || ''
         const cached =
-          localStorage.getItem(`linksocio_payout_settings_${u}`) ||
-          localStorage.getItem(`linksocio_payout_settings_${uid}`) ||
-          localStorage.getItem('linksocio_payout_settings_otman') ||
+          (u && localStorage.getItem(`linksocio_payout_settings_${u}`)) ||
+          (uid && localStorage.getItem(`linksocio_payout_settings_${uid}`)) ||
           localStorage.getItem('linksocio_payout_settings_default')
         if (cached) {
           const parsed = JSON.parse(cached)
@@ -177,7 +176,8 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
     sellerPayoutSettings?.accountHolder ||
     profile?.display_name ||
     profile?.name ||
-    'Otman'
+    profile?.username ||
+    'Creator'
 
   // Extract seller WhatsApp phone and PayPal address
   const rawWa =
@@ -191,8 +191,9 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
     sellerPayoutSettings?.paypalEmail ||
     profile?.paypal_email ||
     profile?.paypalEmail ||
+    profile?.contact_email ||
     profile?.email ||
-    'OtmanK514@gmail.com'
+    ''
 
   const handleCardPayment = async (e) => {
     if (e) e.preventDefault()
@@ -278,7 +279,7 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
       // 2. Build PayPal checkout URL
       const rawPrice = String(product.price || '0').replace(/[^\d.]/g, '') || '10'
       const currency = /€|EUR/i.test(product.price) ? 'EUR' : 'USD'
-      const paypalTarget = (resolvedPaypalEmail || 'OtmanK514@gmail.com').trim()
+      const paypalTarget = (resolvedPaypalEmail || '').trim()
       const isPaypalMe = paypalTarget.includes('paypal.me/') || (!paypalTarget.includes('@') && !paypalTarget.includes('.'))
 
       const origin = typeof window !== 'undefined' ? window.location.origin : ''
@@ -785,7 +786,7 @@ export default function DigitalProductModal({ product, profile, theme, onClose, 
 
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                           <span style={{ color: '#64748B', fontWeight: 600 }}>{t('digitalModal.sellerPaypalEmailLabel', 'Compte PayPal :')}</span>
-                          <span style={{ fontWeight: 700, color: '#0F172A', fontSize: 11 }}>{resolvedPaypalEmail || 'OtmanK514@gmail.com'}</span>
+                          <span style={{ fontWeight: 700, color: '#0F172A', fontSize: 11 }}>{resolvedPaypalEmail || 'N/A'}</span>
                         </div>
                       </div>
 
