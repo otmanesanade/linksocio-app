@@ -300,7 +300,7 @@ export function LivePagePreview({ profile, links = [], products = [], socials = 
     }
     const handleProfileMetaUpdate = (e) => {
       if (e?.detail?.meta) {
-        setProfileMeta(e.detail.meta)
+        setProfileMeta((prev) => ({ ...(prev || {}), ...e.detail.meta }))
       }
     }
     window.addEventListener('linksocio_socials_updated', handleSocialUpdate)
@@ -312,6 +312,20 @@ export function LivePagePreview({ profile, links = [], products = [], socials = 
       window.removeEventListener('linksocio_profile_meta_updated', handleProfileMetaUpdate)
     }
   }, [profile?.username, profile?.id, socials])
+
+  // Synchronize internal state with profile prop updates immediately
+  useEffect(() => {
+    if (profile) {
+      setProfileMeta((prev) => ({
+        ...(prev || {}),
+        display_name: profile.display_name !== undefined ? profile.display_name : prev?.display_name,
+        bio: profile.bio !== undefined ? profile.bio : prev?.bio,
+        location: profile.location !== undefined ? profile.location : prev?.location,
+        avatar_url: profile.avatar_url !== undefined ? profile.avatar_url : prev?.avatar_url,
+        theme_preset: profile.theme_preset || prev?.theme_preset,
+      }))
+    }
+  }, [profile?.display_name, profile?.bio, profile?.avatar_url, profile?.theme_preset, profile?.location, profile?._ts])
 
   useEffect(() => {
     if (activeTabOverride) setTab(activeTabOverride)
@@ -356,10 +370,11 @@ export function LivePagePreview({ profile, links = [], products = [], socials = 
   const isOwnerProfile = isFounderAccount
 
   const themeKey =
-    (profile?.theme_preset && profile.theme_preset !== 'default' ? profile.theme_preset : '') ||
+    profile?.theme_preset ||
+    profileMeta?.theme_preset ||
     (profile?.username && typeof window !== 'undefined' && localStorage.getItem(`linksocio_theme_preset_${profile.username}`)) ||
     (profile?.id && typeof window !== 'undefined' && localStorage.getItem(`linksocio_theme_preset_${profile.id}`)) ||
-    (profile?.theme_preset || 'default')
+    'default'
   const rawTheme = getTheme(themeKey)
   const fontKey =
     profile?.font_family ||
@@ -393,19 +408,32 @@ export function LivePagePreview({ profile, links = [], products = [], socials = 
 
   const resolvedDisplayName =
     (profile?.display_name && !profile.display_name.startsWith('user_') ? profile.display_name : '') ||
+    (profileMeta?.display_name && !profileMeta.display_name.startsWith('user_') ? profileMeta.display_name : '') ||
+    (typeof window !== 'undefined' && profile?.username && localStorage.getItem(`linksocio_display_name_${profile.username}`)) ||
+    (typeof window !== 'undefined' && profile?.id && localStorage.getItem(`linksocio_display_name_${profile.id}`)) ||
     profile?.display_name ||
+    profileMeta?.display_name ||
     profile?.username ||
     'Your Name'
-  const resolvedUsername = profile?.username || 'username'
+  const resolvedUsername = profile?.username || profileMeta?.username || 'username'
   const rawAvatar =
     profile?.avatar_url ||
+    profileMeta?.avatar_url ||
     (typeof window !== 'undefined' && profile?.username && localStorage.getItem(`linksocio_avatar_${profile.username}`)) ||
     (typeof window !== 'undefined' && profile?.id && localStorage.getItem(`linksocio_avatar_${profile.id}`)) ||
     ''
-  const resolvedAvatar = (rawAvatar && !rawAvatar.includes('1773087363402')) ? rawAvatar : ''
+  const resolvedAvatar = rawAvatar || ''
+
+  const resolvedBio =
+    (profile?.bio !== undefined && profile?.bio !== null && profile.bio.trim()) ||
+    (profileMeta?.bio && profileMeta.bio.trim()) ||
+    (typeof window !== 'undefined' && profile?.username && localStorage.getItem(`linksocio_bio_${profile.username}`)) ||
+    (typeof window !== 'undefined' && profile?.id && localStorage.getItem(`linksocio_bio_${profile.id}`)) ||
+    ''
 
   const headerCoverPref =
     profile?.header_cover_style ||
+    profileMeta?.header_cover_style ||
     (profile?.username && typeof window !== 'undefined' && localStorage.getItem(`linksocio_header_cover_${profile.username}`)) ||
     (profile?.id && typeof window !== 'undefined' && localStorage.getItem(`linksocio_header_cover_${profile.id}`)) ||
     'auto'
@@ -864,7 +892,7 @@ export function LivePagePreview({ profile, links = [], products = [], socials = 
                   @{resolvedUsername}
                 </p>
 
-                {profile?.bio && (
+                {Boolean(resolvedBio) && (
                   <p
                     style={{
                       margin: '7px 0 0',
@@ -875,7 +903,7 @@ export function LivePagePreview({ profile, links = [], products = [], socials = 
                       textShadow: '0 1px 6px rgba(0,0,0,0.6)',
                     }}
                   >
-                    {profile.bio}
+                    {resolvedBio}
                   </p>
                 )}
 
@@ -985,7 +1013,7 @@ export function LivePagePreview({ profile, links = [], products = [], socials = 
                 @{resolvedUsername}
               </p>
 
-              {profile?.bio && (
+              {Boolean(resolvedBio) && (
                 <p
                   style={{
                     margin: '8px 0 0',
@@ -995,7 +1023,7 @@ export function LivePagePreview({ profile, links = [], products = [], socials = 
                     maxWidth: '94%',
                   }}
                 >
-                  {profile.bio}
+                  {resolvedBio}
                 </p>
               )}
 

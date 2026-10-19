@@ -4,7 +4,7 @@ import { LivePagePreview } from './components/LivePagePreview'
 import { fetchServerInquirySettings } from './InquiryTab'
 import { fetchServerBookingSettings } from './BookingTab'
 import { fetchServerRestaurantMenu } from './RestaurantTab'
-import { fetchServerSocials, fetchServerLinksMeta, fetchServerProfileMeta } from './utils/socialPlatforms'
+import { fetchServerSocials, fetchServerLinksMeta, fetchServerProfileMeta, fetchServerLinks, getStoredProfileMeta, getStoredLinks } from './utils/socialPlatforms'
 import { useLanguage } from './context/LanguageContext'
 import { updateSEO, generateProfileJSONLD } from './utils/seo'
 
@@ -66,6 +66,29 @@ export default function PublicProfile({ username }) {
     }
 
     if (!profileData) {
+      try {
+        const meta = await fetchServerProfileMeta(cleanUser)
+        const localMeta = getStoredProfileMeta(cleanUser)
+        const mergedMeta = { ...(localMeta || {}), ...(meta || {}) }
+        if (mergedMeta && (mergedMeta.display_name || mergedMeta.bio || mergedMeta.theme_preset || mergedMeta.email)) {
+          profileData = {
+            id: mergedMeta.userId || `user_${cleanUser}`,
+            username: cleanUser,
+            display_name: mergedMeta.display_name || cleanUser,
+            bio: mergedMeta.bio || '',
+            theme_preset: mergedMeta.theme_preset || 'default',
+            theme_color: '#14B8A6',
+            plan: 'business',
+            avatar_url: mergedMeta.avatar_url || '',
+            location: mergedMeta.location || '',
+            contact_email: mergedMeta.email || '',
+            whatsapp: mergedMeta.whatsapp || '',
+          }
+        }
+      } catch (e) {}
+    }
+
+    if (!profileData) {
       setNotFound(true)
       setLoading(false)
       updateSEO({
@@ -104,7 +127,7 @@ export default function PublicProfile({ username }) {
     }
 
     if (isOwnerAccount) {
-      if (!profileData.display_name || profileData.display_name.startsWith('user_')) {
+      if (!profileData.display_name) {
         profileData.display_name = 'otmane sanade'
       }
       if (!profileData.theme_preset || profileData.theme_preset === 'default') {
@@ -197,7 +220,7 @@ export default function PublicProfile({ username }) {
     setProfile(profileData)
 
     const targetIds = [profileData.id]
-    const [{ data: linksData }, { data: productsData }] = await Promise.all([
+    const [{ data: linksData }, { data: productsData }, serverLinks] = await Promise.all([
       supabase
         .from('links')
         .select('*')
@@ -209,7 +232,17 @@ export default function PublicProfile({ username }) {
         .select('*')
         .in('user_id', targetIds)
         .order('position', { ascending: true }),
+      fetchServerLinks(profileData.username, profileData.id).catch(() => []),
     ])
+
+    let combinedLinks = linksData && Array.isArray(linksData) ? [...linksData] : []
+    if (Array.isArray(serverLinks) && serverLinks.length > 0) {
+      for (const sl of serverLinks) {
+        if (!combinedLinks.some((l) => l.id === sl.id || (l.url === sl.url && l.label === sl.label))) {
+          combinedLinks.push(sl)
+        }
+      }
+    }
 
     let finalProducts = productsData ? [...productsData] : []
     try {

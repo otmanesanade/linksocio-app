@@ -20,7 +20,7 @@ import { LivePagePreview } from './components/LivePagePreview'
 import confetti from 'canvas-confetti'
 import { getTrialStatus, checkIsOwner, checkIsAdmin, checkIsOwnerOrVip } from './utils/trialHelper'
 import TrialExpiredPaywall from './components/TrialExpiredPaywall'
-import { getStoredLinksMeta, fetchServerLinksMeta, getStoredSocials, fetchServerSocials, fetchServerProfileMeta, saveServerProfileMeta } from './utils/socialPlatforms'
+import { getStoredLinksMeta, fetchServerLinksMeta, getStoredSocials, fetchServerSocials, fetchServerProfileMeta, saveServerProfileMeta, fetchServerLinks, saveServerLinks, getStoredLinks } from './utils/socialPlatforms'
 import LanguageSwitcher from './components/LanguageSwitcher'
 import CurrencySwitcher from './components/CurrencySwitcher'
 import { useLanguage } from './context/LanguageContext'
@@ -518,10 +518,10 @@ export default function Dashboard({ user, initialTab }) {
     ])
 
     if (serverMeta) {
-      if (serverMeta.display_name && (!data.display_name || data.display_name.startsWith('user_'))) {
-        data.display_name = serverMeta.display_name
+      if (serverMeta.display_name && serverMeta.display_name.trim()) {
+        data.display_name = serverMeta.display_name.trim()
       }
-      if (serverMeta.bio && !data.bio) {
+      if (serverMeta.bio !== undefined && serverMeta.bio !== null && serverMeta.bio !== '') {
         data.bio = serverMeta.bio
       }
       if (serverMeta.location) {
@@ -534,11 +534,26 @@ export default function Dashboard({ user, initialTab }) {
         data.contact_email = serverMeta.email
         data.email = serverMeta.email
       }
-      if (serverMeta.theme_preset && serverMeta.theme_preset !== 'default') {
+      if (serverMeta.theme_preset) {
         data.theme_preset = serverMeta.theme_preset
       }
-      if (serverMeta.avatar_url && !data.avatar_url) {
+      if (serverMeta.avatar_url) {
         data.avatar_url = serverMeta.avatar_url
+      }
+      if (serverMeta.font_family) {
+        data.font_family = serverMeta.font_family
+      }
+      if (serverMeta.font_color) {
+        data.font_color = serverMeta.font_color
+      }
+      if (serverMeta.button_style) {
+        data.button_style = serverMeta.button_style
+      }
+      if (serverMeta.header_cover_style) {
+        data.header_cover_style = serverMeta.header_cover_style
+      }
+      if (serverMeta.hide_branding !== undefined) {
+        data.hide_branding = serverMeta.hide_branding
       }
     }
 
@@ -630,14 +645,36 @@ export default function Dashboard({ user, initialTab }) {
 
   async function loadLinks(overrideUserId) {
     const targetUserId = overrideUserId || profile?.id || user.id
-    const { data } = await supabase
-      .from('links')
-      .select('*')
-      .eq('user_id', targetUserId)
-      .order('position', { ascending: true })
     const username = profile?.username || user?.user_metadata?.username || ''
+    let combinedLinks = []
+
+    // 1. Fetch from Supabase
+    try {
+      const { data } = await supabase
+        .from('links')
+        .select('*')
+        .eq('user_id', targetUserId)
+        .order('position', { ascending: true })
+      if (data && Array.isArray(data)) combinedLinks = [...data]
+    } catch (e) {}
+
+    // 2. Fetch from server & localStorage
+    try {
+      const serverLinks = await fetchServerLinks(username, targetUserId)
+      if (Array.isArray(serverLinks) && serverLinks.length > 0) {
+        for (const sl of serverLinks) {
+          const idx = combinedLinks.findIndex((l) => l.id === sl.id || (l.url === sl.url && l.label === sl.label))
+          if (idx >= 0) {
+            combinedLinks[idx] = { ...combinedLinks[idx], ...sl }
+          } else {
+            combinedLinks.push(sl)
+          }
+        }
+      }
+    } catch (e) {}
+
     const meta = getStoredLinksMeta(username, user.id)
-    const enriched = (data || []).map((l) => ({
+    const enriched = combinedLinks.map((l) => ({
       ...l,
       style: l.style || meta[l.id]?.style || 'button',
       icon_position: l.icon_position || meta[l.id]?.icon_position || 'top',

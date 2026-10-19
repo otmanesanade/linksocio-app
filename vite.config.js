@@ -36,6 +36,7 @@ function apiPlugin() {
   const PAYOUT_REQUESTS_PATH = path.join(process.cwd(), '.payout_requests.json')
   const SOCIALS_STORE_PATH = path.join(process.cwd(), '.socials_store.json')
   const LINKS_META_PATH = path.join(process.cwd(), '.links_meta_store.json')
+  const LINKS_STORE_PATH = path.join(process.cwd(), '.links_store.json')
   const PROFILE_META_PATH = path.join(process.cwd(), '.profile_meta_store.json')
 
   function readJson(filePath) {
@@ -715,6 +716,89 @@ function apiPlugin() {
                 res.statusCode = 200
                 res.setHeader('Content-Type', 'application/json')
                 res.end(JSON.stringify({ success: true, meta: (username ? store[username] : store[userId]) }))
+              } catch (e) {
+                res.statusCode = 400
+                res.setHeader('Content-Type', 'application/json')
+                res.end(JSON.stringify({ error: 'Invalid JSON' }))
+              }
+            })
+            return
+          }
+        }
+
+        // Links CRUD API
+        if (urlObj.pathname === '/api/links') {
+          const store = readJson(LINKS_STORE_PATH)
+
+          if (req.method === 'GET') {
+            const username = (urlObj.searchParams.get('username') || '').toLowerCase().trim().replace(/^@/, '')
+            const userId = (urlObj.searchParams.get('userId') || '').trim()
+
+            const uLinks = username && Array.isArray(store[username]) ? store[username] : []
+            const idLinks = userId && Array.isArray(store[userId]) ? store[userId] : []
+
+            const merged = [...uLinks]
+            for (const item of idLinks) {
+              if (!merged.some((m) => m.id === item.id || (m.url && item.url && m.url === item.url && m.label === item.label))) {
+                merged.push(item)
+              }
+            }
+
+            res.statusCode = 200
+            res.setHeader('Content-Type', 'application/json')
+            res.end(JSON.stringify({ links: merged }))
+            return
+          }
+
+          if (req.method === 'POST') {
+            let body = ''
+            req.on('data', (chunk) => { body += chunk })
+            req.on('end', () => {
+              try {
+                const payload = JSON.parse(body || '{}')
+                const username = (payload.username || '').toLowerCase().trim().replace(/^@/, '')
+                const userId = (payload.userId || '').trim()
+                const key = username || userId
+
+                if (!key) {
+                  res.statusCode = 400
+                  res.setHeader('Content-Type', 'application/json')
+                  res.end(JSON.stringify({ error: 'Missing username or userId' }))
+                  return
+                }
+
+                let current = Array.isArray(store[key]) ? [...store[key]] : []
+
+                if (Array.isArray(payload.links)) {
+                  current = payload.links
+                } else if (payload.deleteId) {
+                  current = current.filter((l) => l.id !== payload.deleteId)
+                } else if (payload.link) {
+                  const target = payload.link
+                  const newLink = {
+                    id: target.id || 'lnk_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+                    created_at: target.created_at || new Date().toISOString(),
+                    position: target.position !== undefined ? target.position : current.length,
+                    active: target.active !== undefined ? target.active : true,
+                    style: target.style || 'button',
+                    icon_position: target.icon_position || 'top',
+                    ...target,
+                  }
+                  const idx = current.findIndex((l) => l.id === newLink.id)
+                  if (idx >= 0) {
+                    current[idx] = { ...current[idx], ...newLink }
+                  } else {
+                    current.push(newLink)
+                  }
+                }
+
+                if (username) store[username] = current
+                if (userId) store[userId] = current
+                writeJson(LINKS_STORE_PATH, store)
+
+                res.statusCode = 200
+                res.setHeader('Content-Type', 'application/json')
+                res.end(JSON.stringify({ success: true, links: current }))
               } catch (e) {
                 res.statusCode = 400
                 res.setHeader('Content-Type', 'application/json')

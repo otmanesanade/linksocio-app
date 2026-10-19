@@ -421,4 +421,67 @@ export function saveServerProfileMeta(username, userId, meta) {
   } catch (e) {}
 }
 
+export function getStoredLinks(username, userId) {
+  if (typeof window === 'undefined') return []
+  const clean = username ? String(username).toLowerCase().trim().replace(/^@/, '') : ''
+  const keys = [clean, userId].filter(Boolean)
+  for (const k of keys) {
+    try {
+      const raw = localStorage.getItem(`linksocio_links_${k}`)
+      if (raw) {
+        const parsed = JSON.parse(raw)
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed
+      }
+    } catch (e) {}
+  }
+  return []
+}
+
+export function saveStoredLinks(username, userId, links) {
+  if (typeof window === 'undefined') return
+  const clean = username ? String(username).toLowerCase().trim().replace(/^@/, '') : ''
+  const jsonStr = JSON.stringify(Array.isArray(links) ? links : [])
+  const keys = [clean, userId].filter(Boolean)
+  for (const k of keys) {
+    try {
+      localStorage.setItem(`linksocio_links_${k}`, jsonStr)
+    } catch (e) {}
+  }
+}
+
+export async function fetchServerLinks(username, userId) {
+  const clean = username ? String(username).toLowerCase().trim().replace(/^@/, '') : ''
+  try {
+    const params = new URLSearchParams()
+    if (clean) params.set('username', clean)
+    if (userId) params.set('userId', userId)
+    const res = await fetch(`/api/links?${params.toString()}`)
+    if (res.ok) {
+      const data = await res.json()
+      if (data.links && Array.isArray(data.links)) {
+        saveStoredLinks(clean, userId, data.links)
+        return data.links
+      }
+    }
+  } catch (e) {}
+  return getStoredLinks(username, userId)
+}
+
+export async function saveServerLinks(username, userId, linksOrPayload) {
+  const clean = username ? String(username).toLowerCase().trim().replace(/^@/, '') : ''
+  if (Array.isArray(linksOrPayload)) {
+    saveStoredLinks(clean, userId, linksOrPayload)
+  }
+  try {
+    const body = Array.isArray(linksOrPayload)
+      ? { username: clean, userId, links: linksOrPayload }
+      : { username: clean, userId, ...linksOrPayload }
+    await fetch('/api/links', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+  } catch (e) {}
+}
+
 
