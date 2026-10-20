@@ -416,12 +416,18 @@ export function LivePagePreview({ profile, links = [], products = [], socials = 
     profile?.username ||
     'Your Name'
   const resolvedUsername = profile?.username || profileMeta?.username || 'username'
-  const rawAvatar =
-    profile?.avatar_url ||
-    profileMeta?.avatar_url ||
-    (typeof window !== 'undefined' && profile?.username && localStorage.getItem(`linksocio_avatar_${profile.username}`)) ||
-    (typeof window !== 'undefined' && profile?.id && localStorage.getItem(`linksocio_avatar_${profile.id}`)) ||
-    ''
+  const isAvatarRemoved =
+    (profile?.username && typeof window !== 'undefined' && localStorage.getItem(`linksocio_avatar_removed_${profile.username}`) === 'true') ||
+    (profile?.id && typeof window !== 'undefined' && localStorage.getItem(`linksocio_avatar_removed_${profile.id}`) === 'true')
+
+  const rawAvatar = isAvatarRemoved
+    ? ''
+    : (profileMeta?.avatar_url !== undefined && profileMeta?.avatar_url !== ''
+        ? profileMeta.avatar_url
+        : (profile?.avatar_url ||
+           (typeof window !== 'undefined' && profile?.username && localStorage.getItem(`linksocio_avatar_${profile.username}`)) ||
+           (typeof window !== 'undefined' && profile?.id && localStorage.getItem(`linksocio_avatar_${profile.id}`)) ||
+           ''))
   const resolvedAvatar = rawAvatar || ''
 
   const resolvedBio =

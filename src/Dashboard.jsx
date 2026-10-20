@@ -516,10 +516,61 @@ export default function Dashboard({ user, initialTab }) {
       // Read local custom preferences for THIS specific account only
       const uName = data.username || ''
       const uId = data.id || user.id
+      const cleanUser = (uName || '').toLowerCase().trim().replace(/^@+/, '')
+
+      const [serverInquiry, serverBooking, serverMeta] = await Promise.all([
+        fetchServerInquirySettings(cleanUser, data.id),
+        fetchServerBookingSettings(cleanUser, data.id),
+        fetchServerProfileMeta(cleanUser, data.id || user.id),
+      ])
+
+      // Server persistence takes precedence over initial stale Supabase seed
+      if (serverMeta) {
+        if (serverMeta.display_name && serverMeta.display_name.trim()) {
+          data.display_name = serverMeta.display_name.trim()
+        }
+        if (serverMeta.bio !== undefined && serverMeta.bio !== null && serverMeta.bio !== '') {
+          data.bio = serverMeta.bio
+        }
+        if (serverMeta.location) {
+          data.location = serverMeta.location
+        }
+        if (serverMeta.whatsapp) {
+          data.whatsapp = serverMeta.whatsapp
+        }
+        if (serverMeta.email) {
+          data.contact_email = serverMeta.email
+          data.email = serverMeta.email
+        }
+        if (serverMeta.theme_preset && serverMeta.theme_preset !== 'default') {
+          data.theme_preset = serverMeta.theme_preset
+        }
+        if (serverMeta.avatar_url !== undefined && serverMeta.avatar_url !== null) {
+          data.avatar_url = serverMeta.avatar_url
+        }
+        if (serverMeta.font_family && serverMeta.font_family !== 'default') {
+          data.font_family = serverMeta.font_family
+        }
+        if (serverMeta.font_color) {
+          data.font_color = serverMeta.font_color
+        }
+        if (serverMeta.button_style) {
+          data.button_style = serverMeta.button_style
+        }
+        if (serverMeta.header_cover_style) {
+          data.header_cover_style = serverMeta.header_cover_style
+        }
+        if (serverMeta.hide_branding !== undefined) {
+          data.hide_branding = serverMeta.hide_branding
+        }
+      }
+
+      // Read local custom preferences for any fresh unsynced changes
       const rawLocalTheme = (uName && localStorage.getItem(`linksocio_theme_preset_${uName}`)) || (uId && localStorage.getItem(`linksocio_theme_preset_${uId}`))
       const rawLocalName = (uName && localStorage.getItem(`linksocio_display_name_${uName}`)) || (uId && localStorage.getItem(`linksocio_display_name_${uId}`))
       const rawLocalAvatar = (uName && localStorage.getItem(`linksocio_avatar_${uName}`)) || (uId && localStorage.getItem(`linksocio_avatar_${uId}`))
       const rawLocalBio = (uName && localStorage.getItem(`linksocio_bio_${uName}`)) || (uId && localStorage.getItem(`linksocio_bio_${uId}`))
+      const isAvatarRemoved = (uName && localStorage.getItem(`linksocio_avatar_removed_${uName}`) === 'true') || (uId && localStorage.getItem(`linksocio_avatar_removed_${uId}`) === 'true')
 
       if (rawLocalTheme && rawLocalTheme !== 'default') {
         data.theme_preset = rawLocalTheme
@@ -527,15 +578,17 @@ export default function Dashboard({ user, initialTab }) {
       if (rawLocalName && rawLocalName.trim()) {
         data.display_name = rawLocalName.trim()
       }
-      if (rawLocalAvatar && rawLocalAvatar.trim()) {
+      if (isAvatarRemoved) {
+        data.avatar_url = ''
+      } else if (rawLocalAvatar && rawLocalAvatar.trim()) {
         data.avatar_url = rawLocalAvatar.trim()
       }
       if (rawLocalBio && rawLocalBio.trim()) {
         data.bio = rawLocalBio.trim()
       }
 
-      // Cache isolated to user ID
-      if (data.theme_preset) {
+      // Cache isolated to user ID and username
+      if (data.theme_preset && data.theme_preset !== 'default') {
         if (data.username) localStorage.setItem(`linksocio_theme_preset_${data.username}`, data.theme_preset)
         if (user?.id) localStorage.setItem(`linksocio_theme_preset_${user.id}`, data.theme_preset)
         if (data.id) localStorage.setItem(`linksocio_theme_preset_${data.id}`, data.theme_preset)
@@ -544,53 +597,14 @@ export default function Dashboard({ user, initialTab }) {
         if (data.username) localStorage.setItem(`linksocio_display_name_${data.username}`, data.display_name)
         if (user?.id) localStorage.setItem(`linksocio_display_name_${user.id}`, data.display_name)
       }
-
-    const cleanUser = (data.username || '').toLowerCase().trim().replace(/^@+/, '')
-    const [serverInquiry, serverBooking, serverMeta] = await Promise.all([
-      fetchServerInquirySettings(cleanUser, data.id),
-      fetchServerBookingSettings(cleanUser, data.id),
-      fetchServerProfileMeta(cleanUser, data.id || user.id),
-    ])
-
-    if (serverMeta) {
-      if (serverMeta.display_name && serverMeta.display_name.trim()) {
-        data.display_name = serverMeta.display_name.trim()
+      if (data.avatar_url) {
+        if (data.username) localStorage.setItem(`linksocio_avatar_${data.username}`, data.avatar_url)
+        if (user?.id) localStorage.setItem(`linksocio_avatar_${user.id}`, data.avatar_url)
       }
-      if (serverMeta.bio !== undefined && serverMeta.bio !== null && serverMeta.bio !== '') {
-        data.bio = serverMeta.bio
+      if (data.bio) {
+        if (data.username) localStorage.setItem(`linksocio_bio_${data.username}`, data.bio)
+        if (user?.id) localStorage.setItem(`linksocio_bio_${user.id}`, data.bio)
       }
-      if (serverMeta.location) {
-        data.location = serverMeta.location
-      }
-      if (serverMeta.whatsapp) {
-        data.whatsapp = serverMeta.whatsapp
-      }
-      if (serverMeta.email) {
-        data.contact_email = serverMeta.email
-        data.email = serverMeta.email
-      }
-      if (serverMeta.theme_preset) {
-        data.theme_preset = serverMeta.theme_preset
-      }
-      if (serverMeta.avatar_url) {
-        data.avatar_url = serverMeta.avatar_url
-      }
-      if (serverMeta.font_family) {
-        data.font_family = serverMeta.font_family
-      }
-      if (serverMeta.font_color) {
-        data.font_color = serverMeta.font_color
-      }
-      if (serverMeta.button_style) {
-        data.button_style = serverMeta.button_style
-      }
-      if (serverMeta.header_cover_style) {
-        data.header_cover_style = serverMeta.header_cover_style
-      }
-      if (serverMeta.hide_branding !== undefined) {
-        data.hide_branding = serverMeta.hide_branding
-      }
-    }
 
     if (serverInquiry) {
       data._inquirySettings = serverInquiry
@@ -689,39 +703,27 @@ export default function Dashboard({ user, initialTab }) {
       combinedLinks = [...stored]
     }
 
-    // 1. Fetch from Supabase
-    try {
-      const { data } = await supabase
-        .from('links')
-        .select('*')
-        .eq('user_id', targetUserId)
-        .order('position', { ascending: true })
-      if (data && Array.isArray(data)) {
-        for (const dl of data) {
-          const idx = combinedLinks.findIndex((l) => l.id === dl.id || (l.url === dl.url && l.label === dl.label))
-          if (idx >= 0) {
-            combinedLinks[idx] = { ...combinedLinks[idx], ...dl }
-          } else {
-            combinedLinks.push(dl)
-          }
-        }
-      }
-    } catch (e) {}
-
-    // 2. Fetch from server & localStorage
+    // 1. Fetch from authoritative server store
     try {
       const serverLinks = await fetchServerLinks(username, targetUserId)
       if (Array.isArray(serverLinks) && serverLinks.length > 0) {
-        for (const sl of serverLinks) {
-          const idx = combinedLinks.findIndex((l) => l.id === sl.id || (l.url === sl.url && l.label === sl.label))
-          if (idx >= 0) {
-            combinedLinks[idx] = { ...combinedLinks[idx], ...sl }
-          } else {
-            combinedLinks.push(sl)
-          }
-        }
+        combinedLinks = [...serverLinks]
       }
     } catch (e) {}
+
+    // 2. Only if combinedLinks is completely empty, fall back to initial Supabase seed
+    if (combinedLinks.length === 0) {
+      try {
+        const { data } = await supabase
+          .from('links')
+          .select('*')
+          .eq('user_id', targetUserId)
+          .order('position', { ascending: true })
+        if (data && Array.isArray(data) && data.length > 0) {
+          combinedLinks = [...data]
+        }
+      } catch (e) {}
+    }
 
     const meta = getStoredLinksMeta(username, user.id)
     const enriched = combinedLinks.map((l) => ({
@@ -758,33 +760,28 @@ export default function Dashboard({ user, initialTab }) {
   async function loadProducts(overrideUserId) {
     let combined = []
     const targetUserId = overrideUserId || profile?.id || user.id
-    try {
-      const { data } = await supabase
-        .from('products')
-        .select('*')
-        .eq('user_id', targetUserId)
-        .order('position', { ascending: true })
-      if (data && Array.isArray(data)) combined = [...data]
-    } catch (e) {}
+    const username = profile?.username || user?.user_metadata?.username || ''
 
     try {
-      const username = profile?.username || user?.user_metadata?.username || ''
       const res = await fetch(`/api/products?username=${encodeURIComponent(username)}&userId=${encodeURIComponent(targetUserId)}`)
       if (res.ok) {
         const json = await res.json()
-        if (json.products && Array.isArray(json.products)) {
-          // Merge rich digital products info by id or name
-          for (const sp of json.products) {
-            const idx = combined.findIndex((p) => p.id === sp.id || (p.name && sp.name && p.name.trim() === sp.name.trim()))
-            if (idx >= 0) {
-              combined[idx] = { ...combined[idx], ...sp }
-            } else {
-              combined.push(sp)
-            }
-          }
+        if (json.products && Array.isArray(json.products) && json.products.length > 0) {
+          combined = [...json.products]
         }
       }
     } catch (e) {}
+
+    if (combined.length === 0) {
+      try {
+        const { data } = await supabase
+          .from('products')
+          .select('*')
+          .eq('user_id', targetUserId)
+          .order('position', { ascending: true })
+        if (data && Array.isArray(data)) combined = [...data]
+      } catch (e) {}
+    }
 
     setProducts(combined)
   }

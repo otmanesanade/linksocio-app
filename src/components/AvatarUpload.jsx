@@ -88,38 +88,45 @@ export default function AvatarUpload({ user, profile, onUpdated }) {
 
       let finalAvatarUrl = dataUrl
 
-      // 2. Attempt Supabase Storage upload to 'avatars' bucket
+      // 2. Upload to server disk /api/upload for persistent, fast storage
       try {
-        const fileExt = 'jpg'
-        const fileName = `${user?.id || profile?.id}/avatar_${Date.now()}.${fileExt}`
-
-        const { data: uploadData, error: uploadError } = await supabase.storage
-          .from('avatars')
-          .upload(fileName, blob, {
-            contentType: 'image/jpeg',
-            upsert: true,
-          })
-
-        if (!uploadError && uploadData?.path) {
-          const { data: urlData } = supabase.storage
-            .from('avatars')
-            .getPublicUrl(uploadData.path)
-
-          if (urlData?.publicUrl) {
-            finalAvatarUrl = urlData.publicUrl
+        const uploadRes = await fetch('/api/upload', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            filename: `avatar_${profile?.username || user?.id || 'user'}_${Date.now()}.jpg`,
+            base64: dataUrl,
+            type: 'image/jpeg',
+          }),
+        })
+        if (uploadRes.ok) {
+          const uploadJson = await uploadRes.json()
+          if (uploadJson.url) {
+            finalAvatarUrl = uploadJson.url
           }
         }
-      } catch (storageErr) {
-        console.warn('Storage upload fallback to direct avatar URL:', storageErr)
+      } catch (uploadErr) {
+        console.warn('Server upload fallback to dataUrl:', uploadErr)
       }
 
-      // 3. Persist avatar immediately to localStorage & server metadata for current user only
-      if (profile?.username) localStorage.setItem(`linksocio_avatar_${profile.username}`, finalAvatarUrl)
-      if (user?.id) localStorage.setItem(`linksocio_avatar_${user.id}`, finalAvatarUrl)
-      if (profile?.id) localStorage.setItem(`linksocio_avatar_${profile.id}`, finalAvatarUrl)
+      // 3. Clear any past avatar removal flags
+      if (profile?.username) {
+        localStorage.removeItem(`linksocio_avatar_removed_${profile.username}`)
+        localStorage.setItem(`linksocio_avatar_${profile.username}`, finalAvatarUrl)
+      }
+      if (user?.id) {
+        localStorage.removeItem(`linksocio_avatar_removed_${user.id}`)
+        localStorage.setItem(`linksocio_avatar_${user.id}`, finalAvatarUrl)
+      }
+      if (profile?.id) {
+        localStorage.removeItem(`linksocio_avatar_removed_${profile.id}`)
+        localStorage.setItem(`linksocio_avatar_${profile.id}`, finalAvatarUrl)
+      }
+
+      // 4. Persist to server metadata
       saveServerProfileMeta(profile?.username, user?.id, { avatar_url: finalAvatarUrl })
 
-      // 4. Update profile record in Supabase (if authenticated)
+      // 5. Update profile record in Supabase (if authenticated)
       try {
         const targetId = user?.id || profile?.id
         await supabase
@@ -151,9 +158,18 @@ export default function AvatarUpload({ user, profile, onUpdated }) {
     setUploading(true)
     setErrorMsg('')
     try {
-      if (profile?.username) localStorage.removeItem(`linksocio_avatar_${profile.username}`)
-      if (user?.id) localStorage.removeItem(`linksocio_avatar_${user.id}`)
-      if (profile?.id) localStorage.removeItem(`linksocio_avatar_${profile.id}`)
+      if (profile?.username) {
+        localStorage.removeItem(`linksocio_avatar_${profile.username}`)
+        localStorage.setItem(`linksocio_avatar_removed_${profile.username}`, 'true')
+      }
+      if (user?.id) {
+        localStorage.removeItem(`linksocio_avatar_${user.id}`)
+        localStorage.setItem(`linksocio_avatar_removed_${user.id}`, 'true')
+      }
+      if (profile?.id) {
+        localStorage.removeItem(`linksocio_avatar_${profile.id}`)
+        localStorage.setItem(`linksocio_avatar_removed_${profile.id}`, 'true')
+      }
       saveServerProfileMeta(profile?.username, user?.id, { avatar_url: '' })
 
       const { error: dbError } = await supabase

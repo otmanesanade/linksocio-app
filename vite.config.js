@@ -617,14 +617,14 @@ function apiPlugin() {
             const mergedMeta = {
               display_name: combined.display_name !== undefined ? combined.display_name : '',
               username: combined.username || username || '',
-              theme_preset: combined.theme_preset || 'default',
-              font_family: combined.font_family || 'default',
+              theme_preset: combined.theme_preset || '',
+              font_family: combined.font_family || '',
               font_color: combined.font_color || '',
-              button_style: combined.button_style || 'rounded',
-              hide_branding: combined.hide_branding !== undefined ? combined.hide_branding : false,
-              header_cover_style: combined.header_cover_style || 'auto',
-              avatar_url: combined.avatar_url || '',
-              bio: combined.bio || '',
+              button_style: combined.button_style || '',
+              hide_branding: combined.hide_branding !== undefined ? combined.hide_branding : undefined,
+              header_cover_style: combined.header_cover_style || '',
+              avatar_url: combined.avatar_url !== undefined ? combined.avatar_url : '',
+              bio: combined.bio !== undefined ? combined.bio : '',
               email: combined.email || '',
               whatsapp: combined.whatsapp || '',
               location: combined.location || '',
@@ -1616,6 +1616,7 @@ function apiPlugin() {
                   base64Data = base64.replace(/^data:.*?;base64,/, '')
                 }
                 base64Data = base64Data.trim()
+                const buffer = Buffer.from(base64Data, 'base64')
 
                 let finalUrl = null
                 try {

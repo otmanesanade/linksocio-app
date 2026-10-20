@@ -114,12 +114,12 @@ export default function PublicProfile({ username }) {
 
     if (serverProfileMeta) {
       if (serverProfileMeta.display_name) profileData.display_name = serverProfileMeta.display_name
-      if (serverProfileMeta.theme_preset) profileData.theme_preset = serverProfileMeta.theme_preset
-      if (serverProfileMeta.font_family) profileData.font_family = serverProfileMeta.font_family
+      if (serverProfileMeta.theme_preset && serverProfileMeta.theme_preset !== 'default') profileData.theme_preset = serverProfileMeta.theme_preset
+      if (serverProfileMeta.font_family && serverProfileMeta.font_family !== 'default') profileData.font_family = serverProfileMeta.font_family
       if (serverProfileMeta.font_color) profileData.font_color = serverProfileMeta.font_color
       if (serverProfileMeta.button_style) profileData.button_style = serverProfileMeta.button_style
       if (serverProfileMeta.header_cover_style) profileData.header_cover_style = serverProfileMeta.header_cover_style
-      if (serverProfileMeta.avatar_url) profileData.avatar_url = serverProfileMeta.avatar_url
+      if (serverProfileMeta.avatar_url !== undefined && serverProfileMeta.avatar_url !== null) profileData.avatar_url = serverProfileMeta.avatar_url
       if (serverProfileMeta.bio) profileData.bio = serverProfileMeta.bio
       if (serverProfileMeta.email) profileData.contact_email = serverProfileMeta.email
       if (serverProfileMeta.whatsapp) profileData.whatsapp = serverProfileMeta.whatsapp
@@ -235,32 +235,27 @@ export default function PublicProfile({ username }) {
       fetchServerLinks(profileData.username, profileData.id).catch(() => []),
     ])
 
-    let combinedLinks = linksData && Array.isArray(linksData) ? [...linksData] : []
+    let combinedLinks = []
     if (Array.isArray(serverLinks) && serverLinks.length > 0) {
-      for (const sl of serverLinks) {
-        if (!combinedLinks.some((l) => l.id === sl.id || (l.url === sl.url && l.label === sl.label))) {
-          combinedLinks.push(sl)
-        }
-      }
+      combinedLinks = [...serverLinks]
+    } else if (linksData && Array.isArray(linksData) && linksData.length > 0) {
+      combinedLinks = [...linksData]
     }
 
-    let finalProducts = productsData ? [...productsData] : []
+    let finalProducts = []
     try {
       const pRes = await fetch(`/api/products?username=${encodeURIComponent(profileData.username)}&userId=${encodeURIComponent(profileData.id)}`)
       if (pRes.ok) {
         const pJson = await pRes.json()
-        if (pJson.products && Array.isArray(pJson.products)) {
-          for (const sp of pJson.products) {
-            const idx = finalProducts.findIndex((p) => p.id === sp.id || (p.name && sp.name && p.name.trim() === sp.name.trim()))
-            if (idx >= 0) {
-              finalProducts[idx] = { ...finalProducts[idx], ...sp }
-            } else {
-              finalProducts.push(sp)
-            }
-          }
+        if (pJson.products && Array.isArray(pJson.products) && pJson.products.length > 0) {
+          finalProducts = [...pJson.products]
         }
       }
     } catch (e) {}
+
+    if (finalProducts.length === 0 && productsData && Array.isArray(productsData)) {
+      finalProducts = [...productsData]
+    }
 
     // Clean any corrupted URLs and ensure digital assets are ready for customer download
     finalProducts = finalProducts.map((p) => {

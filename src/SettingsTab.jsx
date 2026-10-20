@@ -233,6 +233,8 @@ export default function SettingsTab({ user, profile, onSaved, initialSubTab = 'p
         whatsapp: cleanWhatsapp,
         location: cleanLocation,
         username: cleanUsername,
+        ...(profile?.avatar_url ? { avatar_url: profile.avatar_url } : {}),
+        ...(profile?.theme_preset ? { theme_preset: profile.theme_preset } : {}),
       })
 
       // 2. Best-effort Supabase sync (updates or upserts user's own profile row)
