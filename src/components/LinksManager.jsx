@@ -135,11 +135,13 @@ export default function LinksManager({
     if (!fullUrl || !activePreset) return
 
     const targetUserId = profile?.id || user?.id
+    const username = profile?.username || user?.user_metadata?.username || ''
     if (!targetUserId) return
 
-    // Save to Supabase links with style: 'icon'
+    const newLinkId = 'link_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6)
     const iconName = inferIconFromLink(fullUrl, activePreset.label)
-    await supabase.from('links').insert({
+    const newLinkData = {
+      id: newLinkId,
       user_id: targetUserId,
       label: activePreset.label,
       url: fullUrl,
@@ -148,10 +150,20 @@ export default function LinksManager({
       icon_position: 'top',
       active: true,
       position: links.length,
-    })
+      created_at: new Date().toISOString(),
+    }
+
+    // Save to server store & localStorage
+    saveServerLinks(username, targetUserId, { link: newLinkData })
+    const curStored = getStoredLinks(username, targetUserId)
+    saveStoredLinks(username, targetUserId, [...curStored, newLinkData])
+
+    // Save to Supabase (best-effort)
+    try {
+      await supabase.from('links').insert(newLinkData).catch(() => {})
+    } catch (e) {}
 
     // Also update socials store & localStorage
-    const username = profile?.username || ''
     const currentSocials = getStoredSocials(username, targetUserId)
     const filtered = (currentSocials || []).filter((s) => s.name?.toLowerCase() !== activePreset.label.toLowerCase())
     const updated = [
@@ -168,7 +180,7 @@ export default function LinksManager({
 
     setActivePreset(null)
     setPresetInput('')
-    onLinksChanged()
+    if (onLinksChanged) onLinksChanged()
   }
 
   async function deleteLink(id) {

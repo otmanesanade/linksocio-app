@@ -612,22 +612,22 @@ function apiPlugin() {
 
             const metaU = (username && store[username]) || {}
             const metaId = (userId && store[userId]) || {}
-            const isOtmanFounder = (username === 'otmank514' || username === 'otman') && userId === '33373cca-beb6-43c8-ac2f-8ad4e8f54b85'
+            const combined = { ...metaId, ...metaU }
 
             const mergedMeta = {
-              display_name: metaU.display_name || metaId.display_name || (isOtmanFounder ? 'otmane sanade' : ''),
-              username: metaU.username || metaId.username || username || '',
-              theme_preset: metaU.theme_preset || metaId.theme_preset || 'default',
-              font_family: metaU.font_family || metaId.font_family || 'default',
-              font_color: metaU.font_color || metaId.font_color || '',
-              button_style: metaU.button_style || metaId.button_style || 'rounded',
-              hide_branding: metaU.hide_branding !== undefined ? metaU.hide_branding : metaId.hide_branding !== undefined ? metaId.hide_branding : false,
-              header_cover_style: metaU.header_cover_style || metaId.header_cover_style || 'auto',
-              avatar_url: metaU.avatar_url || metaId.avatar_url || '',
-              bio: metaU.bio || metaId.bio || '',
-              email: metaU.email || metaId.email || '',
-              whatsapp: metaU.whatsapp || metaId.whatsapp || '',
-              location: metaU.location || metaId.location || '',
+              display_name: combined.display_name !== undefined ? combined.display_name : '',
+              username: combined.username || username || '',
+              theme_preset: combined.theme_preset || 'default',
+              font_family: combined.font_family || 'default',
+              font_color: combined.font_color || '',
+              button_style: combined.button_style || 'rounded',
+              hide_branding: combined.hide_branding !== undefined ? combined.hide_branding : false,
+              header_cover_style: combined.header_cover_style || 'auto',
+              avatar_url: combined.avatar_url || '',
+              bio: combined.bio || '',
+              email: combined.email || '',
+              whatsapp: combined.whatsapp || '',
+              location: combined.location || '',
             }
 
             res.statusCode = 200

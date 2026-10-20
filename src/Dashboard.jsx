@@ -26,7 +26,7 @@ import CurrencySwitcher from './components/CurrencySwitcher'
 import { useLanguage } from './context/LanguageContext'
 import PWAInstallButton from './components/PWAInstallButton'
 
-function ProfileCard({ user, profile, onSaved }) {
+function ProfileCard({ user, profile, onSaved, onLiveUpdate }) {
   const { t } = useLanguage()
   const [displayName, setDisplayName] = useState(profile?.display_name || '')
   const [bio, setBio] = useState(profile?.bio || '')
@@ -40,7 +40,7 @@ function ProfileCard({ user, profile, onSaved }) {
     setBio(profile?.bio || '')
     setLocation(profile?.location || '')
     setError('')
-  }, [profile])
+  }, [profile?.display_name, profile?.bio, profile?.location])
 
   const originalName = profile?.display_name || ''
   const originalBio = profile?.bio || ''
@@ -50,6 +50,33 @@ function ProfileCard({ user, profile, onSaved }) {
   const bioTooLong = bio.length > 120
   const locTooLong = location.length > 80
   const canSave = hasChanges && !saving && !nameTooLong && !bioTooLong && !locTooLong
+
+  const handleNameChange = (val) => {
+    setDisplayName(val)
+    setError('')
+    if (onLiveUpdate) onLiveUpdate({ display_name: val })
+  }
+
+  const handleBioChange = (val) => {
+    setBio(val)
+    setError('')
+    if (onLiveUpdate) onLiveUpdate({ bio: val })
+  }
+
+  const handleLocationChange = (val) => {
+    setLocation(val)
+    setError('')
+    if (onLiveUpdate) onLiveUpdate({ location: val })
+  }
+
+  const handleAvatarChange = (updates) => {
+    if (onLiveUpdate && updates) {
+      onLiveUpdate(updates)
+    }
+    if (onSaved) {
+      onSaved(updates)
+    }
+  }
 
   async function save(e) {
     e?.preventDefault()
@@ -67,6 +94,11 @@ function ProfileCard({ user, profile, onSaved }) {
     if (!hasChanges) return
 
     setSaving(true)
+
+    // 0. Optimistically apply to live preview immediately
+    if (onLiveUpdate) {
+      onLiveUpdate({ display_name: cleanName, bio: cleanBio, location: cleanLocation })
+    }
 
     // 1. Immediately persist to localStorage and server metadata
     if (profile?.username) {
@@ -120,7 +152,7 @@ function ProfileCard({ user, profile, onSaved }) {
     <div style={{ background: 'white', border: '1px solid #E7EDEC', borderRadius: 20, padding: 20, marginBottom: 20 }}>
       {/* Avatar / Photo Upload Section */}
       <div style={{ marginBottom: 16 }}>
-        <AvatarUpload user={user} profile={profile} onUpdated={onSaved} />
+        <AvatarUpload user={user} profile={profile} onUpdated={handleAvatarChange} />
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 14 }}>
@@ -136,7 +168,7 @@ function ProfileCard({ user, profile, onSaved }) {
           <input
             id="profile-display-name"
             value={displayName}
-            onChange={(e) => { setDisplayName(e.target.value); setError('') }}
+            onChange={(e) => handleNameChange(e.target.value)}
             placeholder={t('dashboard.displayNamePlaceholder', 'e.g. Sarah | Creative Studio')}
             maxLength={50}
             style={{ ...inputStyle, marginTop: 4, borderColor: nameTooLong ? '#EF4444' : '#E7EDEC' }}
@@ -149,7 +181,7 @@ function ProfileCard({ user, profile, onSaved }) {
           <textarea
             id="profile-bio"
             value={bio}
-            onChange={(e) => { setBio(e.target.value); setError('') }}
+            onChange={(e) => handleBioChange(e.target.value)}
             placeholder={t('dashboard.bioPlaceholder', 'Digital Creator · Software & Design · Work with me 👇')}
             maxLength={120}
             rows={2}
@@ -433,6 +465,9 @@ export default function Dashboard({ user, initialTab }) {
   }
 
   async function loadProfile(overrideProfile) {
+    if (overrideProfile && typeof overrideProfile === 'object') {
+      setProfile((prev) => ({ ...(prev || {}), ...overrideProfile, _ts: Date.now() }))
+    }
     try {
       let { data } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle()
 
@@ -648,6 +683,12 @@ export default function Dashboard({ user, initialTab }) {
     const username = profile?.username || user?.user_metadata?.username || ''
     let combinedLinks = []
 
+    // 0. Load immediately from local storage for instant responsiveness
+    const stored = getStoredLinks(username, targetUserId)
+    if (Array.isArray(stored) && stored.length > 0) {
+      combinedLinks = [...stored]
+    }
+
     // 1. Fetch from Supabase
     try {
       const { data } = await supabase
@@ -655,7 +696,16 @@ export default function Dashboard({ user, initialTab }) {
         .select('*')
         .eq('user_id', targetUserId)
         .order('position', { ascending: true })
-      if (data && Array.isArray(data)) combinedLinks = [...data]
+      if (data && Array.isArray(data)) {
+        for (const dl of data) {
+          const idx = combinedLinks.findIndex((l) => l.id === dl.id || (l.url === dl.url && l.label === dl.label))
+          if (idx >= 0) {
+            combinedLinks[idx] = { ...combinedLinks[idx], ...dl }
+          } else {
+            combinedLinks.push(dl)
+          }
+        }
+      }
     } catch (e) {}
 
     // 2. Fetch from server & localStorage
@@ -1449,7 +1499,14 @@ export default function Dashboard({ user, initialTab }) {
 
           {tab === 'links' && (
             <div>
-              <ProfileCard user={user} profile={profile} onSaved={loadProfile} />
+              <ProfileCard
+                user={user}
+                profile={profile}
+                onLiveUpdate={(fields) => {
+                  setProfile((prev) => ({ ...(prev || {}), ...fields, _ts: Date.now() }))
+                }}
+                onSaved={loadProfile}
+              />
               <LinksManager
                 user={user}
                 profile={profile}

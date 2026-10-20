@@ -867,6 +867,38 @@ export function LivePagePreview({ profile, links = [], products = [], socials = 
                   marginTop: 'auto',
                 }}
               >
+                {/* Circular Profile Picture in Cover View */}
+                <div
+                  style={{
+                    width: isEmbedded ? 72 : 92,
+                    height: isEmbedded ? 72 : 92,
+                    borderRadius: theme.avatarShape === 'squircle' ? (isEmbedded ? 20 : 26) : '50%',
+                    background: '#FFFFFF',
+                    border: '3.5px solid rgba(255,255,255,0.95)',
+                    boxShadow: '0 8px 24px rgba(0,0,0,0.35)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#0F172A',
+                    fontSize: isEmbedded ? 24 : 32,
+                    fontWeight: 700,
+                    marginBottom: 10,
+                    overflow: 'hidden',
+                    position: 'relative',
+                    zIndex: 3,
+                  }}
+                >
+                  {resolvedAvatar ? (
+                    <img
+                      src={resolvedAvatar}
+                      alt={resolvedDisplayName || 'Avatar'}
+                      style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                    />
+                  ) : (
+                    resolvedDisplayName?.[0]?.toUpperCase() || resolvedUsername?.[0]?.toUpperCase() || '?'
+                  )}
+                </div>
+
                 <h1
                   style={{
                     margin: 0,

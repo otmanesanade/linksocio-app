@@ -151,15 +151,20 @@ export default function AvatarUpload({ user, profile, onUpdated }) {
     setUploading(true)
     setErrorMsg('')
     try {
+      if (profile?.username) localStorage.removeItem(`linksocio_avatar_${profile.username}`)
+      if (user?.id) localStorage.removeItem(`linksocio_avatar_${user.id}`)
+      if (profile?.id) localStorage.removeItem(`linksocio_avatar_${profile.id}`)
+      saveServerProfileMeta(profile?.username, user?.id, { avatar_url: '' })
+
       const { error: dbError } = await supabase
         .from('profiles')
         .update({ avatar_url: null })
         .eq('id', user?.id || profile?.id)
 
-      if (dbError) throw dbError
+      if (dbError) console.warn('Supabase avatar remove warning:', dbError)
 
       setSuccessMsg(t('avatar.successRemove', 'Avatar removed. Restored letter icon.'))
-      if (onUpdated) await onUpdated()
+      if (onUpdated) await onUpdated({ avatar_url: '' })
       setTimeout(() => setSuccessMsg(''), 2500)
     } catch (err) {
       setErrorMsg(t('avatar.failedRemove', 'Failed to remove avatar.'))
