@@ -422,12 +422,11 @@ export function LivePagePreview({ profile, links = [], products = [], socials = 
 
   const rawAvatar = isAvatarRemoved
     ? ''
-    : (profileMeta?.avatar_url !== undefined && profileMeta?.avatar_url !== ''
-        ? profileMeta.avatar_url
-        : (profile?.avatar_url ||
-           (typeof window !== 'undefined' && profile?.username && localStorage.getItem(`linksocio_avatar_${profile.username}`)) ||
-           (typeof window !== 'undefined' && profile?.id && localStorage.getItem(`linksocio_avatar_${profile.id}`)) ||
-           ''))
+    : (profile?.avatar_url ||
+       (profileMeta?.avatar_url && profileMeta.avatar_url.trim()) ||
+       (typeof window !== 'undefined' && profile?.username && localStorage.getItem(`linksocio_avatar_${profile.username}`)) ||
+       (typeof window !== 'undefined' && profile?.id && localStorage.getItem(`linksocio_avatar_${profile.id}`)) ||
+       '')
   const resolvedAvatar = rawAvatar || ''
 
   const resolvedBio =

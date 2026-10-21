@@ -545,8 +545,8 @@ export default function Dashboard({ user, initialTab }) {
         if (serverMeta.theme_preset && serverMeta.theme_preset !== 'default') {
           data.theme_preset = serverMeta.theme_preset
         }
-        if (serverMeta.avatar_url !== undefined && serverMeta.avatar_url !== null) {
-          data.avatar_url = serverMeta.avatar_url
+        if (serverMeta.avatar_url && serverMeta.avatar_url.trim()) {
+          data.avatar_url = serverMeta.avatar_url.trim()
         }
         if (serverMeta.font_family && serverMeta.font_family !== 'default') {
           data.font_family = serverMeta.font_family

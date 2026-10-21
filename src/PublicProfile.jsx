@@ -119,7 +119,7 @@ export default function PublicProfile({ username }) {
       if (serverProfileMeta.font_color) profileData.font_color = serverProfileMeta.font_color
       if (serverProfileMeta.button_style) profileData.button_style = serverProfileMeta.button_style
       if (serverProfileMeta.header_cover_style) profileData.header_cover_style = serverProfileMeta.header_cover_style
-      if (serverProfileMeta.avatar_url !== undefined && serverProfileMeta.avatar_url !== null) profileData.avatar_url = serverProfileMeta.avatar_url
+      if (serverProfileMeta.avatar_url && serverProfileMeta.avatar_url.trim()) profileData.avatar_url = serverProfileMeta.avatar_url.trim()
       if (serverProfileMeta.bio) profileData.bio = serverProfileMeta.bio
       if (serverProfileMeta.email) profileData.contact_email = serverProfileMeta.email
       if (serverProfileMeta.whatsapp) profileData.whatsapp = serverProfileMeta.whatsapp
@@ -289,7 +289,7 @@ export default function PublicProfile({ username }) {
       }
     })
 
-    const enrichedLinks = (linksData || []).map((l) => {
+    const enrichedLinks = (combinedLinks || []).map((l) => {
       const m = (serverLinksMeta && serverLinksMeta[l.id]) || {}
       return {
         ...l,
