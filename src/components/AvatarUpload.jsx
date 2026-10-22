@@ -59,10 +59,23 @@ export default function AvatarUpload({ user, profile, onUpdated }) {
   const [successMsg, setSuccessMsg] = useState('')
   const fileInputRef = useRef(null)
 
-  const currentAvatar = profile?.avatar_url
+  const isAvatarRemoved =
+    (profile?.username && typeof window !== 'undefined' && localStorage.getItem(`linksocio_avatar_removed_${profile.username}`) === 'true') ||
+    (profile?.id && typeof window !== 'undefined' && localStorage.getItem(`linksocio_avatar_removed_${profile.id}`) === 'true') ||
+    (user?.id && typeof window !== 'undefined' && localStorage.getItem(`linksocio_avatar_removed_${user.id}`) === 'true')
+
+  const currentAvatar = isAvatarRemoved
+    ? ''
+    : (profile?.avatar_url ||
+       (profile?.username && typeof window !== 'undefined' && localStorage.getItem(`linksocio_avatar_${profile.username}`)) ||
+       (profile?.id && typeof window !== 'undefined' && localStorage.getItem(`linksocio_avatar_${profile.id}`)) ||
+       (user?.id && typeof window !== 'undefined' && localStorage.getItem(`linksocio_avatar_${user.id}`)) ||
+       '')
+
   const initials =
     profile?.display_name?.[0]?.toUpperCase() ||
     profile?.username?.[0]?.toUpperCase() ||
+    user?.email?.[0]?.toUpperCase() ||
     '?'
 
   async function handleFile(file) {

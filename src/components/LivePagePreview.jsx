@@ -443,9 +443,27 @@ export function LivePagePreview({ profile, links = [], products = [], socials = 
     (profile?.id && typeof window !== 'undefined' && localStorage.getItem(`linksocio_header_cover_${profile.id}`)) ||
     'auto'
 
+  const dedicatedCover =
+    profile?.cover_url ||
+    profileMeta?.cover_url ||
+    (profile?.username && typeof window !== 'undefined' && localStorage.getItem(`linksocio_cover_${profile.username}`)) ||
+    (profile?.id && typeof window !== 'undefined' && localStorage.getItem(`linksocio_cover_${profile.id}`)) ||
+    ''
+
   const shouldShowCover = Boolean(
-    resolvedAvatar &&
-    (headerCoverPref === 'always' || (headerCoverPref !== 'avatar_only' && theme?.hasHeaderCover))
+    headerCoverPref !== 'avatar_only' &&
+    ((dedicatedCover && (headerCoverPref === 'always' || theme?.hasHeaderCover)) ||
+     (headerCoverPref === 'always' && resolvedAvatar))
+  )
+  const resolvedCoverImage = dedicatedCover || (headerCoverPref === 'always' ? resolvedAvatar : '')
+
+  const isOwnerVerified = Boolean(
+    profile?.is_owner ||
+    resolvedUsername === 'otmank514' ||
+    resolvedUsername === 'otman' ||
+    profile?.id === '33373cca-beb6-43c8-ac2f-8ad4e8f54b85' ||
+    profile?.id === '5821c210-9b62-43bb-a5a4-0985c7d0d046' ||
+    String(profile?.email || '').toLowerCase().trim() === 'otmank514@gmail.com'
   )
 
   const enrichedLinks = (links || []).map((l) => {
@@ -792,26 +810,21 @@ export function LivePagePreview({ profile, links = [], products = [], socials = 
             <IconShare color={shouldShowCover ? '#FFFFFF' : theme.textColor} size={isEmbedded ? 14 : 17} />
           </button>
 
-          {/* Top Big Cover extending down to Save Contact & WhatsApp (Avatar circle removed for cover themes) */}
-          {shouldShowCover && resolvedAvatar ? (
+          {/* Top Cover Banner if enabled */}
+          {shouldShowCover && resolvedCoverImage ? (
             <div
               style={{
-                margin: isEmbedded ? '-24px -18px 14px -18px' : '-36px -26px 18px -26px',
+                margin: isEmbedded ? '-24px -18px 0 -18px' : '-36px -26px 0 -26px',
                 position: 'relative',
                 overflow: 'hidden',
                 borderTopLeftRadius: isEmbedded ? 22 : 32,
                 borderTopRightRadius: isEmbedded ? 22 : 32,
-                minHeight: isEmbedded ? 275 : 345,
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'flex-end',
-                padding: isEmbedded ? '54px 16px 16px' : '68px 22px 20px',
-                boxSizing: 'border-box',
+                height: isEmbedded ? 120 : 150,
+                background: theme.coverGradient || 'linear-gradient(135deg, #0F172A, #1E293B)',
               }}
             >
-              {/* Cover Photo - Full bleed high resolution */}
               <img
-                src={resolvedAvatar}
+                src={resolvedCoverImage}
                 alt="Profile Cover"
                 onError={(e) => {
                   e.currentTarget.style.display = 'none'
@@ -822,169 +835,25 @@ export function LivePagePreview({ profile, links = [], products = [], socials = 
                   width: '100%',
                   height: '100%',
                   objectFit: 'cover',
-                  objectPosition: 'center 20%',
-                  filter: theme.coverFilter || 'brightness(0.96) contrast(1.02)',
+                  objectPosition: 'center',
+                  filter: theme.coverFilter || 'brightness(0.95)',
                   display: 'block',
                 }}
               />
-
-              {/* Top gradient for LinkSocio badge and Share button contrast */}
-              <div
-                style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  height: 76,
-                  background: 'linear-gradient(180deg, rgba(0,0,0,0.65) 0%, rgba(0,0,0,0.2) 60%, transparent 100%)',
-                  pointerEvents: 'none',
-                  zIndex: 1,
-                }}
-              />
-
-              {/* Bottom smooth gradient fading the photo into the card background across the text */}
               <div
                 style={{
                   position: 'absolute',
                   inset: 0,
-                  background: `linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.08) 25%, ${
-                    theme.cardBg?.startsWith('rgba')
-                      ? theme.cardBg
-                      : theme.cardBg
-                      ? `${theme.cardBg}D9`
-                      : 'rgba(15,23,42,0.85)'
-                  } 65%, ${theme.cardBg || '#0F172A'} 100%)`,
+                  background: 'linear-gradient(180deg, rgba(0,0,0,0.35) 0%, transparent 60%, rgba(0,0,0,0.2) 100%)',
                   pointerEvents: 'none',
-                  zIndex: 1,
                 }}
               />
-
-              {/* Name, Username, Bio & Location displayed right on the cover, reaching down to Save Contact */}
-              <div
-                style={{
-                  position: 'relative',
-                  zIndex: 2,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  textAlign: 'center',
-                  width: '100%',
-                  marginTop: 'auto',
-                }}
-              >
-                {/* Circular Profile Picture in Cover View */}
-                <div
-                  style={{
-                    width: isEmbedded ? 72 : 92,
-                    height: isEmbedded ? 72 : 92,
-                    borderRadius: theme.avatarShape === 'squircle' ? (isEmbedded ? 20 : 26) : '50%',
-                    background: '#FFFFFF',
-                    border: '3.5px solid rgba(255,255,255,0.95)',
-                    boxShadow: '0 8px 24px rgba(0,0,0,0.35)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: '#0F172A',
-                    fontSize: isEmbedded ? 24 : 32,
-                    fontWeight: 700,
-                    marginBottom: 10,
-                    overflow: 'hidden',
-                    position: 'relative',
-                    zIndex: 3,
-                  }}
-                >
-                  {resolvedAvatar ? (
-                    <img
-                      src={resolvedAvatar}
-                      alt={resolvedDisplayName || 'Avatar'}
-                      style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                    />
-                  ) : (
-                    resolvedDisplayName?.[0]?.toUpperCase() || resolvedUsername?.[0]?.toUpperCase() || '?'
-                  )}
-                </div>
-
-                <h1
-                  style={{
-                    margin: 0,
-                    fontSize: isEmbedded ? 18.5 : 23,
-                    fontWeight: 800,
-                    color: theme.textColor || '#FFFFFF',
-                    letterSpacing: '-0.02em',
-                    textShadow: '0 2px 10px rgba(0,0,0,0.7)',
-                  }}
-                >
-                  {resolvedDisplayName}
-                </h1>
-
-                <p
-                  style={{
-                    margin: '2px 0 0',
-                    fontSize: isEmbedded ? 11.5 : 13.5,
-                    color: theme.subTextColor || 'rgba(255,255,255,0.8)',
-                    fontWeight: 600,
-                    textShadow: '0 1px 6px rgba(0,0,0,0.6)',
-                  }}
-                >
-                  @{resolvedUsername}
-                </p>
-
-                {Boolean(resolvedBio) && (
-                  <p
-                    style={{
-                      margin: '7px 0 0',
-                      fontSize: isEmbedded ? 11.5 : 13.5,
-                      color: theme.subTextColor || 'rgba(255,255,255,0.92)',
-                      lineHeight: 1.45,
-                      maxWidth: '94%',
-                      textShadow: '0 1px 6px rgba(0,0,0,0.6)',
-                    }}
-                  >
-                    {resolvedBio}
-                  </p>
-                )}
-
-                {Boolean(resolvedLocation) && (
-                  <a
-                    href={
-                      /^https?:\/\//i.test(resolvedLocation)
-                        ? resolvedLocation
-                        : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(resolvedLocation)}`
-                    }
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    title="Open location on Google Maps"
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: 5,
-                      marginTop: 8,
-                      background: 'rgba(255,255,255,0.14)',
-                      padding: isEmbedded ? '4px 10px' : '5px 12px',
-                      borderRadius: 100,
-                      fontSize: isEmbedded ? 10.5 : 12,
-                      fontWeight: 600,
-                      color: theme.textColor || '#FFFFFF',
-                      textDecoration: 'none',
-                      border: '1px solid rgba(255,255,255,0.2)',
-                      maxWidth: '92%',
-                      backdropFilter: 'blur(8px)',
-                      WebkitBackdropFilter: 'blur(8px)',
-                      textShadow: '0 1px 4px rgba(0,0,0,0.5)',
-                    }}
-                  >
-                    <IconMapPin size={isEmbedded ? 12 : 14} color={color} />
-                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {resolvedLocation}
-                    </span>
-                  </a>
-                )}
-              </div>
             </div>
-          ) : (
-            /* Standard Mode (No Cover): Circle Avatar + Ambient Spotlight + Name & Bio */
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', position: 'relative', width: '100%' }}>
-              {theme.avatarSpotlight && (
+          ) : null}
+
+          {/* Standard Mode (No Cover): Circle Avatar + Ambient Spotlight + Name & Bio */}
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', position: 'relative', width: '100%', marginTop: shouldShowCover && resolvedCoverImage ? (isEmbedded ? -42 : -52) : 0, zIndex: 3 }}>
+              {(!shouldShowCover || !resolvedCoverImage) && theme.avatarSpotlight && (
                 <div
                   style={{
                     position: 'absolute',
@@ -1002,14 +871,16 @@ export function LivePagePreview({ profile, links = [], products = [], socials = 
 
               <div
                 style={{
-                  width: theme.avatarSize === 'hero' ? (isEmbedded ? 82 : 108) : theme.avatarSize === 'large' ? (isEmbedded ? 74 : 96) : (isEmbedded ? 64 : 88),
-                  height: theme.avatarSize === 'hero' ? (isEmbedded ? 82 : 108) : theme.avatarSize === 'large' ? (isEmbedded ? 74 : 96) : (isEmbedded ? 64 : 88),
+                  width: shouldShowCover && resolvedCoverImage
+                    ? (isEmbedded ? 76 : 96)
+                    : theme.avatarSize === 'hero' ? (isEmbedded ? 82 : 108) : theme.avatarSize === 'large' ? (isEmbedded ? 74 : 96) : (isEmbedded ? 64 : 88),
+                  height: shouldShowCover && resolvedCoverImage
+                    ? (isEmbedded ? 76 : 96)
+                    : theme.avatarSize === 'hero' ? (isEmbedded ? 82 : 108) : theme.avatarSize === 'large' ? (isEmbedded ? 74 : 96) : (isEmbedded ? 64 : 88),
                   borderRadius: theme.avatarShape === 'squircle' ? (isEmbedded ? 22 : 30) : '50%',
-                  background: profile?.avatar_url
-                    ? '#F1F5F9'
-                    : `linear-gradient(135deg, ${color}, #0F172A)`,
-                  border: theme.avatarBorder || '3px solid white',
-                  boxShadow: theme.avatarRing || `0 4px 16px ${color}33`,
+                  background: resolvedAvatar ? '#FFFFFF' : `linear-gradient(135deg, ${color}, #0F172A)`,
+                  border: shouldShowCover && resolvedCoverImage ? '3.5px solid #FFFFFF' : (theme.avatarBorder || '3px solid white'),
+                  boxShadow: shouldShowCover && resolvedCoverImage ? '0 8px 24px rgba(0,0,0,0.18)' : (theme.avatarRing || `0 4px 16px ${color}33`),
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -1037,13 +908,25 @@ export function LivePagePreview({ profile, links = [], products = [], socials = 
               <h1
                 style={{
                   margin: 0,
-                  fontSize: isEmbedded ? 16 : 21,
-                  fontWeight: 700,
+                  fontSize: isEmbedded ? 17 : 22,
+                  fontWeight: 800,
                   color: theme.textColor,
                   letterSpacing: '-0.02em',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 6,
                 }}
               >
-                {resolvedDisplayName}
+                <span>{resolvedDisplayName}</span>
+                {isOwnerVerified && (
+                  <span title="Verified LinkSocio Founder" style={{ display: 'inline-flex', alignItems: 'center' }}>
+                    <svg width={isEmbedded ? 17 : 20} height={isEmbedded ? 17 : 20} viewBox="0 0 24 24" fill="none">
+                      <path d="M12 2L15.09 5.09L19.45 5.55L20.36 9.81L23.45 12.9L20.36 15.99L19.45 20.25L15.09 20.71L12 23.8L8.91 20.71L4.55 20.25L3.64 15.99L0.55 12.9L3.64 9.81L4.55 5.55L8.91 5.09L12 2Z" fill="#14B8A6" />
+                      <path d="M9 12.5L11 14.5L15.5 10" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </span>
+                )}
               </h1>
 
               <p style={{ margin: '2px 0 0', fontSize: isEmbedded ? 11 : 13, color: theme.subTextColor, fontWeight: 500 }}>
@@ -1098,10 +981,9 @@ export function LivePagePreview({ profile, links = [], products = [], socials = 
                 </a>
               )}
             </div>
-          )}
 
           {/* Save contact & Quick action buttons */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: shouldShowCover ? (isEmbedded ? 6 : 8) : (isEmbedded ? 12 : 16) }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: isEmbedded ? 12 : 16 }}>
               <button
                 onClick={saveContact}
                 style={{

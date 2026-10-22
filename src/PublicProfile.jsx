@@ -114,8 +114,8 @@ export default function PublicProfile({ username }) {
 
     if (serverProfileMeta) {
       if (serverProfileMeta.display_name) profileData.display_name = serverProfileMeta.display_name
-      if (serverProfileMeta.theme_preset && serverProfileMeta.theme_preset !== 'default') profileData.theme_preset = serverProfileMeta.theme_preset
-      if (serverProfileMeta.font_family && serverProfileMeta.font_family !== 'default') profileData.font_family = serverProfileMeta.font_family
+      if (serverProfileMeta.theme_preset) profileData.theme_preset = serverProfileMeta.theme_preset
+      if (serverProfileMeta.font_family) profileData.font_family = serverProfileMeta.font_family
       if (serverProfileMeta.font_color) profileData.font_color = serverProfileMeta.font_color
       if (serverProfileMeta.button_style) profileData.button_style = serverProfileMeta.button_style
       if (serverProfileMeta.header_cover_style) profileData.header_cover_style = serverProfileMeta.header_cover_style
@@ -130,9 +130,7 @@ export default function PublicProfile({ username }) {
       if (!profileData.display_name) {
         profileData.display_name = 'otmane sanade'
       }
-      if (!profileData.theme_preset || profileData.theme_preset === 'default') {
-        profileData.theme_preset = 'studio_noir'
-      }
+      profileData.theme_preset = profileData.theme_preset || 'default'
       profileData.is_owner = true
     }
 
