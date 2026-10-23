@@ -80,9 +80,11 @@ export default function LinksManager({
     }
 
     // 1. Immediately save to server store & localStorage
+    const baseLinks = (Array.isArray(links) && links.length > 0) ? links : getStoredLinks(username, targetUserId)
+    const updatedLinks = [...baseLinks, insertData]
+    saveStoredLinks(username, targetUserId, updatedLinks)
     saveServerLinks(username, targetUserId, { link: insertData })
-    const curStored = getStoredLinks(username, targetUserId)
-    saveStoredLinks(username, targetUserId, [...curStored, insertData])
+    window.dispatchEvent(new CustomEvent('linksocio_links_updated', { detail: { links: updatedLinks } }))
 
     // 2. Best-effort Supabase insert
     try {
@@ -154,9 +156,11 @@ export default function LinksManager({
     }
 
     // Save to server store & localStorage
+    const baseLinks = (Array.isArray(links) && links.length > 0) ? links : getStoredLinks(username, targetUserId)
+    const updatedLinks = [...baseLinks, newLinkData]
+    saveStoredLinks(username, targetUserId, updatedLinks)
     saveServerLinks(username, targetUserId, { link: newLinkData })
-    const curStored = getStoredLinks(username, targetUserId)
-    saveStoredLinks(username, targetUserId, [...curStored, newLinkData])
+    window.dispatchEvent(new CustomEvent('linksocio_links_updated', { detail: { links: updatedLinks } }))
 
     // Save to Supabase (best-effort)
     try {
@@ -166,7 +170,7 @@ export default function LinksManager({
     // Also update socials store & localStorage
     const currentSocials = getStoredSocials(username, targetUserId)
     const filtered = (currentSocials || []).filter((s) => s.name?.toLowerCase() !== activePreset.label.toLowerCase())
-    const updated = [
+    const updatedSocials = [
       ...filtered,
       {
         platformId: (activePreset.label || '').toLowerCase(),
@@ -176,7 +180,7 @@ export default function LinksManager({
         active: true,
       },
     ]
-    saveStoredSocials(username, targetUserId, updated)
+    saveStoredSocials(username, targetUserId, updatedSocials)
 
     setActivePreset(null)
     setPresetInput('')
@@ -186,9 +190,11 @@ export default function LinksManager({
   async function deleteLink(id) {
     const targetUserId = profile?.id || user?.id
     const username = profile?.username || user?.user_metadata?.username || ''
-    saveServerLinks(username, targetUserId, { deleteId: id })
-    const curStored = getStoredLinks(username, targetUserId).filter((l) => l.id !== id)
+    const baseLinks = (Array.isArray(links) && links.length > 0) ? links : getStoredLinks(username, targetUserId)
+    const curStored = baseLinks.filter((l) => l.id !== id)
     saveStoredLinks(username, targetUserId, curStored)
+    saveServerLinks(username, targetUserId, { deleteId: id })
+    window.dispatchEvent(new CustomEvent('linksocio_links_updated', { detail: { links: curStored } }))
     try {
       await supabase.from('links').delete().eq('id', id).catch(() => {})
     } catch (e) {}
@@ -199,9 +205,11 @@ export default function LinksManager({
     const targetUserId = profile?.id || user?.id
     const username = profile?.username || user?.user_metadata?.username || ''
     const updated = { ...link, active: !link.active }
-    saveServerLinks(username, targetUserId, { link: updated })
-    const curStored = getStoredLinks(username, targetUserId).map((l) => (l.id === link.id ? updated : l))
+    const baseLinks = (Array.isArray(links) && links.length > 0) ? links : getStoredLinks(username, targetUserId)
+    const curStored = baseLinks.map((l) => (l.id === link.id ? updated : l))
     saveStoredLinks(username, targetUserId, curStored)
+    saveServerLinks(username, targetUserId, { link: updated })
+    window.dispatchEvent(new CustomEvent('linksocio_links_updated', { detail: { links: curStored } }))
     try {
       await supabase.from('links').update({ active: !link.active }).eq('id', link.id).catch(() => {})
     } catch (e) {}
@@ -209,32 +217,42 @@ export default function LinksManager({
   }
 
   async function setStyle(link, style) {
-    try {
-      await supabase.from('links').update({ style }).eq('id', link.id).catch(() => {})
-    } catch (e) {}
     const username = profile?.username || ''
     const userId = profile?.id || user?.id || ''
+    const updated = { ...link, style }
+    const baseLinks = (Array.isArray(links) && links.length > 0) ? links : getStoredLinks(username, userId)
+    const curStored = baseLinks.map((l) => (l.id === link.id ? updated : l))
+    saveStoredLinks(username, userId, curStored)
     const current = getStoredLinksMeta(username, userId)
     saveStoredLinksMeta(username, userId, {
       ...current,
       [link.id]: { ...(current[link.id] || {}), style },
     })
-    saveServerLinks(username, userId, { link: { ...link, style } })
+    saveServerLinks(username, userId, { link: updated })
+    window.dispatchEvent(new CustomEvent('linksocio_links_updated', { detail: { links: curStored } }))
+    try {
+      await supabase.from('links').update({ style }).eq('id', link.id).catch(() => {})
+    } catch (e) {}
     if (onLinksChanged) onLinksChanged()
   }
 
   async function setIconPosition(link, icon_position) {
-    try {
-      await supabase.from('links').update({ icon_position }).eq('id', link.id).catch(() => {})
-    } catch (e) {}
     const username = profile?.username || ''
     const userId = profile?.id || user?.id || ''
+    const updated = { ...link, icon_position }
+    const baseLinks = (Array.isArray(links) && links.length > 0) ? links : getStoredLinks(username, userId)
+    const curStored = baseLinks.map((l) => (l.id === link.id ? updated : l))
+    saveStoredLinks(username, userId, curStored)
     const current = getStoredLinksMeta(username, userId)
     saveStoredLinksMeta(username, userId, {
       ...current,
       [link.id]: { ...(current[link.id] || {}), icon_position },
     })
-    saveServerLinks(username, userId, { link: { ...link, icon_position } })
+    saveServerLinks(username, userId, { link: updated })
+    window.dispatchEvent(new CustomEvent('linksocio_links_updated', { detail: { links: curStored } }))
+    try {
+      await supabase.from('links').update({ icon_position }).eq('id', link.id).catch(() => {})
+    } catch (e) {}
     if (onLinksChanged) onLinksChanged()
   }
 

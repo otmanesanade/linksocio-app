@@ -241,8 +241,24 @@ function ProfileCard({ user, profile, onSaved, onLiveUpdate }) {
   )
 }
 
+function isFounderAccount(user, profile) {
+  const email = (user?.email || user?.user_metadata?.email || profile?.email || '').toLowerCase().trim()
+  const username = (profile?.username || user?.user_metadata?.username || '').toLowerCase().trim()
+  const userId = user?.id || profile?.id || ''
+  return (
+    email === 'otmank514@gmail.com' ||
+    username === 'otmank514' ||
+    username === 'otman' ||
+    userId === '5821c210-9b62-43bb-a5a4-0985c7d0d046' ||
+    userId === '33373cca-beb6-43c8-ac2f-8ad4e8f54b85' ||
+    checkIsOwner(user, profile)
+  )
+}
+
 export default function Dashboard({ user, initialTab }) {
   const { t, isRTL } = useLanguage()
+  const isFounder = isFounderAccount(user, null)
+
   const [profile, setProfile] = useState(() => {
     if (typeof window !== 'undefined' && user?.id) {
       try {
@@ -250,19 +266,28 @@ export default function Dashboard({ user, initialTab }) {
         const cached = localStorage.getItem(`linksocio_cached_profile_${user.id}`)
         if (cached) {
           const parsed = JSON.parse(cached)
-          if (parsed && parsed.id === user.id) {
+          if (parsed && (parsed.id === user.id || isFounder)) {
+            if (isFounder) {
+              parsed.id = parsed.id || '33373cca-beb6-43c8-ac2f-8ad4e8f54b85'
+              parsed.username = 'otmank514'
+              parsed.display_name = parsed.display_name || 'otmane sanade'
+              parsed.plan = 'business'
+              parsed.hide_branding = true
+              parsed.is_owner = true
+            }
             return parsed
           }
         }
       } catch (e) {}
     }
     return {
-      id: user?.id,
-      username: user?.user_metadata?.username || (user?.email ? user.email.split('@')[0] : 'user'),
-      display_name: user?.user_metadata?.full_name || user?.user_metadata?.name || '',
+      id: isFounder ? '33373cca-beb6-43c8-ac2f-8ad4e8f54b85' : user?.id,
+      username: isFounder ? 'otmank514' : (user?.user_metadata?.username || (user?.email ? user.email.split('@')[0] : 'user')),
+      display_name: isFounder ? 'otmane sanade' : (user?.user_metadata?.full_name || user?.user_metadata?.name || ''),
       theme_preset: 'default',
       plan: 'business',
-      hide_branding: false,
+      hide_branding: isFounder,
+      is_owner: isFounder,
     }
   })
   const [links, setLinks] = useState([])
@@ -464,32 +489,73 @@ export default function Dashboard({ user, initialTab }) {
     } catch (e) {}
   }
 
+  useEffect(() => {
+    const handleLinksUpdate = (e) => {
+      if (e?.detail?.links && Array.isArray(e.detail.links)) {
+        setLinks(e.detail.links)
+      }
+    }
+    window.addEventListener('linksocio_links_updated', handleLinksUpdate)
+    return () => window.removeEventListener('linksocio_links_updated', handleLinksUpdate)
+  }, [])
+
   async function loadProfile(overrideProfile) {
     if (overrideProfile && typeof overrideProfile === 'object') {
       setProfile((prev) => ({ ...(prev || {}), ...overrideProfile, _ts: Date.now() }))
     }
     try {
-      let { data } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle()
+      const isFounder = isFounderAccount(user, profile)
+      let data = null
+
+      // If founder, first try canonical founder ID or username
+      if (isFounder) {
+        const { data: founderById } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', '33373cca-beb6-43c8-ac2f-8ad4e8f54b85')
+          .maybeSingle()
+        if (founderById) {
+          data = founderById
+        } else {
+          const { data: founderByUname } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('username', 'otmank514')
+            .maybeSingle()
+          if (founderByUname) data = founderByUname
+        }
+      }
+
+      // If not founder or not found yet, query by user.id
+      if (!data && user?.id) {
+        const { data: userData } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle()
+        data = userData
+      }
 
       if (!data) {
         const metaName = user?.user_metadata?.full_name || user?.user_metadata?.name || ''
         const claimedUser = (sessionStorage.getItem('linksocio_claim_user') || '').toLowerCase().trim().replace(/[^a-z0-9_-]/g, '')
         try { sessionStorage.removeItem('linksocio_claim_user') } catch (e) {}
         const emailPrefix = (user?.email ? user.email.split('@')[0] : 'user').toLowerCase().replace(/[^a-z0-9_-]/g, '')
-        let fallbackUser = (claimedUser && claimedUser !== 'otmank514' && claimedUser !== 'otman')
-          ? claimedUser
-          : (emailPrefix && emailPrefix !== 'otmank514' && emailPrefix !== 'otman' ? emailPrefix : `user_${user.id.slice(0, 6)}`)
-        if ((fallbackUser === 'otmank514' || fallbackUser === 'otman') && user.id !== '33373cca-beb6-43c8-ac2f-8ad4e8f54b85') {
-          fallbackUser = `user_${user.id.slice(0, 6)}`
+
+        let fallbackUser
+        if (isFounder) {
+          fallbackUser = 'otmank514'
+        } else {
+          fallbackUser = (claimedUser && claimedUser !== 'otmank514' && claimedUser !== 'otman')
+            ? claimedUser
+            : (emailPrefix && emailPrefix !== 'otmank514' && emailPrefix !== 'otman' ? emailPrefix : `user_${user.id.slice(0, 6)}`)
         }
 
         const newProf = {
-          id: user.id,
+          id: isFounder ? '33373cca-beb6-43c8-ac2f-8ad4e8f54b85' : user.id,
           username: fallbackUser,
-          display_name: metaName || fallbackUser,
+          display_name: isFounder ? 'otmane sanade' : (metaName || fallbackUser),
           theme_preset: 'default',
           plan: 'business',
           theme_color: '#14B8A6',
+          is_owner: isFounder,
+          hide_branding: isFounder,
         }
         try {
           const { data: created, error: createErr } = await supabase.from('profiles').upsert(newProf).select().maybeSingle()
@@ -506,11 +572,17 @@ export default function Dashboard({ user, initialTab }) {
       }
 
       // Check if this account is the owner/founder account
-      const isOwner = checkIsOwner(user, data)
+      const isOwner = isFounderAccount(user, data)
       if (isOwner) {
         data.plan = 'business'
         data.hide_branding = true
         data.is_owner = true
+        if (!data.username || data.username.startsWith('user_')) {
+          data.username = 'otmank514'
+        }
+        if (!data.display_name) {
+          data.display_name = 'otmane sanade'
+        }
       }
 
       // Read local custom preferences for THIS specific account only
@@ -518,11 +590,16 @@ export default function Dashboard({ user, initialTab }) {
       const uId = data.id || user.id
       const cleanUser = (uName || '').toLowerCase().trim().replace(/^@+/, '')
 
-      const [serverInquiry, serverBooking, serverMeta] = await Promise.all([
+      const [serverInquiry, serverBooking, serverMeta, serverRestaurant] = await Promise.all([
         fetchServerInquirySettings(cleanUser, data.id),
         fetchServerBookingSettings(cleanUser, data.id),
         fetchServerProfileMeta(cleanUser, data.id || user.id),
+        fetchServerRestaurantMenu(cleanUser, data.id),
       ])
+
+      if (serverRestaurant) {
+        data._restaurantMenu = serverRestaurant
+      }
 
       // Server persistence takes precedence over initial stale Supabase seed
       if (serverMeta) {
@@ -685,22 +762,30 @@ export default function Dashboard({ user, initialTab }) {
     })
 
     // Immediately load links and products with this resolved profile ID
-    loadLinks(data.id)
-    loadProducts(data.id)
+    loadLinks(data.id, data.username)
+    loadProducts(data.id, data.username)
   } catch (err) {
     console.error('Failed to load profile:', err)
   }
 }
 
-  async function loadLinks(overrideUserId) {
-    const targetUserId = overrideUserId || profile?.id || user.id
-    const username = profile?.username || user?.user_metadata?.username || ''
+  async function loadLinks(overrideUserId, overrideUsername) {
+    const isFounder = isFounderAccount(user, profile)
+    const targetUserId = overrideUserId || profile?.id || (isFounder ? '33373cca-beb6-43c8-ac2f-8ad4e8f54b85' : user.id)
+    const username = overrideUsername || profile?.username || (isFounder ? 'otmank514' : (user?.user_metadata?.username || ''))
     let combinedLinks = []
 
+    const queryIds = isFounder
+      ? Array.from(new Set(['33373cca-beb6-43c8-ac2f-8ad4e8f54b85', '5821c210-9b62-43bb-a5a4-0985c7d0d046', user?.id, targetUserId].filter(Boolean)))
+      : [targetUserId]
+
     // 0. Load immediately from local storage for instant responsiveness
-    const stored = getStoredLinks(username, targetUserId)
-    if (Array.isArray(stored) && stored.length > 0) {
-      combinedLinks = [...stored]
+    for (const qId of queryIds) {
+      const stored = getStoredLinks(username, qId)
+      if (Array.isArray(stored) && stored.length > 0) {
+        combinedLinks = [...stored]
+        break
+      }
     }
 
     // 1. Fetch from authoritative server store
@@ -711,16 +796,17 @@ export default function Dashboard({ user, initialTab }) {
       }
     } catch (e) {}
 
-    // 2. Only if combinedLinks is completely empty, fall back to initial Supabase seed
+    // 2. Only if combinedLinks is completely empty, fall back to Supabase database
     if (combinedLinks.length === 0) {
       try {
         const { data } = await supabase
           .from('links')
           .select('*')
-          .eq('user_id', targetUserId)
+          .in('user_id', queryIds)
           .order('position', { ascending: true })
         if (data && Array.isArray(data) && data.length > 0) {
           combinedLinks = [...data]
+          saveStoredLinks(username, targetUserId, combinedLinks)
         }
       } catch (e) {}
     }
@@ -757,10 +843,14 @@ export default function Dashboard({ user, initialTab }) {
     }
   }
 
-  async function loadProducts(overrideUserId) {
+  async function loadProducts(overrideUserId, overrideUsername) {
+    const isFounder = isFounderAccount(user, profile)
     let combined = []
-    const targetUserId = overrideUserId || profile?.id || user.id
-    const username = profile?.username || user?.user_metadata?.username || ''
+    const targetUserId = overrideUserId || profile?.id || (isFounder ? '33373cca-beb6-43c8-ac2f-8ad4e8f54b85' : user.id)
+    const username = overrideUsername || profile?.username || (isFounder ? 'otmank514' : (user?.user_metadata?.username || ''))
+    const queryIds = isFounder
+      ? Array.from(new Set(['33373cca-beb6-43c8-ac2f-8ad4e8f54b85', '5821c210-9b62-43bb-a5a4-0985c7d0d046', user?.id, targetUserId].filter(Boolean)))
+      : [targetUserId]
 
     try {
       const res = await fetch(`/api/products?username=${encodeURIComponent(username)}&userId=${encodeURIComponent(targetUserId)}`)
@@ -777,7 +867,7 @@ export default function Dashboard({ user, initialTab }) {
         const { data } = await supabase
           .from('products')
           .select('*')
-          .eq('user_id', targetUserId)
+          .in('user_id', queryIds)
           .order('position', { ascending: true })
         if (data && Array.isArray(data)) combined = [...data]
       } catch (e) {}

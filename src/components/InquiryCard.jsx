@@ -14,7 +14,11 @@ export default function InquiryCard({ profile, links = [], theme, isEmbedded = f
   useEffect(() => {
     function handleUpdate(e) {
       if (!e?.detail || e.detail.type === 'inquiry') {
-        setCurrentSettings(getInquirySettings(profile))
+        const fresh = getInquirySettings(profile)
+        if (e?.detail?.enabled !== undefined) {
+          fresh.enabled = Boolean(e.detail.enabled)
+        }
+        setCurrentSettings(fresh)
       }
     }
     window.addEventListener('linksocio_settings_updated', handleUpdate)

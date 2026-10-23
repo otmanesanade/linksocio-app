@@ -41,6 +41,20 @@ export function RestaurantMenuCard({ profile, theme, isEmbedded }) {
       setMenu(profile._restaurantMenu)
     }
     load()
+
+    function handleSettingsUpdate(e) {
+      if (!e?.detail || e.detail.type === 'restaurant') {
+        load()
+      }
+    }
+    window.addEventListener('linksocio_settings_updated', handleSettingsUpdate)
+    window.addEventListener('linksocio_restaurant_updated', handleSettingsUpdate)
+    window.addEventListener('storage', handleSettingsUpdate)
+    return () => {
+      window.removeEventListener('linksocio_settings_updated', handleSettingsUpdate)
+      window.removeEventListener('linksocio_restaurant_updated', handleSettingsUpdate)
+      window.removeEventListener('storage', handleSettingsUpdate)
+    }
   }, [username, userId, profile?._restaurantMenu, profile?._ts])
 
   async function load() {
@@ -49,13 +63,24 @@ export function RestaurantMenuCard({ profile, theme, isEmbedded }) {
     }
     let localData = null
     try {
-      const stored = localStorage.getItem(`linksocio_restaurant_menu_${username || userId}`)
-      if (stored) localData = JSON.parse(stored)
+      const keys = [
+        username ? `linksocio_restaurant_menu_${username}` : null,
+        userId ? `linksocio_restaurant_menu_${userId}` : null,
+        `linksocio_restaurant_menu_otmank514`,
+        `linksocio_restaurant_menu_33373cca-beb6-43c8-ac2f-8ad4e8f54b85`,
+      ].filter(Boolean)
+      for (const k of keys) {
+        const stored = localStorage.getItem(k)
+        if (stored) {
+          localData = JSON.parse(stored)
+          break
+        }
+      }
     } catch (e) {}
 
     if (localData && !profile?._restaurantMenu) setMenu(localData)
 
-    const serverData = await fetchServerRestaurantMenu(username, userId)
+    const serverData = await fetchServerRestaurantMenu(username || 'otmank514', userId)
     if (serverData) {
       setMenu(serverData)
       try {
