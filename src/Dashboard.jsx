@@ -719,7 +719,11 @@ export default function Dashboard({ user, initialTab }) {
 
       // Read local custom preferences for any fresh unsynced changes
       const rawLocalTheme = (uName && localStorage.getItem(`linksocio_theme_preset_${uName}`)) || (uId && localStorage.getItem(`linksocio_theme_preset_${uId}`))
-      const rawLocalName = (uName && localStorage.getItem(`linksocio_display_name_${uName}`)) || (uId && localStorage.getItem(`linksocio_display_name_${uId}`))
+      const rawLocalName =
+        (uName && localStorage.getItem(`linksocio_display_name_${uName}`)) ||
+        (uId && localStorage.getItem(`linksocio_display_name_${uId}`)) ||
+        (user?.id && localStorage.getItem(`linksocio_display_name_${user.id}`)) ||
+        (isGlowfy && localStorage.getItem('linksocio_display_name_glowfy'))
       const rawLocalAvatar = (uName && localStorage.getItem(`linksocio_avatar_${uName}`)) || (uId && localStorage.getItem(`linksocio_avatar_${uId}`))
       const rawLocalBio = (uName && localStorage.getItem(`linksocio_bio_${uName}`)) || (uId && localStorage.getItem(`linksocio_bio_${uId}`))
       const isAvatarRemoved = (uName && localStorage.getItem(`linksocio_avatar_removed_${uName}`) === 'true') || (uId && localStorage.getItem(`linksocio_avatar_removed_${uId}`) === 'true')
@@ -748,6 +752,8 @@ export default function Dashboard({ user, initialTab }) {
       if (data.display_name) {
         if (data.username) localStorage.setItem(`linksocio_display_name_${data.username}`, data.display_name)
         if (user?.id) localStorage.setItem(`linksocio_display_name_${user.id}`, data.display_name)
+        if (data.id) localStorage.setItem(`linksocio_display_name_${data.id}`, data.display_name)
+        if (isGlowfy) localStorage.setItem('linksocio_display_name_glowfy', data.display_name)
       }
       if (data.avatar_url) {
         if (data.username) localStorage.setItem(`linksocio_avatar_${data.username}`, data.avatar_url)
@@ -845,15 +851,10 @@ export default function Dashboard({ user, initialTab }) {
 }
 
   async function loadLinks(overrideUserId, overrideUsername) {
-    const isFounder = isFounderAccount(user, profile)
-    const isGlowfy = isGlowfyAccount(user, profile)
-    const targetUserId = overrideUserId || profile?.id || (isGlowfy ? 'e18d8599-1f34-44ca-aaad-656b155ba792' : isFounder ? '33373cca-beb6-43c8-ac2f-8ad4e8f54b85' : user.id)
-    const username = overrideUsername || profile?.username || (isGlowfy ? 'glowfy' : isFounder ? 'otmank514' : (user?.user_metadata?.username || ''))
+    const targetUserId = overrideUserId || profile?.id || user.id
+    const username = overrideUsername || profile?.username || (user?.user_metadata?.username || '')
     let combinedLinks = []
-
-    const queryIds = (isFounder || isGlowfy)
-      ? Array.from(new Set(['33373cca-beb6-43c8-ac2f-8ad4e8f54b85', '5821c210-9b62-43bb-a5a4-0985c7d0d046', 'e18d8599-1f34-44ca-aaad-656b155ba792', user?.id, targetUserId].filter(Boolean)))
-      : [targetUserId]
+    const queryIds = [targetUserId].filter(Boolean)
 
     // 0. Load immediately from local storage for instant responsiveness
     for (const qId of queryIds) {
@@ -861,20 +862,6 @@ export default function Dashboard({ user, initialTab }) {
       if (Array.isArray(stored) && stored.length > 0) {
         combinedLinks = [...stored]
         break
-      }
-    }
-
-    // If still empty and founder/glowfy, check other associated handles
-    if (combinedLinks.length === 0 && (isFounder || isGlowfy)) {
-      for (const un of ['glowfy', 'otmank514']) {
-        for (const qId of queryIds) {
-          const s = getStoredLinks(un, qId)
-          if (Array.isArray(s) && s.length > 0) {
-            combinedLinks = [...s]
-            break
-          }
-        }
-        if (combinedLinks.length > 0) break
       }
     }
 
@@ -886,16 +873,7 @@ export default function Dashboard({ user, initialTab }) {
       }
     } catch (e) {}
 
-    if (combinedLinks.length === 0 && (isFounder || isGlowfy)) {
-      try {
-        const founderLinks = await fetchServerLinks('otmank514', '33373cca-beb6-43c8-ac2f-8ad4e8f54b85')
-        if (Array.isArray(founderLinks) && founderLinks.length > 0) {
-          combinedLinks = [...founderLinks]
-        }
-      } catch (e) {}
-    }
-
-    // 2. Only if combinedLinks is completely empty, fall back to Supabase database
+    // 2. Fall back to Supabase database for this specific user/profile only
     if (combinedLinks.length === 0) {
       try {
         const { data } = await supabase
@@ -943,14 +921,10 @@ export default function Dashboard({ user, initialTab }) {
   }
 
   async function loadProducts(overrideUserId, overrideUsername) {
-    const isFounder = isFounderAccount(user, profile)
-    const isGlowfy = isGlowfyAccount(user, profile)
     let combined = []
-    const targetUserId = overrideUserId || profile?.id || (isGlowfy ? 'e18d8599-1f34-44ca-aaad-656b155ba792' : isFounder ? '33373cca-beb6-43c8-ac2f-8ad4e8f54b85' : user.id)
-    const username = overrideUsername || profile?.username || (isGlowfy ? 'glowfy' : isFounder ? 'otmank514' : (user?.user_metadata?.username || ''))
-    const queryIds = (isFounder || isGlowfy)
-      ? Array.from(new Set(['33373cca-beb6-43c8-ac2f-8ad4e8f54b85', '5821c210-9b62-43bb-a5a4-0985c7d0d046', 'e18d8599-1f34-44ca-aaad-656b155ba792', user?.id, targetUserId].filter(Boolean)))
-      : [targetUserId]
+    const targetUserId = overrideUserId || profile?.id || user.id
+    const username = overrideUsername || profile?.username || (user?.user_metadata?.username || '')
+    const queryIds = [targetUserId].filter(Boolean)
 
     try {
       const res = await fetch(`/api/products?username=${encodeURIComponent(username)}&userId=${encodeURIComponent(targetUserId)}`)
@@ -961,18 +935,6 @@ export default function Dashboard({ user, initialTab }) {
         }
       }
     } catch (e) {}
-
-    if (combined.length === 0 && (isFounder || isGlowfy)) {
-      try {
-        const res = await fetch(`/api/products?username=otmank514&userId=33373cca-beb6-43c8-ac2f-8ad4e8f54b85`)
-        if (res.ok) {
-          const json = await res.json()
-          if (json.products && Array.isArray(json.products) && json.products.length > 0) {
-            combined = [...json.products]
-          }
-        }
-      } catch (e) {}
-    }
 
     if (combined.length === 0) {
       try {

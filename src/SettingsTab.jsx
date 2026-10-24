@@ -130,9 +130,19 @@ export default function SettingsTab({ user, profile, onSaved, onLiveUpdate, init
     const rawU = (profile?.username || '').toLowerCase().trim().replace(/^@+/, '')
     const userEmail = (user?.email || profile?.email || '').toLowerCase().trim()
     const isGlowfy = userEmail === 'soporte@glowfy.es' || userEmail.endsWith('@glowfy.es') || rawU === 'glowfy' || rawU === 'soporte' || profile?.id === 'e18d8599-1f34-44ca-aaad-656b155ba792'
-    const targetUname = isGlowfy ? 'glowfy' : (profile?.username || '')
+    const targetUname = profile?.username || (isGlowfy ? 'glowfy' : '')
 
-    setDisplayName(profile?.display_name || (isGlowfy ? (user?.user_metadata?.full_name || 'glowfy') : ''))
+    const storedName =
+      (typeof window !== 'undefined' && profile?.username && localStorage.getItem(`linksocio_display_name_${profile.username}`)) ||
+      (typeof window !== 'undefined' && profile?.id && localStorage.getItem(`linksocio_display_name_${profile.id}`)) ||
+      (typeof window !== 'undefined' && user?.id && localStorage.getItem(`linksocio_display_name_${user.id}`))
+
+    const initialDisplayName =
+      storedName ||
+      profile?.display_name ||
+      (isGlowfy ? (user?.user_metadata?.full_name || 'glowfy') : (user?.user_metadata?.full_name || ''))
+
+    setDisplayName(initialDisplayName)
     setBio(profile?.bio || '')
     setLocation(profile?.location || '')
     setUsername(targetUname)
@@ -145,12 +155,14 @@ export default function SettingsTab({ user, profile, onSaved, onLiveUpdate, init
     const cleanU = (targetUname || profile?.username || '').toLowerCase().trim().replace(/^@/, '')
     fetchServerProfileMeta(cleanU, user?.id).then((meta) => {
       if (meta) {
-        if (meta.email) setEmail(meta.email)
-        if (meta.whatsapp) setWhatsapp(meta.whatsapp)
-        if (meta.location) setLocation(meta.location)
+        if (meta.display_name) setDisplayName((curr) => curr || meta.display_name)
+        if (meta.email) setEmail((curr) => curr || meta.email)
+        if (meta.whatsapp) setWhatsapp((curr) => curr || meta.whatsapp)
+        if (meta.location) setLocation((curr) => curr || meta.location)
+        if (meta.bio) setBio((curr) => curr || meta.bio)
       }
     })
-  }, [profile, user])
+  }, [profile?.id, user?.id])
 
   const originalUsername = profile?.username || ''
   const isUsernameChanged = username.trim().toLowerCase() !== originalUsername.toLowerCase()
@@ -233,7 +245,7 @@ export default function SettingsTab({ user, profile, onSaved, onLiveUpdate, init
     setProfileSaving(true)
     setProfileError('')
 
-    const targetId = user?.id || profile?.id
+    const targetId = profile?.id || user?.id
     // Send valid fields that exist in the Supabase 'profiles' table schema
     const validProfilePayload = {
       display_name: cleanName,
@@ -245,29 +257,44 @@ export default function SettingsTab({ user, profile, onSaved, onLiveUpdate, init
 
     try {
       // 1. Immediately persist full profile presentation fields to server & localStorage
-      saveServerProfileMeta(cleanUsername, user.id, {
+      saveServerProfileMeta(cleanUsername, user?.id, {
         display_name: cleanName,
         bio: cleanBio,
         email: cleanEmail,
         whatsapp: cleanWhatsapp,
         location: cleanLocation,
         username: cleanUsername,
+        userId: targetId,
         ...(profile?.avatar_url ? { avatar_url: profile.avatar_url } : {}),
         ...(profile?.theme_preset ? { theme_preset: profile.theme_preset } : {}),
       })
 
-      // 2. Best-effort Supabase sync (updates or upserts user's own profile row)
-      try {
-        const { error: updErr, count } = await supabase
-          .from('profiles')
-          .update(validProfilePayload)
-          .eq('id', targetId)
+      // Directly write display name and profile fields to localStorage under all keys
+      if (typeof window !== 'undefined') {
+        const idKeys = [cleanUsername, targetId, user?.id, profile?.id].filter(Boolean)
+        for (const k of idKeys) {
+          localStorage.setItem(`linksocio_display_name_${k}`, cleanName)
+          localStorage.setItem(`linksocio_bio_${k}`, cleanBio)
+          if (cleanLocation) localStorage.setItem(`linksocio_profile_location_${k}`, cleanLocation)
+          if (cleanWhatsapp) localStorage.setItem(`linksocio_contact_whatsapp_${k}`, cleanWhatsapp)
+          if (cleanEmail) localStorage.setItem(`linksocio_contact_email_${k}`, cleanEmail)
+        }
+        if (isGlowfy) {
+          localStorage.setItem('linksocio_display_name_glowfy', cleanName)
+          localStorage.setItem('linksocio_display_name_e18d8599-1f34-44ca-aaad-656b155ba792', cleanName)
+        }
+      }
 
-        if (updErr || count === 0) {
-          await supabase
-            .from('profiles')
-            .upsert({ id: targetId, ...validProfilePayload })
-            .catch(() => {})
+      // 2. Best-effort Supabase sync (updates user's profile row by ID and username)
+      try {
+        if (targetId) {
+          await supabase.from('profiles').update(validProfilePayload).eq('id', targetId)
+        }
+        if (cleanUsername) {
+          await supabase.from('profiles').update(validProfilePayload).eq('username', cleanUsername)
+        }
+        if (isGlowfy) {
+          await supabase.from('profiles').update(validProfilePayload).eq('id', 'e18d8599-1f34-44ca-aaad-656b155ba792')
         }
       } catch (dbErr) {
         console.warn('Non-fatal database save warning:', dbErr)
@@ -303,9 +330,22 @@ export default function SettingsTab({ user, profile, onSaved, onLiveUpdate, init
         } catch (e) {}
       }
 
+      if (onLiveUpdate) {
+        onLiveUpdate({
+          display_name: cleanName,
+          bio: cleanBio,
+          username: cleanUsername,
+          location: cleanLocation,
+          whatsapp: cleanWhatsapp,
+          email: cleanEmail,
+          contact_email: cleanEmail,
+        })
+      }
+
       setProfileSaved(true)
       if (onSaved) {
         await onSaved({
+          ...(profile || {}),
           display_name: cleanName,
           bio: cleanBio,
           username: cleanUsername,

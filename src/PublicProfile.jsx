@@ -159,11 +159,17 @@ export default function PublicProfile({ username }) {
 
     if (isOwnerAccount) {
       if (!profileData.display_name) {
-        profileData.display_name = 'otmane sanade'
+        profileData.display_name = isGlowfy ? 'glowfy' : 'otmane sanade'
       }
       profileData.theme_preset = profileData.theme_preset || 'default'
       profileData.is_owner = true
     }
+
+    const storedDisplayName =
+      (profileData.username && typeof window !== 'undefined' && localStorage.getItem(`linksocio_display_name_${profileData.username}`)) ||
+      (profileData.id && typeof window !== 'undefined' && localStorage.getItem(`linksocio_display_name_${profileData.id}`)) ||
+      (isGlowfy && typeof window !== 'undefined' && localStorage.getItem('linksocio_display_name_glowfy'))
+    if (storedDisplayName) profileData.display_name = storedDisplayName
 
     if (!profileData.location) {
       const storedLoc = (profileData.username && localStorage.getItem(`linksocio_profile_location_${profileData.username}`)) ||
@@ -195,7 +201,7 @@ export default function PublicProfile({ username }) {
       })
     }
 
-    const contactWa = profileData.whatsapp || (isOwnerAccount ? '+34642887658' : '')
+    const contactWa = profileData.whatsapp || ''
     if (contactWa) {
       const cleanWa = contactWa.replace(/[^0-9]/g, '')
       const waIdx = finalSocials.findIndex((s) => s.platformId === 'whatsapp')
@@ -215,15 +221,6 @@ export default function PublicProfile({ username }) {
       }
     }
 
-    if (isOwnerAccount && !finalSocials.some((s) => s.platformId === 'instagram')) {
-      finalSocials.push({
-        platformId: 'instagram',
-        name: 'Instagram',
-        url: 'https://instagram.com/Sa_GP06',
-        rawHandle: 'Sa_GP06',
-        active: true,
-      })
-    }
     setSocials(finalSocials)
 
     if (inquirySettings) {
@@ -248,9 +245,8 @@ export default function PublicProfile({ username }) {
 
     setProfile(profileData)
 
-    const targetIds = isOwnerAccount
-      ? Array.from(new Set(['33373cca-beb6-43c8-ac2f-8ad4e8f54b85', '5821c210-9b62-43bb-a5a4-0985c7d0d046', 'e18d8599-1f34-44ca-aaad-656b155ba792', profileData.id].filter(Boolean)))
-      : [profileData.id]
+    // Strictly query products and links for THIS specific profile
+    const targetIds = [profileData.id]
     const [{ data: linksData }, { data: productsData }, serverLinks] = await Promise.all([
       supabase
         .from('links')
@@ -273,15 +269,6 @@ export default function PublicProfile({ username }) {
       combinedLinks = [...linksData]
     }
 
-    if (combinedLinks.length === 0 && isOwnerAccount) {
-      try {
-        const founderLinks = await fetchServerLinks('otmank514', '33373cca-beb6-43c8-ac2f-8ad4e8f54b85')
-        if (Array.isArray(founderLinks) && founderLinks.length > 0) {
-          combinedLinks = [...founderLinks]
-        }
-      } catch (e) {}
-    }
-
     let finalProducts = []
     try {
       const pRes = await fetch(`/api/products?username=${encodeURIComponent(profileData.username)}&userId=${encodeURIComponent(profileData.id)}`)
@@ -292,18 +279,6 @@ export default function PublicProfile({ username }) {
         }
       }
     } catch (e) {}
-
-    if (finalProducts.length === 0 && isOwnerAccount) {
-      try {
-        const pRes = await fetch(`/api/products?username=otmank514&userId=33373cca-beb6-43c8-ac2f-8ad4e8f54b85`)
-        if (pRes.ok) {
-          const pJson = await pRes.json()
-          if (pJson.products && Array.isArray(pJson.products) && pJson.products.length > 0) {
-            finalProducts = [...pJson.products]
-          }
-        }
-      } catch (e) {}
-    }
 
     if (finalProducts.length === 0 && productsData && Array.isArray(productsData)) {
       finalProducts = [...productsData]
@@ -382,7 +357,7 @@ export default function PublicProfile({ username }) {
     setLoading(false)
 
     // Dynamic SEO & Structured Data (Schema.org JSON-LD)
-    const displayName = profileData.name || profileData.full_name || `@${profileData.username || cleanUser}`
+    const displayName = profileData.display_name || profileData.name || profileData.full_name || `@${profileData.username || cleanUser}`
     const bioText = profileData.bio ? profileData.bio.trim() : `Boutique et profil officiel de ${displayName} sur LinkSocio. Liens utiles, produits digitaux et prise de rendez-vous.`
     const prodNames = finalProducts.map((p) => p.name || p.title).filter(Boolean)
     const keywordsList = [

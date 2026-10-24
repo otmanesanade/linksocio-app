@@ -62,12 +62,12 @@ export function RestaurantMenuCard({ profile, theme, isEmbedded }) {
       setMenu(profile._restaurantMenu)
     }
     let localData = null
+    const isOtman = username === 'otmank514' || username === 'otman' || userId === '33373cca-beb6-43c8-ac2f-8ad4e8f54b85'
     try {
       const keys = [
         username ? `linksocio_restaurant_menu_${username}` : null,
         userId ? `linksocio_restaurant_menu_${userId}` : null,
-        `linksocio_restaurant_menu_otmank514`,
-        `linksocio_restaurant_menu_33373cca-beb6-43c8-ac2f-8ad4e8f54b85`,
+        ...(isOtman ? ['linksocio_restaurant_menu_otmank514', 'linksocio_restaurant_menu_33373cca-beb6-43c8-ac2f-8ad4e8f54b85'] : []),
       ].filter(Boolean)
       for (const k of keys) {
         const stored = localStorage.getItem(k)
@@ -80,7 +80,7 @@ export function RestaurantMenuCard({ profile, theme, isEmbedded }) {
 
     if (localData && !profile?._restaurantMenu) setMenu(localData)
 
-    const serverData = await fetchServerRestaurantMenu(username || 'otmank514', userId)
+    const serverData = await fetchServerRestaurantMenu(username || (isOtman ? 'otmank514' : ''), userId)
     if (serverData) {
       setMenu(serverData)
       try {

@@ -425,12 +425,12 @@ export function LivePagePreview({ profile, links = [], products = [], socials = 
     (profileMeta?.display_name && !profileMeta.display_name.startsWith('user_') ? profileMeta.display_name : '') ||
     (typeof window !== 'undefined' && profile?.username && localStorage.getItem(`linksocio_display_name_${profile.username}`)) ||
     (typeof window !== 'undefined' && profile?.id && localStorage.getItem(`linksocio_display_name_${profile.id}`)) ||
-    (isGlowfy ? 'glowfy' : '') ||
     profile?.display_name ||
     profileMeta?.display_name ||
+    (isGlowfy ? 'glowfy' : '') ||
     profile?.username ||
     'Your Name'
-  const resolvedUsername = isGlowfy ? 'glowfy' : (profile?.username || profileMeta?.username || 'username')
+  const resolvedUsername = profile?.username || profileMeta?.username || (isGlowfy ? 'glowfy' : 'username')
   const isAvatarRemoved =
     (profile?.username && typeof window !== 'undefined' && localStorage.getItem(`linksocio_avatar_removed_${profile.username}`) === 'true') ||
     (profile?.id && typeof window !== 'undefined' && localStorage.getItem(`linksocio_avatar_removed_${profile.id}`) === 'true')

@@ -612,7 +612,11 @@ function apiPlugin() {
 
             const metaU = (username && store[username]) || {}
             const metaId = (userId && store[userId]) || {}
-            const combined = { ...metaId, ...metaU }
+            const aliasMeta =
+              username === 'glowfy' || userId === 'e18d8599-1f34-44ca-aaad-656b155ba792'
+                ? store['glowfy'] || store['e18d8599-1f34-44ca-aaad-656b155ba792'] || {}
+                : {}
+            const combined = { ...aliasMeta, ...metaId, ...metaU }
 
             const mergedMeta = {
               display_name: combined.display_name !== undefined ? combined.display_name : '',
@@ -667,6 +671,10 @@ function apiPlugin() {
 
                 if (username) store[username] = updatedMeta
                 if (userId) store[userId] = updatedMeta
+                if (username === 'glowfy' || userId === 'e18d8599-1f34-44ca-aaad-656b155ba792') {
+                  store['glowfy'] = updatedMeta
+                  store['e18d8599-1f34-44ca-aaad-656b155ba792'] = updatedMeta
+                }
 
                 writeJson(PROFILE_META_PATH, store)
 
