@@ -364,9 +364,22 @@ export function LivePagePreview({ profile, links = [], products = [], socials = 
   }, [products])
 
   const cleanUsername = String(profile?.username || '').toLowerCase().trim().replace(/^@+/, '')
+  const isGlowfy =
+    cleanUsername === 'glowfy' ||
+    cleanUsername === 'soporte' ||
+    profile?.id === 'e18d8599-1f34-44ca-aaad-656b155ba792' ||
+    String(profile?.email || '').toLowerCase().trim() === 'soporte@glowfy.es' ||
+    String(profile?.email || '').toLowerCase().trim().endsWith('@glowfy.es')
+
   const isFounderAccount =
+    isGlowfy ||
     profile?.id === '33373cca-beb6-43c8-ac2f-8ad4e8f54b85' ||
-    (cleanUsername === 'otmank514' && (profile?.id === '33373cca-beb6-43c8-ac2f-8ad4e8f54b85' || profile?.email === 'otmank514@gmail.com'))
+    profile?.id === '5821c210-9b62-43bb-a5a4-0985c7d0d046' ||
+    cleanUsername === 'otmank514' ||
+    cleanUsername === 'otman' ||
+    String(profile?.email || '').toLowerCase().trim() === 'otmank514@gmail.com' ||
+    profile?.plan === 'owner' ||
+    profile?.is_owner === true
   const isOwnerProfile = isFounderAccount
 
   const themeKey =
@@ -400,6 +413,7 @@ export function LivePagePreview({ profile, links = [], products = [], socials = 
 
   const hideBranding =
     profile?.hide_branding === true ||
+    isFounderAccount ||
     (profile?.username && typeof window !== 'undefined' && localStorage.getItem(`linksocio_hide_branding_${profile.username}`) === 'true') ||
     (profile?.id && typeof window !== 'undefined' && localStorage.getItem(`linksocio_hide_branding_${profile.id}`) === 'true')
 
@@ -411,11 +425,12 @@ export function LivePagePreview({ profile, links = [], products = [], socials = 
     (profileMeta?.display_name && !profileMeta.display_name.startsWith('user_') ? profileMeta.display_name : '') ||
     (typeof window !== 'undefined' && profile?.username && localStorage.getItem(`linksocio_display_name_${profile.username}`)) ||
     (typeof window !== 'undefined' && profile?.id && localStorage.getItem(`linksocio_display_name_${profile.id}`)) ||
+    (isGlowfy ? 'glowfy' : '') ||
     profile?.display_name ||
     profileMeta?.display_name ||
     profile?.username ||
     'Your Name'
-  const resolvedUsername = profile?.username || profileMeta?.username || 'username'
+  const resolvedUsername = isGlowfy ? 'glowfy' : (profile?.username || profileMeta?.username || 'username')
   const isAvatarRemoved =
     (profile?.username && typeof window !== 'undefined' && localStorage.getItem(`linksocio_avatar_removed_${profile.username}`) === 'true') ||
     (profile?.id && typeof window !== 'undefined' && localStorage.getItem(`linksocio_avatar_removed_${profile.id}`) === 'true')
@@ -426,6 +441,7 @@ export function LivePagePreview({ profile, links = [], products = [], socials = 
        (profileMeta?.avatar_url && profileMeta.avatar_url.trim()) ||
        (typeof window !== 'undefined' && profile?.username && localStorage.getItem(`linksocio_avatar_${profile.username}`)) ||
        (typeof window !== 'undefined' && profile?.id && localStorage.getItem(`linksocio_avatar_${profile.id}`)) ||
+       (typeof window !== 'undefined' && isGlowfy && localStorage.getItem('linksocio_avatar_glowfy')) ||
        '')
   const resolvedAvatar = rawAvatar || ''
 

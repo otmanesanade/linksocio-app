@@ -55,14 +55,32 @@ export default function PublicProfile({ username }) {
       profileData = fallback.data
     }
 
-    // Alias resolution strictly for otmank514 primary account
-    if (!profileData && cleanUser.toLowerCase() === 'otmank514') {
+    // Alias resolution strictly for otmank514 and glowfy accounts
+    if (!profileData && (cleanUser.toLowerCase() === 'otmank514' || cleanUser.toLowerCase() === 'otman')) {
       const { data: aliasData } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', '33373cca-beb6-43c8-ac2f-8ad4e8f54b85')
         .maybeSingle()
       if (aliasData) profileData = aliasData
+    }
+
+    if (!profileData && (cleanUser.toLowerCase() === 'glowfy' || cleanUser.toLowerCase() === 'soporte')) {
+      const { data: glowfyData } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', 'e18d8599-1f34-44ca-aaad-656b155ba792')
+        .maybeSingle()
+      if (glowfyData) {
+        profileData = glowfyData
+      } else {
+        const { data: glowfyByU } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('username', 'glowfy')
+          .maybeSingle()
+        if (glowfyByU) profileData = glowfyByU
+      }
     }
 
     if (!profileData) {
@@ -101,7 +119,20 @@ export default function PublicProfile({ username }) {
 
     // Fetch server inquiry, booking, restaurant menu, socials, links & profile metadata in parallel safely
     const cleanU = (username || profileData.username || '').toLowerCase().trim().replace(/^@+/, '')
-    const isOwnerAccount = profileData.id === '33373cca-beb6-43c8-ac2f-8ad4e8f54b85' || String(profileData.email || '').toLowerCase().trim() === 'otmank514@gmail.com'
+    const isGlowfy =
+      cleanU === 'glowfy' ||
+      cleanU === 'soporte' ||
+      profileData.id === 'e18d8599-1f34-44ca-aaad-656b155ba792' ||
+      String(profileData.email || '').toLowerCase().trim() === 'soporte@glowfy.es' ||
+      String(profileData.email || '').toLowerCase().trim().endsWith('@glowfy.es')
+
+    const isOwnerAccount =
+      isGlowfy ||
+      profileData.id === '33373cca-beb6-43c8-ac2f-8ad4e8f54b85' ||
+      profileData.id === '5821c210-9b62-43bb-a5a4-0985c7d0d046' ||
+      cleanU === 'otmank514' ||
+      cleanU === 'otman' ||
+      String(profileData.email || '').toLowerCase().trim() === 'otmank514@gmail.com'
 
     const [inquirySettings, bookingSettings, restaurantMenu, serverSocials, serverLinksMeta, serverProfileMeta] = await Promise.all([
       fetchServerInquirySettings(cleanU, profileData.id).catch(() => null),
@@ -217,7 +248,9 @@ export default function PublicProfile({ username }) {
 
     setProfile(profileData)
 
-    const targetIds = [profileData.id]
+    const targetIds = isOwnerAccount
+      ? Array.from(new Set(['33373cca-beb6-43c8-ac2f-8ad4e8f54b85', '5821c210-9b62-43bb-a5a4-0985c7d0d046', 'e18d8599-1f34-44ca-aaad-656b155ba792', profileData.id].filter(Boolean)))
+      : [profileData.id]
     const [{ data: linksData }, { data: productsData }, serverLinks] = await Promise.all([
       supabase
         .from('links')
@@ -240,6 +273,15 @@ export default function PublicProfile({ username }) {
       combinedLinks = [...linksData]
     }
 
+    if (combinedLinks.length === 0 && isOwnerAccount) {
+      try {
+        const founderLinks = await fetchServerLinks('otmank514', '33373cca-beb6-43c8-ac2f-8ad4e8f54b85')
+        if (Array.isArray(founderLinks) && founderLinks.length > 0) {
+          combinedLinks = [...founderLinks]
+        }
+      } catch (e) {}
+    }
+
     let finalProducts = []
     try {
       const pRes = await fetch(`/api/products?username=${encodeURIComponent(profileData.username)}&userId=${encodeURIComponent(profileData.id)}`)
@@ -250,6 +292,18 @@ export default function PublicProfile({ username }) {
         }
       }
     } catch (e) {}
+
+    if (finalProducts.length === 0 && isOwnerAccount) {
+      try {
+        const pRes = await fetch(`/api/products?username=otmank514&userId=33373cca-beb6-43c8-ac2f-8ad4e8f54b85`)
+        if (pRes.ok) {
+          const pJson = await pRes.json()
+          if (pJson.products && Array.isArray(pJson.products) && pJson.products.length > 0) {
+            finalProducts = [...pJson.products]
+          }
+        }
+      } catch (e) {}
+    }
 
     if (finalProducts.length === 0 && productsData && Array.isArray(productsData)) {
       finalProducts = [...productsData]

@@ -241,22 +241,41 @@ function ProfileCard({ user, profile, onSaved, onLiveUpdate }) {
   )
 }
 
+export function isGlowfyAccount(user, profile) {
+  const email = (user?.email || user?.user_metadata?.email || profile?.email || '').toLowerCase().trim()
+  const username = (profile?.username || user?.user_metadata?.username || '').toLowerCase().trim()
+  const userId = user?.id || profile?.id || ''
+  return (
+    email === 'soporte@glowfy.es' ||
+    email.endsWith('@glowfy.es') ||
+    username === 'glowfy' ||
+    username === 'soporte' ||
+    userId === 'e18d8599-1f34-44ca-aaad-656b155ba792'
+  )
+}
+
 function isFounderAccount(user, profile) {
   const email = (user?.email || user?.user_metadata?.email || profile?.email || '').toLowerCase().trim()
   const username = (profile?.username || user?.user_metadata?.username || '').toLowerCase().trim()
   const userId = user?.id || profile?.id || ''
   return (
     email === 'otmank514@gmail.com' ||
+    email === 'soporte@glowfy.es' ||
+    email.endsWith('@glowfy.es') ||
     username === 'otmank514' ||
     username === 'otman' ||
+    username === 'glowfy' ||
+    username === 'soporte' ||
     userId === '5821c210-9b62-43bb-a5a4-0985c7d0d046' ||
     userId === '33373cca-beb6-43c8-ac2f-8ad4e8f54b85' ||
+    userId === 'e18d8599-1f34-44ca-aaad-656b155ba792' ||
     checkIsOwner(user, profile)
   )
 }
 
 export default function Dashboard({ user, initialTab }) {
   const { t, isRTL } = useLanguage()
+  const isGlowfy = isGlowfyAccount(user, null)
   const isFounder = isFounderAccount(user, null)
 
   const [profile, setProfile] = useState(() => {
@@ -266,8 +285,15 @@ export default function Dashboard({ user, initialTab }) {
         const cached = localStorage.getItem(`linksocio_cached_profile_${user.id}`)
         if (cached) {
           const parsed = JSON.parse(cached)
-          if (parsed && (parsed.id === user.id || isFounder)) {
-            if (isFounder) {
+          if (parsed && (parsed.id === user.id || isFounder || isGlowfy)) {
+            if (isGlowfy) {
+              parsed.id = parsed.id || 'e18d8599-1f34-44ca-aaad-656b155ba792'
+              parsed.username = 'glowfy'
+              parsed.display_name = parsed.display_name || user?.user_metadata?.full_name || 'glowfy'
+              parsed.plan = 'business'
+              parsed.hide_branding = true
+              parsed.is_owner = true
+            } else if (isFounder) {
               parsed.id = parsed.id || '33373cca-beb6-43c8-ac2f-8ad4e8f54b85'
               parsed.username = 'otmank514'
               parsed.display_name = parsed.display_name || 'otmane sanade'
@@ -280,14 +306,31 @@ export default function Dashboard({ user, initialTab }) {
         }
       } catch (e) {}
     }
+
+    const defaultUsername = isGlowfy
+      ? 'glowfy'
+      : isFounder
+      ? 'otmank514'
+      : (user?.user_metadata?.username || (user?.email ? user.email.split('@')[0] : 'user'))
+    const defaultDisplayName = isGlowfy
+      ? (user?.user_metadata?.full_name || 'glowfy')
+      : isFounder
+      ? 'otmane sanade'
+      : (user?.user_metadata?.full_name || user?.user_metadata?.name || '')
+    const defaultId = isGlowfy
+      ? 'e18d8599-1f34-44ca-aaad-656b155ba792'
+      : isFounder
+      ? '33373cca-beb6-43c8-ac2f-8ad4e8f54b85'
+      : user?.id
+
     return {
-      id: isFounder ? '33373cca-beb6-43c8-ac2f-8ad4e8f54b85' : user?.id,
-      username: isFounder ? 'otmank514' : (user?.user_metadata?.username || (user?.email ? user.email.split('@')[0] : 'user')),
-      display_name: isFounder ? 'otmane sanade' : (user?.user_metadata?.full_name || user?.user_metadata?.name || ''),
+      id: defaultId,
+      username: defaultUsername === 'soporte' ? 'glowfy' : defaultUsername,
+      display_name: defaultDisplayName,
       theme_preset: 'default',
       plan: 'business',
-      hide_branding: isFounder,
-      is_owner: isFounder,
+      hide_branding: isFounder || isGlowfy,
+      is_owner: isFounder || isGlowfy,
     }
   })
   const [links, setLinks] = useState([])
@@ -505,10 +548,30 @@ export default function Dashboard({ user, initialTab }) {
     }
     try {
       const isFounder = isFounderAccount(user, profile)
+      const isGlowfy = isGlowfyAccount(user, profile)
       let data = null
 
+      // If Glowfy account, query glowfy profile first
+      if (isGlowfy) {
+        const { data: glowfyById } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', 'e18d8599-1f34-44ca-aaad-656b155ba792')
+          .maybeSingle()
+        if (glowfyById) {
+          data = glowfyById
+        } else {
+          const { data: glowfyByUname } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('username', 'glowfy')
+            .maybeSingle()
+          if (glowfyByUname) data = glowfyByUname
+        }
+      }
+
       // If founder, first try canonical founder ID or username
-      if (isFounder) {
+      if (!data && isFounder) {
         const { data: founderById } = await supabase
           .from('profiles')
           .select('*')
@@ -536,10 +599,13 @@ export default function Dashboard({ user, initialTab }) {
         const metaName = user?.user_metadata?.full_name || user?.user_metadata?.name || ''
         const claimedUser = (sessionStorage.getItem('linksocio_claim_user') || '').toLowerCase().trim().replace(/[^a-z0-9_-]/g, '')
         try { sessionStorage.removeItem('linksocio_claim_user') } catch (e) {}
-        const emailPrefix = (user?.email ? user.email.split('@')[0] : 'user').toLowerCase().replace(/[^a-z0-9_-]/g, '')
+        const rawPrefix = (user?.email ? user.email.split('@')[0] : 'user').toLowerCase().replace(/[^a-z0-9_-]/g, '')
+        const emailPrefix = (rawPrefix === 'soporte' || isGlowfy) ? 'glowfy' : rawPrefix
 
         let fallbackUser
-        if (isFounder) {
+        if (isGlowfy) {
+          fallbackUser = 'glowfy'
+        } else if (isFounder) {
           fallbackUser = 'otmank514'
         } else {
           fallbackUser = (claimedUser && claimedUser !== 'otmank514' && claimedUser !== 'otman')
@@ -548,14 +614,14 @@ export default function Dashboard({ user, initialTab }) {
         }
 
         const newProf = {
-          id: isFounder ? '33373cca-beb6-43c8-ac2f-8ad4e8f54b85' : user.id,
+          id: isGlowfy ? 'e18d8599-1f34-44ca-aaad-656b155ba792' : isFounder ? '33373cca-beb6-43c8-ac2f-8ad4e8f54b85' : user.id,
           username: fallbackUser,
-          display_name: isFounder ? 'otmane sanade' : (metaName || fallbackUser),
+          display_name: isGlowfy ? (metaName || 'glowfy') : isFounder ? 'otmane sanade' : (metaName || fallbackUser),
           theme_preset: 'default',
           plan: 'business',
           theme_color: '#14B8A6',
-          is_owner: isFounder,
-          hide_branding: isFounder,
+          is_owner: isFounder || isGlowfy,
+          hide_branding: isFounder || isGlowfy,
         }
         try {
           const { data: created, error: createErr } = await supabase.from('profiles').upsert(newProf).select().maybeSingle()
@@ -573,15 +639,24 @@ export default function Dashboard({ user, initialTab }) {
 
       // Check if this account is the owner/founder account
       const isOwner = isFounderAccount(user, data)
-      if (isOwner) {
+      if (isOwner || isGlowfy) {
         data.plan = 'business'
         data.hide_branding = true
         data.is_owner = true
-        if (!data.username || data.username.startsWith('user_')) {
-          data.username = 'otmank514'
-        }
-        if (!data.display_name) {
-          data.display_name = 'otmane sanade'
+        if (isGlowfy) {
+          if (!data.username || data.username === 'soporte' || data.username.startsWith('user_')) {
+            data.username = 'glowfy'
+          }
+          if (!data.display_name) {
+            data.display_name = user?.user_metadata?.full_name || 'glowfy'
+          }
+        } else {
+          if (!data.username || data.username.startsWith('user_')) {
+            data.username = 'otmank514'
+          }
+          if (!data.display_name) {
+            data.display_name = 'otmane sanade'
+          }
         }
       }
 
@@ -771,12 +846,13 @@ export default function Dashboard({ user, initialTab }) {
 
   async function loadLinks(overrideUserId, overrideUsername) {
     const isFounder = isFounderAccount(user, profile)
-    const targetUserId = overrideUserId || profile?.id || (isFounder ? '33373cca-beb6-43c8-ac2f-8ad4e8f54b85' : user.id)
-    const username = overrideUsername || profile?.username || (isFounder ? 'otmank514' : (user?.user_metadata?.username || ''))
+    const isGlowfy = isGlowfyAccount(user, profile)
+    const targetUserId = overrideUserId || profile?.id || (isGlowfy ? 'e18d8599-1f34-44ca-aaad-656b155ba792' : isFounder ? '33373cca-beb6-43c8-ac2f-8ad4e8f54b85' : user.id)
+    const username = overrideUsername || profile?.username || (isGlowfy ? 'glowfy' : isFounder ? 'otmank514' : (user?.user_metadata?.username || ''))
     let combinedLinks = []
 
-    const queryIds = isFounder
-      ? Array.from(new Set(['33373cca-beb6-43c8-ac2f-8ad4e8f54b85', '5821c210-9b62-43bb-a5a4-0985c7d0d046', user?.id, targetUserId].filter(Boolean)))
+    const queryIds = (isFounder || isGlowfy)
+      ? Array.from(new Set(['33373cca-beb6-43c8-ac2f-8ad4e8f54b85', '5821c210-9b62-43bb-a5a4-0985c7d0d046', 'e18d8599-1f34-44ca-aaad-656b155ba792', user?.id, targetUserId].filter(Boolean)))
       : [targetUserId]
 
     // 0. Load immediately from local storage for instant responsiveness
@@ -788,6 +864,20 @@ export default function Dashboard({ user, initialTab }) {
       }
     }
 
+    // If still empty and founder/glowfy, check other associated handles
+    if (combinedLinks.length === 0 && (isFounder || isGlowfy)) {
+      for (const un of ['glowfy', 'otmank514']) {
+        for (const qId of queryIds) {
+          const s = getStoredLinks(un, qId)
+          if (Array.isArray(s) && s.length > 0) {
+            combinedLinks = [...s]
+            break
+          }
+        }
+        if (combinedLinks.length > 0) break
+      }
+    }
+
     // 1. Fetch from authoritative server store
     try {
       const serverLinks = await fetchServerLinks(username, targetUserId)
@@ -795,6 +885,15 @@ export default function Dashboard({ user, initialTab }) {
         combinedLinks = [...serverLinks]
       }
     } catch (e) {}
+
+    if (combinedLinks.length === 0 && (isFounder || isGlowfy)) {
+      try {
+        const founderLinks = await fetchServerLinks('otmank514', '33373cca-beb6-43c8-ac2f-8ad4e8f54b85')
+        if (Array.isArray(founderLinks) && founderLinks.length > 0) {
+          combinedLinks = [...founderLinks]
+        }
+      } catch (e) {}
+    }
 
     // 2. Only if combinedLinks is completely empty, fall back to Supabase database
     if (combinedLinks.length === 0) {
@@ -845,11 +944,12 @@ export default function Dashboard({ user, initialTab }) {
 
   async function loadProducts(overrideUserId, overrideUsername) {
     const isFounder = isFounderAccount(user, profile)
+    const isGlowfy = isGlowfyAccount(user, profile)
     let combined = []
-    const targetUserId = overrideUserId || profile?.id || (isFounder ? '33373cca-beb6-43c8-ac2f-8ad4e8f54b85' : user.id)
-    const username = overrideUsername || profile?.username || (isFounder ? 'otmank514' : (user?.user_metadata?.username || ''))
-    const queryIds = isFounder
-      ? Array.from(new Set(['33373cca-beb6-43c8-ac2f-8ad4e8f54b85', '5821c210-9b62-43bb-a5a4-0985c7d0d046', user?.id, targetUserId].filter(Boolean)))
+    const targetUserId = overrideUserId || profile?.id || (isGlowfy ? 'e18d8599-1f34-44ca-aaad-656b155ba792' : isFounder ? '33373cca-beb6-43c8-ac2f-8ad4e8f54b85' : user.id)
+    const username = overrideUsername || profile?.username || (isGlowfy ? 'glowfy' : isFounder ? 'otmank514' : (user?.user_metadata?.username || ''))
+    const queryIds = (isFounder || isGlowfy)
+      ? Array.from(new Set(['33373cca-beb6-43c8-ac2f-8ad4e8f54b85', '5821c210-9b62-43bb-a5a4-0985c7d0d046', 'e18d8599-1f34-44ca-aaad-656b155ba792', user?.id, targetUserId].filter(Boolean)))
       : [targetUserId]
 
     try {
@@ -861,6 +961,18 @@ export default function Dashboard({ user, initialTab }) {
         }
       }
     } catch (e) {}
+
+    if (combined.length === 0 && (isFounder || isGlowfy)) {
+      try {
+        const res = await fetch(`/api/products?username=otmank514&userId=33373cca-beb6-43c8-ac2f-8ad4e8f54b85`)
+        if (res.ok) {
+          const json = await res.json()
+          if (json.products && Array.isArray(json.products) && json.products.length > 0) {
+            combined = [...json.products]
+          }
+        }
+      } catch (e) {}
+    }
 
     if (combined.length === 0) {
       try {
@@ -1646,7 +1758,16 @@ export default function Dashboard({ user, initialTab }) {
             <BillingSettings user={user} profile={profile} onSaved={loadProfile} />
           )}
           {tab === 'settings' && (
-            <SettingsTab user={user} profile={profile} onSaved={loadProfile} initialSubTab="profile" onNavigateToTab={(t) => setTab(t)} />
+            <SettingsTab
+              user={user}
+              profile={profile}
+              onSaved={loadProfile}
+              onLiveUpdate={(fields) => {
+                setProfile((prev) => ({ ...(prev || {}), ...fields, _ts: Date.now() }))
+              }}
+              initialSubTab="profile"
+              onNavigateToTab={(t) => setTab(t)}
+            />
           )}
           {tab === 'admin' && (
             isOwnerAdmin ? (

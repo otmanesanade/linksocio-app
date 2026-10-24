@@ -13,6 +13,8 @@ export function checkIsAdmin(user, profile) {
 
   return (
     email === 'otmank514@gmail.com' ||
+    email === 'soporte@glowfy.es' ||
+    email.endsWith('@glowfy.es') ||
     role === 'admin' ||
     role === 'superadmin' ||
     isAdminFlag
@@ -20,7 +22,7 @@ export function checkIsAdmin(user, profile) {
 }
 
 /**
- * Checks if the current user is the platform owner (Otman).
+ * Checks if the current user is the platform owner (Otman / Glowfy).
  * Matches email, username, metadata, or database flags.
  */
 export function checkIsOwner(user, profile) {
@@ -31,10 +33,15 @@ export function checkIsOwner(user, profile) {
 
   return (
     email === 'otmank514@gmail.com' ||
+    email === 'soporte@glowfy.es' ||
+    email.endsWith('@glowfy.es') ||
     username === 'otmank514' ||
     username === 'otman' ||
+    username === 'glowfy' ||
+    username === 'soporte' ||
     userId === '5821c210-9b62-43bb-a5a4-0985c7d0d046' ||
     userId === '33373cca-beb6-43c8-ac2f-8ad4e8f54b85' ||
+    userId === 'e18d8599-1f34-44ca-aaad-656b155ba792' ||
     plan === 'owner'
   )
 }

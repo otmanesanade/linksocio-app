@@ -5,7 +5,7 @@ import { fetchServerProfileMeta, saveServerProfileMeta, getStoredSocials, saveSt
 import { AVAILABLE_CURRENCIES } from './components/CurrencySwitcher'
 import { useLanguage } from './context/LanguageContext'
 
-export default function SettingsTab({ user, profile, onSaved, initialSubTab = 'profile', onNavigateToTab = null }) {
+export default function SettingsTab({ user, profile, onSaved, onLiveUpdate, initialSubTab = 'profile', onNavigateToTab = null }) {
   const { t, isRTL } = useLanguage()
   const [activeSubTab, setActiveSubTab] = useState(initialSubTab)
 
@@ -92,11 +92,20 @@ export default function SettingsTab({ user, profile, onSaved, initialSubTab = 'p
     }).catch(() => {})
   }
 
+  const resolveInitialUsername = () => {
+    const raw = (profile?.username || user?.user_metadata?.username || '').toLowerCase().trim().replace(/^@+/, '')
+    const email = (user?.email || profile?.email || '').toLowerCase().trim()
+    if (raw === 'soporte' || email === 'soporte@glowfy.es' || email.endsWith('@glowfy.es') || raw === 'glowfy') {
+      return 'glowfy'
+    }
+    return raw || ''
+  }
+
   // Profile & Basic Details
   const [displayName, setDisplayName] = useState(profile?.display_name || '')
   const [bio, setBio] = useState(profile?.bio || '')
   const [location, setLocation] = useState(profile?.location || '')
-  const [username, setUsername] = useState(profile?.username || '')
+  const [username, setUsername] = useState(resolveInitialUsername)
   const [whatsapp, setWhatsapp] = useState(profile?.whatsapp || '')
   const [email, setEmail] = useState(() => {
     return profile?.contact_email || profile?.email || user?.email || (typeof window !== 'undefined' && profile?.username && localStorage.getItem(`linksocio_contact_email_${profile.username}`)) || ''
@@ -118,17 +127,22 @@ export default function SettingsTab({ user, profile, onSaved, initialSubTab = 'p
   const [usernameStatus, setUsernameStatus] = useState(null) // { available: boolean, msg: string }
 
   useEffect(() => {
-    setDisplayName(profile?.display_name || '')
+    const rawU = (profile?.username || '').toLowerCase().trim().replace(/^@+/, '')
+    const userEmail = (user?.email || profile?.email || '').toLowerCase().trim()
+    const isGlowfy = userEmail === 'soporte@glowfy.es' || userEmail.endsWith('@glowfy.es') || rawU === 'glowfy' || rawU === 'soporte' || profile?.id === 'e18d8599-1f34-44ca-aaad-656b155ba792'
+    const targetUname = isGlowfy ? 'glowfy' : (profile?.username || '')
+
+    setDisplayName(profile?.display_name || (isGlowfy ? (user?.user_metadata?.full_name || 'glowfy') : ''))
     setBio(profile?.bio || '')
     setLocation(profile?.location || '')
-    setUsername(profile?.username || '')
+    setUsername(targetUname)
     setWhatsapp(profile?.whatsapp || '')
     if (profile?.contact_email || profile?.email || user?.email) {
       setEmail(profile?.contact_email || profile?.email || user?.email || '')
     }
 
     // Load server-persisted profile metadata across devices
-    const cleanU = (profile?.username || '').toLowerCase().trim().replace(/^@/, '')
+    const cleanU = (targetUname || profile?.username || '').toLowerCase().trim().replace(/^@/, '')
     fetchServerProfileMeta(cleanU, user?.id).then((meta) => {
       if (meta) {
         if (meta.email) setEmail(meta.email)
@@ -192,7 +206,12 @@ export default function SettingsTab({ user, profile, onSaved, initialSubTab = 'p
     const cleanName = displayName.trim()
     const cleanBio = bio.trim()
     const cleanLocation = location.trim()
-    const cleanUsername = username.trim().toLowerCase()
+    const userEmail = (user?.email || profile?.email || '').toLowerCase().trim()
+    const isGlowfy = userEmail === 'soporte@glowfy.es' || userEmail.endsWith('@glowfy.es') || username.trim().toLowerCase() === 'glowfy' || username.trim().toLowerCase() === 'soporte'
+    let cleanUsername = username.trim().toLowerCase()
+    if (isGlowfy && (cleanUsername === 'soporte' || !cleanUsername)) {
+      cleanUsername = 'glowfy'
+    }
     const cleanWhatsapp = whatsapp.trim()
     const cleanEmail = email.trim()
 
@@ -421,7 +440,14 @@ export default function SettingsTab({ user, profile, onSaved, initialSubTab = 'p
 
           {/* Avatar Upload */}
           <div style={{ marginBottom: 20, paddingBottom: 20, borderBottom: '1px solid #F1F5F9' }}>
-            <AvatarUpload user={user} profile={profile} onUpdated={onSaved} />
+            <AvatarUpload
+              user={user}
+              profile={profile}
+              onUpdated={(updates) => {
+                if (onLiveUpdate && updates) onLiveUpdate(updates)
+                if (onSaved) onSaved(updates)
+              }}
+            />
           </div>
 
           <form onSubmit={handleSaveProfile} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -450,8 +476,10 @@ export default function SettingsTab({ user, profile, onSaved, initialSubTab = 'p
                   type="text"
                   value={username}
                   onChange={(e) => {
-                    setUsername(e.target.value.toLowerCase().replace(/\s+/g, ''))
+                    const val = e.target.value.toLowerCase().replace(/\s+/g, '')
+                    setUsername(val)
                     setProfileError('')
+                    if (onLiveUpdate) onLiveUpdate({ username: val })
                   }}
                   placeholder="yourname"
                   style={{
@@ -495,7 +523,12 @@ export default function SettingsTab({ user, profile, onSaved, initialSubTab = 'p
                 type="text"
                 value={displayName}
                 maxLength={50}
-                onChange={(e) => { setDisplayName(e.target.value); setProfileError('') }}
+                onChange={(e) => {
+                  const val = e.target.value
+                  setDisplayName(val)
+                  setProfileError('')
+                  if (onLiveUpdate) onLiveUpdate({ display_name: val })
+                }}
                 placeholder="e.g. Alex Rivera | Studio & Design"
                 style={inputStyle}
               />
@@ -514,7 +547,12 @@ export default function SettingsTab({ user, profile, onSaved, initialSubTab = 'p
                 value={bio}
                 maxLength={120}
                 rows={2}
-                onChange={(e) => { setBio(e.target.value); setProfileError('') }}
+                onChange={(e) => {
+                  const val = e.target.value
+                  setBio(val)
+                  setProfileError('')
+                  if (onLiveUpdate) onLiveUpdate({ bio: val })
+                }}
                 placeholder="Creative designer & consultant · Book an appointment or browse products 👇"
                 style={{ ...inputStyle, resize: 'vertical', minHeight: 65, fontFamily: 'inherit' }}
               />
@@ -536,7 +574,12 @@ export default function SettingsTab({ user, profile, onSaved, initialSubTab = 'p
                   type="text"
                   value={location}
                   maxLength={80}
-                  onChange={(e) => { setLocation(e.target.value); setProfileError('') }}
+                  onChange={(e) => {
+                    const val = e.target.value
+                    setLocation(val)
+                    setProfileError('')
+                    if (onLiveUpdate) onLiveUpdate({ location: val })
+                  }}
                   placeholder="Optional (e.g. Casablanca, Morocco)"
                   style={inputStyle}
                 />
